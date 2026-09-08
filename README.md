@@ -8,5 +8,6 @@ Generate Keys:
 - Copy the full string that you see in Notepad
 - Go to your Github Profile Settings --> SSH and GPG Keys --> New SSH key
 - Give the key a title if you want, then paste the full string into the "Key" box. Keep "Key type" as "Authentication Key".
-- Add SSH key
+- Add SSH key 
+- testing
 - You should now be able to "git pull https://github.com/N-Rubiano/CMSC-447-Project.git"
