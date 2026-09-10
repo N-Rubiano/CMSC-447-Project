@@ -1,0 +1,45 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment / secrets — never commit real credentials
+backend/.env
+
+# SQLite fallback database (generated at runtime)
+*.db
+*.sqlite3
+
+# ── ReportLab / upload artefacts ──────────────────────────────────────────────
+backend/uploads/
+
+# ── Node / Frontend ────────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+dist/
+.vite/
+
+# ── OS & Editor ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
