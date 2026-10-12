@@ -17,7 +17,13 @@ env/
 ENV/
 
 # Environment / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
 backend/.env
+frontend/.env
+!.env.example
+!frontend/.env.example
 
 # SQLite fallback database (generated at runtime)
 *.db

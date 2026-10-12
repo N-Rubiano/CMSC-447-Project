@@ -1,323 +1,905 @@
-/**
- * src/styles/theme.css
- *
- * PunchList Pro Design System
- * ===========================
- * Built for industrial tablet durability, outdoor sunlight readability,
- * and CAD/BIM precision. All tokens use CSS custom properties so every
- * component can reference them consistently.
- *
- * Sections:
- *   1. Structural surface tokens
- *   2. Brand palette
- *   3. Semantic status colours
- *   4. Priority colours + animations
- *   5. Typography tokens
- *   6. Spacing & sizing scale
- *   7. Shadow tokens
- *   8. Glassmorphism utilities
- *   9. Component base styles
- *      - .floating-toolbar
- *      - .pin-marker           (teardrop CAD pin)
- *      - .pin-circle-stamp     (subcontractor circle badge)
- *      - .coordinate-hud
- *      - .drawer-panel
- *  10. Responsive breakpoints
- */
+/* ==========================================================================
+   PunchList Pro — Master Design System
+   Tablet-First Enterprise Construction Field Management UI
+   ========================================================================== */
 
-/* ── 1. Structural Surfaces ───────────────────────────────────────────────── */
 :root {
-  --bg-app:             #F8F7F4;   /* Warm industrial off-white */
-  --bg-canvas:          #F0ECE1;   /* Architectural drafting surface */
-  --bg-surface-1:       #FFFFFF;
-  --bg-surface-2:       #F7F5F0;
-  --bg-surface-3:       #ECE7DC;
-  --bg-surface-highest: #DFD9CC;
+  /* Brand & Semantic Palette */
+  --bg: #F8F7F4;                 /* Warm off-white app background */
+  --bg-canvas: #EDE8DE;          /* Subtle paper tone for blueprint background */
+  --amber: #D97706;              /* Primary action / brand accent (construction amber) */
+  --amber-hover: #B45309;
+  --amber-light: #FEF3C7;
+  --amber-tint: rgba(217, 119, 6, 0.12);
+  --amber-glow: rgba(217, 119, 6, 0.28);
+  --timber: #5C3A21;             /* Timber brown — secondary accents, eyebrows */
+  --timber-dark: #3E2413;
+  --timber-light: #F5EFE7;
+  --crimson: #DC2626;            /* Safety crimson — critical priority, danger */
+  --crimson-light: #FEE2E2;
+  --crimson-border: #FCA5A5;
+  --crimson-glow: rgba(220, 38, 38, 0.35);
+  --ink: #18181B;                /* Deep charcoal — sidebar rail, headings */
+  --ink-dark: #09090B;
+  --ink-subtle: #27272A;
+  --ink-border: #3F3F46;
+  --ink-hover: #222226;
 
-  /* Glassmorphic HUD panels */
-  --bg-glass-heavy:     rgba(255, 255, 255, 0.97);
-  --bg-glass-medium:    rgba(255, 255, 255, 0.82);
-  --bg-glass-light:     rgba(255, 255, 255, 0.55);
+  /* Surfaces & Borders */
+  --surface: #FFFFFF;
+  --surface-muted: #F7F5F0;
+  --surface-hover: #F2EFE9;
+  --border: #DCD5C8;
+  --border-subtle: #EDE8DF;
+  --border-focus: #D97706;
 
-/* ── 2. Brand Palette ─────────────────────────────────────────────────────── */
-  --primary:            #D97706;   /* Construction Amber */
-  --primary-hover:      #B45309;
-  --primary-light:      #FEF3C7;
+  /* Text Colors */
+  --text-main: #18181B;
+  --text-secondary: #3F3F46;
+  --text-muted: #52525B;
+  --text-light: #71717A;
+  --text-inverse: #FFFFFF;
 
-  --brand-yellow:       #EAB308;
-  --brand-yellow-dark:  #D97706;
-  --brand-brown:        #5C3A21;
-  --brand-brown-dark:   #3E2413;
-  --brand-black:        #18181B;
-  --brand-white:        #FAFAF9;
+  /* Trade Colors (Distinct stamps, pins, bars, and tags) */
+  --trade-mp: #0284C7; /* Mechanical/Plumbing */
+  --trade-ac: #4F46E5; /* Architectural */
+  --trade-el: #D97706; /* Electrical */
+  --trade-fp: #DC2626; /* Fire Protection */
+  --trade-st: #7C3AED; /* Structural */
+  --trade-gl: #0D9488; /* Glazing */
+  --trade-dw: #EA580C; /* Drywall */
+  --trade-fl: #16A34A; /* Flooring */
 
-  --border-default:     #D6CFC4;
-  --border-strong:      #1C1917;
-  --border-subtle:      #E8E2D9;
+  /* Trade Backgrounds */
+  --trade-mp-bg: #E0F2FE;
+  --trade-ac-bg: #EEF2FF;
+  --trade-el-bg: #FEF3C7;
+  --trade-fp-bg: #FEE2E2;
+  --trade-st-bg: #EDE9FE;
+  --trade-gl-bg: #CCFBF1;
+  --trade-dw-bg: #FFEDD5;
+  --trade-fl-bg: #DCFCE7;
 
-/* ── 3. Semantic Status Colours ───────────────────────────────────────────── */
-  /* Open / Action Needed */
-  --status-open:        #DC2626;
-  --status-open-bg:     #FEF2F2;
-  --status-open-border: #FCA5A5;
-  --status-open-glow:   rgba(220, 38, 38, 0.35);
+  /* Status Colors */
+  --status-open: #0284C7;
+  --status-open-bg: #E0F2FE;
+  --status-progress: #D97706;
+  --status-progress-bg: #FEF3C7;
+  --status-review: #7C3AED;
+  --status-review-bg: #EDE9FE;
+  --status-resolved: #16A34A;
+  --status-resolved-bg: #DCFCE7;
 
-  /* In Progress */
-  --status-progress:        #D97706;
-  --status-progress-bg:     #FFFBEB;
-  --status-progress-border: #FCD34D;
-  --status-progress-glow:   rgba(217, 119, 6, 0.35);
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  /* Contractor Review */
-  --status-review:          #D97706;
-  --status-review-bg:       #FFFBEB;
-  --status-review-border:   #FCD34D;
+  /* Layout Dimensions */
+  --rail-width: 248px;
+  --rail-collapsed-width: 72px;
+  --topbar-height: 60px;
+  --drawer-width: 480px;
 
-  /* Admin Review */
-  --status-admin:           #7C3AED;
-  --status-admin-bg:        #F5F3FF;
-  --status-admin-border:    #C4B5FD;
-
-  /* Closed / Resolved */
-  --status-closed:        #15803D;
-  --status-closed-bg:     #F0FDF4;
-  --status-closed-border: #86EFAC;
-  --status-closed-glow:   rgba(21, 128, 61, 0.35);
-
-  /* Rejected / Inactive */
-  --status-inactive:        #78716C;
-  --status-inactive-bg:     #F5F5F4;
-  --status-inactive-border: #D6D3D1;
-
-/* ── 4. Priority Colours ─────────────────────────────────────────────────── */
-  --priority-critical: #DC2626;
-  --priority-high:     #D97706;
-  --priority-medium:   #CA8A04;
-  --priority-low:      #78716C;
-
-/* ── 5. Typography ────────────────────────────────────────────────────────── */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-  --text-xs:   0.75rem;
-  --text-sm:   0.875rem;
-  --text-base: 1rem;
-  --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  1.875rem;
-
-/* ── 6. Spacing Scale ─────────────────────────────────────────────────────── */
-  --space-1:  0.25rem;
-  --space-2:  0.5rem;
-  --space-3:  0.75rem;
-  --space-4:  1rem;
-  --space-5:  1.25rem;
-  --space-6:  1.5rem;
-  --space-8:  2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-
-/* ── 7. Shadow Tokens ─────────────────────────────────────────────────────── */
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md:  0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
-  --shadow-lg:  0 10px 28px rgba(0,0,0,0.14), 0 4px 8px rgba(0,0,0,0.08);
-  --shadow-xl:  0 20px 48px rgba(0,0,0,0.18), 0 8px 16px rgba(0,0,0,0.10);
-
+  /* Radii */
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-lg: 14px;
+  --radius-card: 16px;
   --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(24, 24, 27, 0.05), 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-md: 0 4px 14px rgba(24, 24, 27, 0.08), 0 2px 6px rgba(24, 24, 27, 0.04);
+  --shadow-lg: 0 16px 36px -4px rgba(24, 24, 27, 0.12), 0 6px 16px -2px rgba(24, 24, 27, 0.06);
+  --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+  --shadow-drawer: -12px 0 40px rgba(24, 24, 27, 0.15);
+
+  /* Transitions */
+  --ease-quick: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-smooth: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-drawer: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── Global Reset ─────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
 
 html, body, #root {
   height: 100%;
+  width: 100%;
+  overflow: hidden;
   font-family: var(--font-sans);
-  background-color: var(--bg-app);
-  color: var(--brand-black);
+  background-color: var(--bg);
+  color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Prevent tap highlight on mobile */
-* { -webkit-tap-highlight-color: transparent; }
-
-/* ── 8. Glassmorphism Utilities ───────────────────────────────────────────── */
-.glass-heavy {
-  background: var(--bg-glass-heavy);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-subtle);
-}
-.glass-medium {
-  background: var(--bg-glass-medium);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* Touch Targets: minimum 38px for tablet-first ergonomics */
+button, input, select, textarea, a, .touch-target {
+  min-height: 38px;
+  font-family: inherit;
 }
 
-/* ── 9. Component Base Styles ─────────────────────────────────────────────── */
-
-/* Floating Vector Toolbar (CAD tool switcher) */
-.floating-toolbar {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--bg-glass-heavy);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
-}
-.floating-toolbar button {
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--brand-brown);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.1s;
-  font-size: var(--text-lg);
-}
-.floating-toolbar button:hover {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-.floating-toolbar button.active {
-  background: var(--primary);
-  color: #fff;
-  box-shadow: 0 2px 8px var(--status-progress-glow);
+/* Headings & Eyebrows */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-/* Traditional Teardrop CAD Pin */
-.pin-marker {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50% 50% 50% 0;
-  transform: translate(-50%, -100%) rotate(-45deg);
-  cursor: grab;
-  transition: transform 0.15s, box-shadow 0.15s;
-  z-index: 50;
-  box-shadow: var(--shadow-md);
-}
-.pin-marker:hover    { transform: translate(-50%, -100%) rotate(-45deg) scale(1.15); }
-.pin-marker:active   { transform: translate(-50%, -100%) rotate(-45deg) scale(1.25); cursor: grabbing; box-shadow: var(--shadow-xl); }
-.pin-marker__id {
-  transform: rotate(45deg);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1;
-}
-.pin-marker.priority-critical { animation: pulseRing 1.8s ease-in-out infinite; }
-
-/* Subcontractor Circle Stamp Pin */
-.pin-circle-stamp {
-  position: absolute;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2.5px solid rgba(255,255,255,0.8);
-  transform: translate(-50%, -50%);
-  cursor: grab;
-  font-family: var(--font-mono);
+.eyebrow {
   font-size: 11px;
   font-weight: 700;
-  color: #fff;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: var(--shadow-md);
-  z-index: 50;
+  letter-spacing: 0.08em;
+  color: var(--timber);
 }
-.pin-circle-stamp:hover  { transform: translate(-50%, -50%) scale(1.15); }
-.pin-circle-stamp:active { transform: translate(-50%, -50%) scale(1.25); cursor: grabbing; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
 
-/* Real-Time Coordinate HUD */
-.coordinate-hud {
-  position: fixed;
-  bottom: var(--space-5);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: var(--space-2) var(--space-4);
-  background: var(--bg-glass-heavy);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-md);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--brand-brown);
-  z-index: 200;
-  pointer-events: none;
+/* Monospace coordinates, IDs, codes, timestamps */
+.font-mono,
+.mono-chip,
+.coord-chip,
+.id-chip,
+.date-mono {
+  font-family: var(--font-mono) !important;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
+   Buttons (Hand-Built)
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--ease-quick);
+  user-select: none;
   white-space: nowrap;
 }
 
-/* Slide-Over Drawer Panel */
-.drawer-panel {
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background-color: var(--amber);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px var(--amber-glow);
+}
+
+.btn-primary:hover {
+  background-color: var(--amber-hover);
+  box-shadow: 0 4px 14px var(--amber-glow);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-focus);
+}
+
+.btn-dark {
+  background-color: var(--ink);
+  color: #FFFFFF;
+}
+
+.btn-dark:hover {
+  background-color: var(--ink-subtle);
+}
+
+.btn-crimson {
+  background-color: var(--crimson);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px var(--crimson-glow);
+}
+
+.btn-crimson:hover {
+  background-color: #B91C1C;
+}
+
+.btn-icon {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--ease-quick);
+}
+
+.btn-icon:hover {
+  background-color: var(--surface-hover);
+  color: var(--ink);
+}
+
+/* ==========================================================================
+   Chips & Badges
+   ========================================================================== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.chip-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: #F1EFE9;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+
+/* Priority Chips */
+.chip-priority-critical {
+  background: var(--crimson-light);
+  color: var(--crimson);
+  border: 1px solid var(--crimson-border);
+}
+
+.chip-priority-high {
+  background: var(--amber-light);
+  color: var(--amber);
+  border: 1px solid #FCD34D;
+}
+
+.chip-priority-medium {
+  background: #FEF9C3;
+  color: #854D0E;
+  border: 1px solid #FDE047;
+}
+
+.chip-priority-low {
+  background: #F4F4F5;
+  color: #52525B;
+  border: 1px solid #E4E4E7;
+}
+
+/* Status Chips */
+.chip-status-open {
+  background: var(--status-open-bg);
+  color: var(--status-open);
+  border: 1px solid #BAE6FD;
+}
+
+.chip-status-progress {
+  background: var(--status-progress-bg);
+  color: var(--status-progress);
+  border: 1px solid #FCD34D;
+}
+
+.chip-status-review {
+  background: var(--status-review-bg);
+  color: var(--status-review);
+  border: 1px solid #DDD6FE;
+}
+
+.chip-status-resolved {
+  background: var(--status-resolved-bg);
+  color: var(--status-resolved);
+  border: 1px solid #BBF7D0;
+}
+
+/* Trade Stamp Badge */
+.trade-stamp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.trade-stamp-badge.sm {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+.trade-stamp-badge.lg {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease-smooth);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Glassmorphic floating HUD panels */
+.glass-hud {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-lg);
+}
+
+.glass-hud-dark {
+  background: rgba(24, 24, 27, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  color: #FFFFFF;
+  border-radius: var(--radius-full);
+}
+
+/* Coordinate HUD Chip */
+.hud-coord-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: #F4F4F5;
+  background: rgba(24, 24, 27, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   CAD Teardrop Punch Pins & Halos
+   ========================================================================== */
+.cad-pin-wrapper {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  cursor: pointer;
+  z-index: 20;
+  transition: transform 150ms ease;
+}
+
+.cad-pin-wrapper:hover {
+  transform: translate(-50%, -105%) scale(1.12);
+  z-index: 30;
+}
+
+.cad-pin-wrapper.selected {
+  transform: translate(-50%, -105%) scale(1.18);
+  z-index: 35;
+}
+
+.cad-pin-selected-ring {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border: 2px dashed var(--amber);
+  border-radius: 50%;
+  animation: rotateRing 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rotateRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Pulsing red halo for critical unresolved pins */
+.cad-pin-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--crimson);
+  opacity: 0.6;
+  transform: translate(-50%, -50%);
+  animation: pulseHalo 1.8s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes pulseHalo {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.85;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.7);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.7);
+    opacity: 0;
+  }
+}
+
+/* Detail Drawer (Slide over 480px from right) */
+.slide-over-drawer {
   position: fixed;
   top: 0;
   right: 0;
-  width: 480px;
-  height: 100%;
-  background: var(--bg-surface-1);
-  border-left: 1px solid var(--border-default);
-  box-shadow: var(--shadow-xl);
-  z-index: 300;
+  bottom: 0;
+  width: var(--drawer-width);
+  max-width: 100vw;
+  background: #FFFFFF;
+  box-shadow: var(--shadow-drawer);
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: slideInDrawer var(--ease-drawer);
+  border-left: 1px solid var(--border);
+}
+
+@keyframes slideInDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+  animation: fadeIn 200ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Form inputs & controls */
+.input-field {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: #FFFFFF;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+}
+
+.input-field::placeholder,
+.textarea-field::placeholder {
+  color: #6B7280;
+  opacity: 1; /* Override Firefox default reduced opacity */
+}
+
+.input-field:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-tint);
+}
+
+.textarea-field {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: #FFFFFF;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+  font-family: var(--font-sans);
+  resize: vertical;
+  min-height: 84px;
+  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+}
+
+.textarea-field:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-tint);
+}
+
+.select-field {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: #FFFFFF;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+  cursor: pointer;
+}
+
+.select-field:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-tint);
+}
+
+/* Custom Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #E4E4E7;
+  transition: 0.25s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--amber);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+
+/* Custom Segmented Filter Bar */
+.segmented-control {
+  display: inline-flex;
+  background: #ECE7DE;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  gap: 2px;
+}
+
+.segmented-item {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--ease-quick);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.segmented-item:hover {
+  color: var(--ink);
+}
+
+.segmented-item.active {
+  background: #FFFFFF;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 24, 27, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 180ms ease;
+}
+
+.modal-card {
+  background: #FFFFFF;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
   overflow-y: auto;
-}
-.drawer-panel.open { transform: translateX(0); }
-
-/* ── Priority pulse animation ─────────────────────────────────────────────── */
-@keyframes pulseRing {
-  0%   { box-shadow: 0 0 0 0   var(--status-open-glow); }
-  50%  { box-shadow: 0 0 0 10px transparent; }
-  100% { box-shadow: 0 0 0 0   transparent; }
+  animation: modalScale 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── 10. Responsive Breakpoints ───────────────────────────────────────────── */
-
-/* Compact Mobile: hide coordinate HUD to avoid canvas obstruction */
-@media (max-width: 820px) {
-  .coordinate-hud { display: none; }
-
-  .floating-toolbar {
-    flex-direction: row;
-    bottom: var(--space-4);
-    top: unset;
-    left: 50%;
-    transform: translateX(-50%);
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
   }
-
-  .drawer-panel { width: 100%; }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-/* Tablet primary field mode */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .floating-toolbar button { width: 44px; height: 44px; }
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4CEBF;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B5AEA0;
+}
+
+/* Responsive Rules */
+@media (max-width: 820px) {
+  .desktop-rail {
+    display: none !important;
+  }
+  .mobile-tab-bar {
+    display: flex !important;
+  }
+  .slide-over-drawer {
+    width: 100vw;
+  }
+}
+
+@media (min-width: 821px) {
+  .mobile-tab-bar {
+    display: none !important;
+  }
+}
+
+/* UMBC Building & Floor Dropdown Responsive Rules */
+@media (max-width: 640px) {
+  .mobile-step-tabs {
+    display: flex !important;
+  }
+  .buildings-column.hide-on-mobile {
+    display: none !important;
+  }
+  .floors-column.hide-on-mobile {
+    display: none !important;
+  }
+  .buildings-column {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-right: none !important;
+  }
+}
+@media (min-width: 641px) {
+  .mobile-step-tabs {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   MailSlotUpload — PunchList Pro Token Integration
+   Fonts served from /public/fonts (Geist + Geist Mono, OFL license).
+   Colors remapped to the PunchList Pro amber/timber/ink palette.
+   ========================================================================== */
+
+/* Self-hosted Geist fonts for MailSlotUpload */
+@font-face {
+  font-family: "Geist";
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Light mode: timber/amber painted door, nickel letterbox, warm paper */
+.mail-slot-root {
+  --ms-max-width: 640px;
+
+  /* Accent = amber focus ring */
+  --accent-primary: #D97706;
+
+  /* Surfaces */
+  --bg-elevated-1: #FFFFFF;
+  --border-default: #DCD5C8;
+  --border-strong: #C4BAA8;
+  --text-primary: #18181B;
+  --text-secondary: #44403C;
+  --text-tertiary: #78716C;
+
+  /* Door: warm timber/olive — construction-site painted wood */
+  --ms-door-hi: #C8B89A;
+  --ms-door-lo: #B5A082;
+  --ms-door-sheen: 0.35;
+  --ms-grain-rgb: 92, 58, 33;
+  --ms-door-shadow:
+    inset 0 0 0 1px rgba(92, 58, 33, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(92, 58, 33, 0.08),
+    0 26px 50px -30px rgba(92, 58, 33, 0.45);
+  --ms-field-hi: #C2AC8E;
+  --ms-field-lo: #B09A7A;
+  --ms-bevel-top: rgba(255, 255, 255, 0.75);
+  --ms-bevel-left: rgba(255, 255, 255, 0.38);
+  --ms-bevel-bottom: rgba(92, 58, 33, 0.16);
+  --ms-bevel-right: rgba(92, 58, 33, 0.08);
+  --ms-groove: rgba(92, 58, 33, 0.16);
+  --ms-groove-light: rgba(255, 255, 255, 0.65);
+
+  /* Letterbox: amber-tinted nickel */
+  --ms-metal-hi: #FDFDFE;
+  --ms-metal-mid: #D6CAB0;
+  --ms-metal-lo: #A8956E;
+  --ms-metal-edge: rgba(92, 58, 33, 0.28);
+  --ms-metal-rim: 0.92;
+  --ms-metal-glint: 0.55;
+  --ms-plate-shadow: 0.32;
+  --ms-engrave: #8B7355;
+  --ms-slot: #1A0E05;
+  --ms-slot-deep: #070301;
+  /* Inner glow = warm amber light when flap lifts */
+  --ms-glow-rgb: 253, 230, 138;
+  --ms-halo: rgba(217, 119, 6, 0.18);
+  --ms-halo-glow: rgba(217, 119, 6, 0.28);
+
+  /* Paper: warm off-white to match --bg-canvas */
+  --ms-paper: #F8F5EF;
+  --ms-paper-hi: #FDFCF9;
+  --ms-paper-lo: #EDE8DE;
+  --ms-paper-edge: rgba(92, 58, 33, 0.10);
+  --ms-postage: #EDE0C8;
+  --ms-paper-text: #18181B;
+  --ms-paper-text-2: #5C3A21;
+  --ms-paper-text-3: #78716C;
+  --ms-paper-error: #DC2626;
+  --ms-env-shadow: 0.28;
+  --ms-row-shadow: 0.20;
+
+  /* Ink: dark charcoal; RETURN TO SENDER = crimson */
+  --ms-ink-rgb: 24, 24, 27;
+  --ms-return-ink-rgb: 185, 28, 28;
+
+  /* Stamp tool: amber-tinted rubber */
+  --ms-tool-hi: #92400E;
+  --ms-tool-lo: #451A03;
+  --ms-knob-hi: #D97706;
+  --ms-knob-lo: #78350F;
+
+  /* Tray: paper-bag warmth */
+  --ms-tray: #EDE8DE;
+  --ms-tray-edge: rgba(92, 58, 33, 0.08);
+  --ms-tray-inset: 0.06;
+
+  /* Shape + motion tokens */
+  --radius-pill: 9999px;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Type (Geist, self-hosted) */
+  --font-sans: "Geist", 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: "Geist Mono", 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --tr-tight: -0.015em;
+  --tr-base: -0.005em;
+}
+
+/* Dark mode for MailSlotUpload: matches the dark glassmorphic HUD palette */
+[data-theme="dark"] .mail-slot-root {
+  --accent-primary: #FEF3C7;
+  --bg-elevated-1: #1C1410;
+  --border-default: rgba(254, 243, 199, 0.10);
+  --border-strong: rgba(254, 243, 199, 0.20);
+  --text-primary: #F5EFE7;
+  --text-secondary: #D6C9B4;
+  --text-tertiary: #A1957F;
+
+  --ms-door-hi: #2A1F14;
+  --ms-door-lo: #1C1410;
+  --ms-door-sheen: 0.04;
+  --ms-grain-rgb: 245, 239, 231;
+  --ms-door-shadow:
+    inset 0 0 0 1px rgba(245, 239, 231, 0.06),
+    inset 0 1px 0 rgba(245, 239, 231, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 30px 60px -30px rgba(0, 0, 0, 0.9);
+  --ms-field-hi: #271C10;
+  --ms-field-lo: #1F160C;
+  --ms-bevel-top: rgba(245, 239, 231, 0.07);
+  --ms-bevel-left: rgba(245, 239, 231, 0.04);
+  --ms-bevel-bottom: rgba(0, 0, 0, 0.55);
+  --ms-bevel-right: rgba(0, 0, 0, 0.30);
+  --ms-groove: rgba(0, 0, 0, 0.6);
+  --ms-groove-light: rgba(245, 239, 231, 0.05);
+
+  --ms-metal-hi: #F5EFE7;
+  --ms-metal-mid: #B8A882;
+  --ms-metal-lo: #6B5A3E;
+  --ms-metal-edge: rgba(0, 0, 0, 0.55);
+  --ms-metal-rim: 0.75;
+  --ms-metal-glint: 0.45;
+  --ms-plate-shadow: 0.80;
+  --ms-engrave: #6B5A3E;
+  --ms-slot: #0A0603;
+  --ms-slot-deep: #000000;
+  --ms-glow-rgb: 253, 230, 138;
+  --ms-halo: rgba(217, 119, 6, 0.15);
+  --ms-halo-glow: rgba(217, 119, 6, 0.32);
+
+  --ms-paper: #DDD6C8;
+  --ms-paper-hi: #EDE5D8;
+  --ms-paper-lo: #C8C0B0;
+  --ms-paper-edge: rgba(0, 0, 0, 0.35);
+  --ms-postage: #C8BAA0;
+  --ms-env-shadow: 0.75;
+  --ms-row-shadow: 0.65;
+
+  --ms-tool-hi: #78350F;
+  --ms-tool-lo: #3C1A06;
+  --ms-knob-hi: #D97706;
+  --ms-knob-lo: #92400E;
+
+  --ms-tray: #12100E;
+  --ms-tray-edge: rgba(245, 239, 231, 0.06);
+  --ms-tray-inset: 0.60;
 }
