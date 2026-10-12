@@ -13,10 +13,12 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from sqlalchemy.exc import IntegrityError
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.auth import (
-    hash_password, verify_password, create_access_token, get_current_user
+    hash_password, verify_password, create_access_token, get_current_user,
+    MAX_PASSWORD_BYTES,
 )
 from app.config import settings
 from app.database import get_db
@@ -29,9 +31,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class RegisterRequest(BaseModel):
     email:     EmailStr
-    password:  str
+    password:  str = Field(min_length=8)
     full_name: str
     role:      str   # must be one of the 6 canonical roles
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, password: str) -> str:
+        if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+            raise ValueError("Password must not exceed 72 UTF-8 bytes.")
+        return password
 
 
 class TokenResponse(BaseModel):
@@ -53,7 +62,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         role=payload.role,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered.")
     db.refresh(user)
     return {"id": user.id, "email": user.email, "role": user.role}
 

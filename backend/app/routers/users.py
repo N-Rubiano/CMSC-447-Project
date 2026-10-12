@@ -11,9 +11,9 @@ DELETE /api/users/{id}         — Deactivate a user (admin only)
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict
 
-from app.auth import get_current_user, hash_password
+from app.auth import get_current_user
 from app.database import get_db
 from app.permissions import require_capability, ADMIN
 from app.models.user import User
@@ -28,7 +28,19 @@ class UserUpdate(BaseModel):
     is_active:  bool | None = None
 
 
-@router.get("/")
+class UserResponse(BaseModel):
+    """Only public profile fields may leave the user endpoints."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    full_name: str
+    role: str
+    company_id: int | None
+    is_active: bool
+
+
+@router.get("/", response_model=list[UserResponse])
 def list_users(
     db:   Session = Depends(get_db),
     user = Depends(require_capability("team.manage")),
@@ -36,7 +48,7 @@ def list_users(
     return db.query(User).all()
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
     db:      Session = Depends(get_db),
@@ -48,7 +60,7 @@ def get_user(
     return target
 
 
-@router.patch("/{user_id}")
+@router.patch("/{user_id}", response_model=UserResponse)
 def update_user(
     user_id: int,
     payload: UserUpdate,
