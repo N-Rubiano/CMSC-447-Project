@@ -92,7 +92,7 @@ app.include_router(sync.router,       prefix=PREFIX)
 app.include_router(tasks.router,      prefix=PREFIX)
 
 # ── Static file uploads ────────────────────────────────────────────────────────
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir, check_dir=False), name="uploads")
 
 # ── Socket.IO ASGI mount ───────────────────────────────────────────────────────
 app.mount("/socket.io", sio_app)

@@ -18,25 +18,38 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 
-# ── Bcrypt context ─────────────────────────────────────────────────────────────
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+BCRYPT_ROUNDS = 12
+MAX_PASSWORD_BYTES = 72
 
 # ── OAuth2 scheme — clients send Authorization: Bearer <token> ─────────────────
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    """Generate a fresh salt and return the complete bcrypt hash for storage."""
+    password_bytes = plain.encode("utf-8")
+    if not password_bytes or len(password_bytes) > MAX_PASSWORD_BYTES:
+        raise ValueError("Password must contain between 1 and 72 UTF-8 bytes.")
+    return bcrypt.hashpw(
+        password_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+    ).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    """Check the supplied password without truncating it or exposing the hash."""
+    password_bytes = plain.encode("utf-8")
+    if not password_bytes or len(password_bytes) > MAX_PASSWORD_BYTES:
+        return False
+    try:
+        return bcrypt.checkpw(password_bytes, hashed.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
+        return False
 
 
 # ── JWT helpers ────────────────────────────────────────────────────────────────
