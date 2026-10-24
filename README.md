@@ -151,13 +151,35 @@ npm run dev
 
 ## 🧪 Testing & Quality Assurance
 
-PunchList Pro includes an automated test suite covering authentication, RBAC rules, health endpoints, and state transitions.
+PunchList Pro features full-stack automated testing across both server and client tiers:
 
+### Backend Suite (FastAPI / Pytest)
+Validates authentication, JWT claims, health endpoints, and RBAC state transitions:
 ```bash
 cd backend
-venv\Scripts\activate
 pytest -v
 ```
+
+### Frontend Suite (React / Vitest + React Testing Library)
+Validates UI component mounting, role-based demo accounts picker, form validation, and canvas vector stamp mathematics:
+```bash
+cd frontend
+npm test
+```
+
+---
+
+## 📚 Documentation
+
+Detailed technical documentation and guides are organized under the [`docs/`](./docs) directory:
+
+- [**PRD.md**](./docs/PRD.md) — Product Requirements Document (features, personas, user journeys)
+- [**Architecture.md**](./docs/Architecture.md) — System architecture, data flow, and deployment diagrams
+- [**Design.md**](./docs/Design.md) — Design tokens, visual typography, and component hierarchy
+- [**database.md**](./docs/database.md) — PostgreSQL / SQLite schema reference and migrations
+- [**api.md**](./docs/api.md) — REST API endpoints and payload schemas
+- [**testing.md**](./docs/testing.md) — Full test plan, Vitest suites, and QA checklists
+- [**debugging.md**](./docs/debugging.md) — Common error codes, log inspection, and troubleshooting guide
 
 ---
 

@@ -11,6 +11,8 @@
     "dev:client": "npm run dev:frontend",
     "setup:python": "cd backend && python -m venv venv && venv\\Scripts\\pip install -r requirements.txt",
     "build": "cd frontend && npm install && npm run build",
+    "test:frontend": "cd frontend && npm test",
+    "test": "npm run test:frontend",
     "install:all": "npm install && cd frontend && npm install"
   },
   "devDependencies": {
