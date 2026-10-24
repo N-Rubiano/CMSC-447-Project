@@ -17,13 +17,17 @@ def client():
     with TestClient(app) as test_client:
         yield test_client
 
+# NOTE: IDs 00000000-0000-0000-0000-000000000001 and ...000002 are
+#       reserved by seed_temp_admin() for the demo admin accounts.
+#       Use IDs in the 000099xx range to avoid collisions.
+
 @pytest.fixture
 def admin_user():
     return {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "email": "admin@punchlistpro.demo",
+        "id": "00000000-0000-0000-0000-000000009901",
+        "email": "testadmin@ci.test",
         "role": "admin",
-        "company": "PunchList Pro Admin",
+        "company": "CI Test Admin",
         "company_id": "00000000-0000-0000-0000-000000000010",
     }
 
@@ -38,10 +42,10 @@ def admin_headers(admin_token):
 @pytest.fixture
 def sub_user():
     return {
-        "id": "00000000-0000-0000-0000-000000000002",
-        "email": "sub@punchlistpro.demo",
+        "id": "00000000-0000-0000-0000-000000009902",
+        "email": "testsub@ci.test",
         "role": "sub_contractor",
-        "company": "Apex Mechanical",
+        "company": "CI Test Mechanical",
         "company_id": "00000000-0000-0000-0000-000000000020",
     }
 
