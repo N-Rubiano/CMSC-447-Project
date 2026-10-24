@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PunchList Pro — UML & ER Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --blue:    #2563eb;
+      --indigo:  #4f46e5;
+      --border:  #e2e8f0;
+      --bg:      #f8fafc;
+      --white:   #ffffff;
+      --slate:   #334155;
+      --muted:   #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--slate);
+      line-height: 1.6;
+      padding-top: 56px;
+    }
+
+    /* PRINT BAR */
+    #print-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: linear-gradient(135deg, #1e1b4b, #1e3a5f);
+      color: #fff; padding: 12px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 1000; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    #print-bar h1 { font-size: 16px; font-weight: 600; }
+    #print-bar span { font-size: 12px; opacity: 0.7; margin-left: 12px; }
+    #print-btn {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: #fff; border: none; padding: 10px 28px;
+      border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+    }
+    #print-btn:hover { opacity: 0.9; }
+
+    /* COVER */
+    .cover {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #0c2340 100%);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center;
+      padding: 80px 40px 60px; page-break-after: always;
+    }
+    .cover .badge {
+      background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4);
+      color: #a5b4fc; font-size: 12px; font-weight: 600;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 6px 18px; border-radius: 999px; margin-bottom: 24px;
+    }
+    .cover h1 { font-size: 52px; font-weight: 700; color: #fff; line-height: 1.1; margin-bottom: 12px; }
+    .cover h1 span { color: #818cf8; }
+    .cover .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 48px; max-width: 600px; }
+    .cover .toc {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 32px 40px; text-align: left;
+      max-width: 560px; width: 100%;
+    }
+    .cover .toc h2 { color: #e2e8f0; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
+    .cover .toc ol { list-style: none; counter-reset: toc-cnt; }
+    .cover .toc li {
+      counter-increment: toc-cnt; display: flex; align-items: center; gap: 12px;
+      padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+      color: #94a3b8; font-size: 14px;
+    }
+    .cover .toc li:last-child { border-bottom: none; }
+    .cover .toc li::before {
+      content: counter(toc-cnt, decimal-leading-zero);
+      font-size: 11px; font-weight: 700; color: #818cf8;
+      font-family: 'JetBrains Mono', monospace; min-width: 24px;
+    }
+    .cover .meta { margin-top: 48px; color: #475569; font-size: 13px; }
+
+    /* WRAPPER */
+    .wrapper { max-width: 1200px; margin: 0 auto; padding: 60px 40px 80px; }
+
+    /* SECTION */
+    .section { margin-bottom: 72px; page-break-inside: avoid; }
+    .section-header {
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 28px; padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-num {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+    }
+    .n1  { background:#dbeafe; color:#1d4ed8; }
+    .n2  { background:#e0e7ff; color:#4338ca; }
+    .n3  { background:#ede9fe; color:#6d28d9; }
+    .n4  { background:#cffafe; color:#0e7490; }
+    .n5  { background:#ccfbf1; color:#0f766e; }
+    .n6  { background:#dcfce7; color:#15803d; }
+    .n7  { background:#ffedd5; color:#c2410c; }
+    .n8  { background:#fee2e2; color:#b91c1c; }
+    .n9  { background:#f1f5f9; color:#334155; }
+    .n10 { background:#ffe4e6; color:#be123c; }
+    .n11 { background:#dbeafe; color:#1d4ed8; }
+    .n12 { background:#e0e7ff; color:#4338ca; }
+    .n13 { background:#ede9fe; color:#6d28d9; }
+    .n14 { background:#ccfbf1; color:#0f766e; }
+
+    .section-title { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .section-desc  { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+    /* DIAGRAM BOX */
+    .diagram-box {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px; overflow-x: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .diagram-box .mermaid { display: flex; justify-content: center; min-height: 120px; }
+
+    /* NOTE */
+    .note {
+      margin-top: 16px; background: #f0f9ff;
+      border-left: 4px solid #0ea5e9; border-radius: 0 8px 8px 0;
+      padding: 12px 16px; font-size: 13px; color: #0c4a6e;
+    }
+
+    /* TABLE */
+    .tbl-wrap { overflow-x: auto; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--white); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    thead th { background: #0f172a; color: #e2e8f0; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+    tbody td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #f8fafc; }
+    .check { color: #16a34a; font-weight: 700; }
+    .cross  { color: #dc2626; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .pb { background:#dbeafe; color:#1d4ed8; }
+    .pg { background:#dcfce7; color:#15803d; }
+    .po { background:#ffedd5; color:#c2410c; }
+    .pr { background:#fee2e2; color:#b91c1c; }
+    .ps { background:#f1f5f9; color:#475569; }
+
+    /* ACTOR GRID */
+    .actor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 8px; }
+    .actor-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .actor-card .actor-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #0f172a; }
+    .actor-card .actor-code { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); margin-bottom: 10px; }
+    .actor-card .actor-why { font-size: 13px; color: var(--slate); }
+    .actor-card.primary   { border-left: 4px solid #4f46e5; }
+    .actor-card.secondary { border-left: 4px solid #0891b2; }
+
+    /* STATUS FLOW */
+    .status-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding: 20px; background: var(--white); border-radius: 12px; border: 1px solid var(--border); }
+    .status-node { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+    .arrow { color: var(--muted); font-size: 18px; }
+    .s-open   { background:#dbeafe; color:#1e40af; }
+    .s-prog   { background:#fef9c3; color:#854d0e; }
+    .s-crev   { background:#ffedd5; color:#9a3412; }
+    .s-arev   { background:#ede9fe; color:#5b21b6; }
+    .s-closed { background:#dcfce7; color:#14532d; }
+
+    @media print {
+      #print-bar { display: none !important; }
+      body { background: white; padding-top: 0; }
+      .cover { min-height: auto; padding: 60px 40px; }
+      .section { page-break-inside: avoid; }
+      .diagram-box { page-break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="print-bar">
+  <div>
+    <h1>PunchList Pro — UML &amp; ER Diagrams</h1>
+    <span>Click "Save as PDF" then choose "Save as PDF" as the destination printer</span>
+  </div>
+  <button id="print-btn" onclick="window.print()">🖨️ Save as PDF</button>
+</div>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="badge">System Architecture Documentation</div>
+  <h1>PunchList <span>Pro</span></h1>
+  <p class="subtitle">Complete UML &amp; ER Diagrams — Starting From Scratch Reference Guide</p>
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li>System Overview — Component Diagram</li>
+      <li>ER Diagram — Full Database Schema</li>
+      <li>UML Class Diagram — Domain Models</li>
+      <li>Use Case Diagram — Roles &amp; Permissions</li>
+      <li>Actors — Primary &amp; Secondary</li>
+      <li>Container Diagram — C4 Architecture</li>
+      <li>Sequence — Login Flow</li>
+      <li>Sequence — Create a Pin (Punch Item)</li>
+      <li>Sequence — Pin Status Workflow</li>
+      <li>State Machine — Pin Lifecycle</li>
+      <li>Frontend Component Tree</li>
+      <li>Data Flow — Offline Sync</li>
+      <li>API Endpoints Reference</li>
+      <li>Role Permissions Matrix</li>
+    </ol>
+  </div>
+  <p class="meta">PunchList Pro v2.0 &nbsp;|&nbsp; <span id="gen-date"></span></p>
+</div>
+
+<div class="wrapper">
+
+  <!-- 01 SYSTEM OVERVIEW -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n1">01</div>
+      <div>
+        <div class="section-title">System Overview — Component Diagram</div>
+        <div class="section-desc">How the Browser, FastAPI, Socket.IO, Databases and Supabase connect</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+graph TB
+    subgraph Browser["Browser - React + Vite"]
+        UI["React UI JSX Components"]
+        API_SVC["api.js Auth Fetch Wrapper"]
+        LOCAL_DB["IndexedDB Dexie Offline Cache"]
+        SUPA_CLIENT["Supabase JS Client"]
+    end
+    subgraph Backend["Backend - FastAPI Python"]
+        FASTAPI["FastAPI App /api/ routes"]
+        SIO["Socket.IO Server Real-time Events"]
+        AUTH_MOD["auth.py JWT + Supabase verify"]
+        PERMS["permissions.py RBAC"]
+        DB["database.py SQLAlchemy Core"]
+        ROUTERS["Routers: auth projects sheets pins users companies documents markups audit_logs team sync"]
+    end
+    subgraph Storage["Storage Layer"]
+        PG["PostgreSQL Production"]
+        SQLITE["SQLite Dev Fallback"]
+        UPLOADS["/uploads/ File System"]
+    end
+    subgraph External["External Services"]
+        SUPABASE["Supabase Auth + DB mirror"]
+    end
+    UI --> API_SVC
+    API_SVC --> LOCAL_DB
+    SUPA_CLIENT <--> SUPABASE
+    API_SVC --> SUPA_CLIENT
+    API_SVC -->|REST /api/| FASTAPI
+    API_SVC -->|WebSocket| SIO
+    FASTAPI --> ROUTERS
+    ROUTERS --> AUTH_MOD
+    ROUTERS --> PERMS
+    ROUTERS --> DB
+    DB --> PG
+    DB --> SQLITE
+    ROUTERS --> UPLOADS
+    AUTH_MOD <--> SUPABASE
+    </div></div>
+    <div class="note"><strong>Key point:</strong> The Browser App is the single entry point for all actors. Every API call is authenticated via JWT (Supabase or local fallback).</div>
+  </div>
+
+  <!-- 02 ER DIAGRAM -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n2">02</div>
+      <div>
+        <div class="section-title">ER Diagram — Database Schema</div>
+        <div class="section-desc">All 13 tables, key columns and foreign-key relationships</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+erDiagram
+    COMPANIES {
+        string id PK
+        string name
+        string type
+        string parent_contractor_id FK
+        string trade
+        string email
+    }
+    USERS {
+        string id PK
+        string name
+        string email
+        string role
+        string company_id FK
+        string supabase_uid
+    }
+    PROJECTS {
+        string id PK
+        string name
+        string code
+        string client_name
+        string gc_user_id FK
+        string status
+    }
+    PROJECT_MEMBERS {
+        string id PK
+        string project_id FK
+        string user_id FK
+        string role
+    }
+    SHEETS {
+        string id PK
+        string project_id FK
+        string sheet_number
+        string discipline
+        string floor_level
+        string image_url
+    }
+    SHEET_VERSIONS {
+        string id PK
+        string sheet_id FK
+        int version_number
+        int is_current
+    }
+    PINS {
+        string id PK
+        string sheet_id FK
+        string project_id FK
+        int item_number
+        string title
+        string status
+        string priority
+        float x_pct
+        float y_pct
+        string assigned_to_user_id FK
+        string created_by_user_id FK
+    }
+    PIN_PHOTOS {
+        string id PK
+        string pin_id FK
+        string url
+        string type
+        string caption
+    }
+    COMMENTS {
+        string id PK
+        string pin_id FK
+        string author_id FK
+        string body
+        string parent_id FK
+    }
+    MARKUPS {
+        string id PK
+        string sheet_id FK
+        string author_id FK
+        string type
+        string points_json
+    }
+    PIN_HISTORY {
+        string id PK
+        string pin_id FK
+        string old_status
+        string new_status
+    }
+    AUDIT_LOGS {
+        string id PK
+        string project_id FK
+        string pin_id FK
+        string user_id FK
+        string action
+    }
+    DOCUMENTS {
+        string id PK
+        string project_id FK
+        string name
+        string file_url
+        string category
+    }
+    COMPANIES ||--o{ USERS : employs
+    COMPANIES ||--o{ COMPANIES : "parent of"
+    USERS ||--o{ PROJECT_MEMBERS : joins
+    PROJECTS ||--o{ PROJECT_MEMBERS : has
+    PROJECTS ||--o{ SHEETS : contains
+    PROJECTS ||--o{ PINS : tracks
+    PROJECTS ||--o{ DOCUMENTS : stores
+    PROJECTS ||--o{ AUDIT_LOGS : logs
+    SHEETS ||--o{ PINS : "placed on"
+    SHEETS ||--o{ SHEET_VERSIONS : "versioned by"
+    SHEETS ||--o{ MARKUPS : "annotated with"
+    PINS ||--o{ PIN_PHOTOS : "has photos"
+    PINS ||--o{ COMMENTS : "has comments"
+    PINS ||--o{ PIN_HISTORY : "status history"
+    COMMENTS ||--o{ COMMENTS : replies
+    </div></div>
+    <div class="note"><strong>Core triplet:</strong> <code>projects → sheets → pins</code> is the backbone. Everything else hangs off these three.</div>
+  </div>
+
+  <!-- 03 CLASS DIAGRAM -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n3">03</div>
+      <div>
+        <div class="section-title">UML Class Diagram — Domain Models</div>
+        <div class="section-desc">Object-oriented view of all domain entities and associations</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+classDiagram
+    class Company {
+        +String id
+        +String name
+        +String type
+        +String trade
+    }
+    class User {
+        +String id
+        +String name
+        +String email
+        +String role
+        +String company_id
+    }
+    class Project {
+        +String id
+        +String name
+        +String code
+        +String gc_user_id
+        +String status
+    }
+    class ProjectMember {
+        +String id
+        +String project_id
+        +String user_id
+        +String role
+    }
+    class Sheet {
+        +String id
+        +String project_id
+        +String sheet_number
+        +String discipline
+        +Integer version_number
+    }
+    class SheetVersion {
+        +String id
+        +String sheet_id
+        +Integer version_number
+        +Boolean is_current
+    }
+    class Pin {
+        +String id
+        +String sheet_id
+        +String project_id
+        +Integer item_number
+        +String title
+        +String status
+        +Float x_pct
+        +Float y_pct
+    }
+    class PinPhoto {
+        +String id
+        +String pin_id
+        +String url
+        +String type
+    }
+    class Comment {
+        +String id
+        +String pin_id
+        +String author_id
+        +String body
+        +String parent_id
+    }
+    class Markup {
+        +String id
+        +String sheet_id
+        +String type
+        +String points_json
+    }
+    class AuditLog {
+        +String id
+        +String project_id
+        +String pin_id
+        +String action
+    }
+    class Document {
+        +String id
+        +String project_id
+        +String name
+        +String category
+    }
+    Company "1" --> "0..*" User : employs
+    Company "1" --> "0..*" Company : "parent of"
+    User "1" --> "0..*" ProjectMember : joins
+    Project "1" --> "0..*" ProjectMember : has
+    Project "1" --> "0..*" Sheet : contains
+    Project "1" --> "0..*" Pin : tracks
+    Project "1" --> "0..*" Document : stores
+    Sheet "1" --> "0..*" Pin : hosts
+    Sheet "1" --> "0..*" SheetVersion : "versioned by"
+    Sheet "1" --> "0..*" Markup : annotated
+    Pin "1" --> "0..*" PinPhoto : has
+    Pin "1" --> "0..*" Comment : discussed
+    Comment "1" --> "0..*" Comment : replies
+    </div></div>
+  </div>
+
+  <!-- 04 USE CASE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n4">04</div>
+      <div>
+        <div class="section-title">Use Case Diagram — Roles &amp; Permissions</div>
+        <div class="section-desc">What each actor can do in the system</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+graph LR
+    ADMIN(["Admin"])
+    GC(["General Contractor"])
+    SUB(["Subcontractor"])
+    ARCH(["Architect"])
+    OWNER(["Owner"])
+    FI(["Field Inspector"])
+
+    subgraph Auth["Authentication"]
+        UC1["Login and Logout"]
+    end
+    subgraph Proj["Projects"]
+        UC2["View Projects"]
+        UC3["Create Project"]
+        UC4["Update Project"]
+        UC5["Manage Team"]
+        UC6["Manage Companies"]
+    end
+    subgraph Sheets["Sheets"]
+        UC7["View Sheets"]
+        UC8["Upload Manage Sheets"]
+        UC9["Add Markups"]
+    end
+    subgraph Pins["Punch Items"]
+        UC10["View Pins"]
+        UC11["Create Pin"]
+        UC12["Update Pin"]
+        UC13["Assign Pin"]
+        UC14["Close Delete Pin"]
+        UC15["Update Own Assigned Pin"]
+        UC16["Add Comment"]
+        UC17["Upload Photo"]
+    end
+    subgraph Rpts["Reports"]
+        UC18["Export Reports"]
+    end
+
+    ADMIN --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC16 & UC17 & UC18
+    GC    --- UC1 & UC2 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC16 & UC17 & UC18
+    SUB   --- UC1 & UC2 & UC7 & UC10 & UC15 & UC16 & UC17
+    ARCH  --- UC1 & UC2 & UC7 & UC9 & UC10 & UC11 & UC12 & UC16 & UC17 & UC18
+    OWNER --- UC1 & UC2 & UC7 & UC10 & UC16 & UC18
+    FI    --- UC1 & UC2 & UC7 & UC10 & UC11 & UC12 & UC16 & UC17
+    </div></div>
+  </div>
+
+  <!-- 05 ACTORS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n5">05</div>
+      <div>
+        <div class="section-title">Actors — Primary &amp; Secondary</div>
+        <div class="section-desc">Who interacts with PunchList Pro and why</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:13px;font-weight:700;color:#4f46e5;margin-bottom:12px;letter-spacing:1px;text-transform:uppercase;">Primary Actors — Drive core use cases</h3>
+    <div class="actor-grid">
+      <div class="actor-card primary">
+        <div class="actor-name">Facility Admin</div>
+        <div class="actor-code">role: "admin"</div>
+        <div class="actor-why">Creates projects, formally closes punch items, manages the entire system. Only actor who can DELETE pins and set status=closed.</div>
+      </div>
+      <div class="actor-card primary">
+        <div class="actor-name">General Contractor</div>
+        <div class="actor-code">role: "general_contractor"</div>
+        <div class="actor-why">Manages sheets, assigns pins to subs, reviews work, escalates to admin review. Central to the approval workflow.</div>
+      </div>
+      <div class="actor-card primary">
+        <div class="actor-name">Subcontractor</div>
+        <div class="actor-code">role: "sub_contractor"</div>
+        <div class="actor-why">Receives assigned punch items, moves them to In Progress, submits for contractor review, uploads photos. Primary field user.</div>
+      </div>
+      <div class="actor-card primary">
+        <div class="actor-name">Field Inspector</div>
+        <div class="actor-code">role: "field_inspector"</div>
+        <div class="actor-why">Creates and updates pins on-site. Works offline-first via IndexedDB. Daily active user in the field.</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:13px;font-weight:700;color:#0891b2;margin:24px 0 12px;letter-spacing:1px;text-transform:uppercase;">Secondary Actors — Participate but don't drive workflow</h3>
+    <div class="actor-grid">
+      <div class="actor-card secondary">
+        <div class="actor-name">Architect</div>
+        <div class="actor-code">role: "architect"</div>
+        <div class="actor-why">Reviews sheets, views and creates pins, exports reports. Observes and verifies but doesn't manage work assignments.</div>
+      </div>
+      <div class="actor-card secondary">
+        <div class="actor-name">Owner</div>
+        <div class="actor-code">role: "owner"</div>
+        <div class="actor-why">Read-only viewer of project status and reports. Consumes outputs, doesn't create or modify data.</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:13px;font-weight:700;color:#64748b;margin:24px 0 12px;letter-spacing:1px;text-transform:uppercase;">System (Non-Human) Actors</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Actor</th><th>Type</th><th>Role in System</th></tr></thead>
+        <tbody>
+          <tr><td>Supabase Auth</td><td><span class="pill pb">External SaaS</span></td><td>Verifies JWT tokens on every API request</td></tr>
+          <tr><td>Socket.IO Server</td><td><span class="pill pg">Internal</span></td><td>Broadcasts real-time pin/status updates to all clients</td></tr>
+          <tr><td>IndexedDB (Dexie)</td><td><span class="pill po">Internal</span></td><td>Offline cache for Field Inspector when connectivity is lost</td></tr>
+          <tr><td>Sync Queue</td><td><span class="pill ps">Internal</span></td><td>Batches offline mutations and replays when back online via /api/sync/batch</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 06 CONTAINER -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n6">06</div>
+      <div>
+        <div class="section-title">Container Diagram — C4 Architecture</div>
+        <div class="section-desc">6 containers and how actors interact with each one</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+graph TB
+    ADMIN(["Admin Primary"])
+    GC(["General Contractor Primary"])
+    SUB(["Subcontractor Primary"])
+    FI(["Field Inspector Primary"])
+    ARCH(["Architect Secondary"])
+    OWNER(["Owner Secondary"])
+
+    subgraph C1["Container 1 - Browser App - React Vite Dexie"]
+        C1a["Login Page"]
+        C1b["Dashboard and Sheet Canvas"]
+        C1c["Pin Detail and Team Manager"]
+        C1d["Offline Cache IndexedDB"]
+    end
+    subgraph C2["Container 2 - API Server - FastAPI Python"]
+        C2a["Auth /api/auth"]
+        C2b["Projects /api/projects"]
+        C2c["Pins /api/pins"]
+        C2d["Sheets /api/sheets"]
+        C2e["Sync /api/sync/batch"]
+        C2f["RBAC permissions.py"]
+    end
+    subgraph C3["Container 3 - WebSocket - Socket.IO"]
+        C3a["pin_created pin_updated status_changed user_presence"]
+    end
+    subgraph C4["Container 4 - Database - PostgreSQL SQLite"]
+        C4a["users companies projects members sheets pins photos comments documents audit_logs"]
+    end
+    subgraph C5["Container 5 - File Store - /uploads/"]
+        C5a["PDFs Images Photos Documents"]
+    end
+    subgraph C6["Container 6 - Supabase Auth - External SaaS"]
+        C6a["JWT Issuer Token Verifier"]
+    end
+
+    ADMIN -->|HTTPS| C1
+    GC -->|HTTPS| C1
+    SUB -->|HTTPS Offline| C1
+    FI -->|Offline-first| C1
+    ARCH -->|Read Annotate| C1
+    OWNER -->|Read-only| C1
+
+    C1 -->|REST /api/| C2
+    C1 -->|WebSocket| C3
+    C1 -->|Auth SDK| C6
+    C2 -->|SQL| C4
+    C2 -->|File IO| C5
+    C2 -->|Verify JWT| C6
+    C2 -->|Emit events| C3
+    C3 -->|Push updates| C1
+    </div></div>
+  </div>
+
+  <!-- 07 SEQUENCE LOGIN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n7">07</div>
+      <div>
+        <div class="section-title">Sequence Diagram — Login Flow</div>
+        <div class="section-desc">Supabase auth to backend token exchange to user profile</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+sequenceDiagram
+    actor User
+    participant Browser as React Browser
+    participant SupaJS as Supabase JS Client
+    participant SupaCloud as Supabase Cloud Auth
+    participant FastAPI as FastAPI Backend
+    participant DB as Database
+
+    User->>Browser: Enter email + password, click Login
+    Browser->>SupaJS: signInWithPassword(email, password)
+    SupaJS->>SupaCloud: POST /auth/v1/token
+    SupaCloud-->>SupaJS: session with access_token and user
+    SupaJS-->>Browser: session
+
+    Browser->>FastAPI: POST /api/auth/supabase-callback with Bearer token
+    FastAPI->>SupaCloud: GET /auth/v1/user to verify token
+    SupaCloud-->>FastAPI: supabase_uid and email
+    FastAPI->>DB: SELECT from users WHERE supabase_uid matches
+    DB-->>FastAPI: user row with role and company_id
+    FastAPI-->>Browser: id, name, role, company_id
+
+    Browser->>Browser: Store user in React state
+    Browser-->>User: Redirect to Dashboard
+    </div></div>
+    <div class="note"><strong>Fallback:</strong> If Supabase unavailable — POST /api/auth/login — bcrypt password check — local JWT returned.</div>
+  </div>
+
+  <!-- 08 SEQUENCE CREATE PIN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n8">08</div>
+      <div>
+        <div class="section-title">Sequence Diagram — Create a Pin (Punch Item)</div>
+        <div class="section-desc">Click on blueprint to create pin, with offline fallback path</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+sequenceDiagram
+    actor Inspector as Field Inspector
+    participant Canvas as SheetCanvas
+    participant Modal as NewPunchModal
+    participant API as api.js
+    participant IDB as IndexedDB
+    participant FastAPI as FastAPI
+    participant DB as Database
+    participant SIO as Socket.IO
+    participant Others as Other Users
+
+    Inspector->>Canvas: Click blueprint location
+    Canvas->>Modal: Open modal with x_pct and y_pct
+    Inspector->>Modal: Fill Title Priority Discipline Assignee
+    Inspector->>Modal: Click Create Pin
+
+    alt Online
+        Modal->>API: api.createPin with payload
+        API->>FastAPI: POST /api/pins with Bearer token
+        FastAPI->>FastAPI: Check pin.create permission
+        FastAPI->>DB: INSERT INTO pins
+        DB-->>FastAPI: pin record created
+        FastAPI->>SIO: Emit pin_created event
+        SIO-->>Others: Real-time update pushed
+        FastAPI-->>API: 201 Created pin
+        API->>IDB: localDb.pins.put to cache
+        API-->>Modal: pin object
+        Modal-->>Canvas: Pin rendered at location
+    else Offline
+        Modal->>API: api.createPin with payload
+        API->>IDB: Store offline pin with pending flag
+        API->>IDB: syncQueue.add mutation record
+        API-->>Modal: offlinePin object
+        Modal-->>Canvas: Greyed-out pin rendered
+        Note over IDB: Synced later via POST /api/sync/batch
+    end
+    </div></div>
+  </div>
+
+  <!-- 09 SEQUENCE STATUS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n9">09</div>
+      <div>
+        <div class="section-title">Sequence Diagram — Pin Status Workflow</div>
+        <div class="section-desc">The Sub to GC to Admin approval chain</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+sequenceDiagram
+    actor Sub as Subcontractor
+    actor GC as General Contractor
+    actor Admin as Facility Admin
+    participant API as FastAPI
+    participant Perms as permissions.py
+    participant DB as Database
+
+    Note over Sub: Pin status is open
+    Sub->>API: PATCH /api/pins/id/status with in_progress
+    API->>Perms: validate_status_transition sub pin in_progress
+    Perms-->>API: valid true
+    API->>DB: UPDATE pins SET status in_progress
+    API-->>Sub: 200 OK
+
+    Note over Sub: Work complete
+    Sub->>API: PATCH /api/pins/id/status with submitted_for_contractor_review
+    API->>Perms: validate_status_transition sub pin contractor_review
+    Perms-->>API: valid true
+    API->>DB: UPDATE status
+    API-->>Sub: 200 OK
+
+    Note over GC: GC reviews
+    GC->>API: PATCH /api/pins/id/status with submitted_for_admin_review
+    API->>Perms: validate_status_transition gc pin admin_review
+    Perms-->>API: valid true
+    API->>DB: UPDATE status
+    API-->>GC: 200 OK
+
+    Note over Admin: Admin final close
+    Admin->>API: PATCH /api/pins/id/status with closed
+    API->>Perms: validate_status_transition admin pin closed
+    Perms-->>API: valid true admin always allowed
+    API->>DB: UPDATE status closed and set closed_at timestamp
+    API-->>Admin: 200 OK
+    </div></div>
+
+    <div style="margin-top:20px;">
+      <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;">PIN STATUS FLOW</div>
+      <div class="status-flow">
+        <div class="status-node s-open">open</div>
+        <div class="arrow">&#8594;</div>
+        <div class="status-node s-prog">in_progress</div>
+        <div class="arrow">&#8594;</div>
+        <div class="status-node s-crev">submitted for<br>contractor review</div>
+        <div class="arrow">&#8594;</div>
+        <div class="status-node s-arev">submitted for<br>admin review</div>
+        <div class="arrow">&#8594;</div>
+        <div class="status-node s-closed">closed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 STATE MACHINE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n10">10</div>
+      <div>
+        <div class="section-title">State Machine — Pin Lifecycle</div>
+        <div class="section-desc">All valid status transitions and which role drives each one</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+stateDiagram-v2
+    [*] --> open : Pin Created by authorized role
+
+    open --> in_progress : Sub or GC or Inspector starts work
+    open --> closed : Admin closes directly
+
+    in_progress --> submitted_for_contractor_review : Subcontractor submits work
+    in_progress --> submitted_for_admin_review : GC escalates directly
+    in_progress --> closed : Admin closes directly
+
+    submitted_for_contractor_review --> in_progress : GC sends back for rework
+    submitted_for_contractor_review --> submitted_for_admin_review : GC approves and escalates
+
+    submitted_for_admin_review --> in_progress : Admin rejects and sends back
+    submitted_for_admin_review --> closed : Admin formally closes
+
+    closed --> [*]
+    </div></div>
+    <div class="note"><strong>Critical rule:</strong> Only the <strong>Facility Admin</strong> can set status = closed. This is the most important permission boundary in the entire system.</div>
+  </div>
+
+  <!-- 11 COMPONENT TREE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n11">11</div>
+      <div>
+        <div class="section-title">Frontend Component Tree</div>
+        <div class="section-desc">Full React component hierarchy from App.jsx down</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+graph TD
+    APP["App.jsx Root Auth State Router"]
+    APP --> LOGIN["LoginPage.jsx"]
+    APP --> SHELL["AppShell.jsx Authenticated Layout"]
+    APP --> QS["QuickSearchModal.jsx Global"]
+
+    SHELL --> NAVBAR["Navbar.jsx Top Navigation"]
+    SHELL --> SIDEBAR["Sidebar.jsx Project List"]
+    SHELL --> MAIN["Main Content Area"]
+
+    MAIN --> DASHBOARD["Dashboard.jsx Project Selector"]
+    MAIN --> DASHVIEW["DashboardView.jsx Stats and KPIs"]
+    MAIN --> BLUEPRINT["BlueprintViewer.jsx Sheet Selector"]
+    MAIN --> SHEETCANVAS["SheetCanvas.jsx Pin Placement"]
+    MAIN --> PHOTOS["PhotosPage.jsx"]
+    MAIN --> DOCUMENTS["DocumentsPage.jsx"]
+    MAIN --> TEAM["TeamPage.jsx"]
+    MAIN --> SETTINGS["SettingsPage.jsx"]
+
+    SHEETCANVAS --> TOOLBAR["Toolbar.jsx Draw Tools"]
+    SHEETCANVAS --> PINDETAIL["PinDetailModal.jsx View Edit Pin"]
+    SHEETCANVAS --> NEWPIN["NewPunchModal.jsx Create Pin"]
+
+    BLUEPRINT --> SHEETBROWSER["SheetBrowserModal.jsx"]
+    BLUEPRINT --> UPLOAD["BlueprintUploadModal.jsx"]
+    BLUEPRINT --> SHEETVER["SheetVersionModal.jsx"]
+
+    PHOTOS --> LIGHTBOX["PhotoZoomLightbox.jsx"]
+    PINDETAIL --> CIRCLE["CircleStampModal.jsx"]
+    PINDETAIL --> EXPORT["ExportModal.jsx"]
+    DASHBOARD --> ONGOING["OngoingProjectsView.jsx"]
+    DASHBOARD --> NEWPROJECT["NewProjectModal.jsx"]
+    TEAM --> PROJTEAM["ProjectTeamModal.jsx"]
+    </div></div>
+  </div>
+
+  <!-- 12 OFFLINE SYNC -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n12">12</div>
+      <div>
+        <div class="section-title">Data Flow — Offline Sync</div>
+        <div class="section-desc">IndexedDB cache to sync queue to batch sync when back online</div>
+      </div>
+    </div>
+    <div class="diagram-box"><div class="mermaid">
+flowchart TD
+    A["User Action - Create or Update Pin or Markup"]
+    B{Online?}
+    C["authFetch POST /api/pins"]
+    D["FastAPI processes and DB updated"]
+    E["Socket.IO emits and other users updated"]
+    F["localDb.pins.put - Cache latest response"]
+    G["localDb.pins.put - Offline record with pending flag"]
+    H["syncQueue.add - entity type data timestamp"]
+    I{Back online?}
+    J["api.processSyncQueue POST /api/sync/batch"]
+    K["FastAPI processes batch create and update each item"]
+    L["syncQueue.clear"]
+    M["IndexedDB updated with server response"]
+
+    A --> B
+    B -- Yes --> C
+    C --> D
+    D --> E
+    D --> F
+    B -- No --> G
+    G --> H
+    H --> I
+    I -- No --> I
+    I -- Yes --> J
+    J --> K
+    K --> L
+    K --> M
+    </div></div>
+  </div>
+
+  <!-- 13 API TABLE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n13">13</div>
+      <div>
+        <div class="section-title">API Endpoints Reference</div>
+        <div class="section-desc">All REST endpoints with method, path, description and minimum role</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Min Role</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/auth/login</code></td><td>Local JWT login (demo fallback)</td><td>—</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/auth/supabase-callback</code></td><td>Exchange Supabase token for local profile</td><td>—</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/auth/me</code></td><td>Current authenticated user profile</td><td>Any</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/projects</code></td><td>List all accessible projects</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/projects</code></td><td>Create a new project</td><td>Admin</td></tr>
+          <tr><td><span class="pill po">PATCH</span></td><td><code>/api/projects/:id/status</code></td><td>Update project status</td><td>GC+</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/projects/:id/members</code></td><td>Get project team members</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/projects/:id/members</code></td><td>Add team member to project</td><td>GC+</td></tr>
+          <tr><td><span class="pill pr">DELETE</span></td><td><code>/api/projects/:id/members/:uid</code></td><td>Remove team member</td><td>GC+</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/projects/:id/sheets</code></td><td>List sheets on a project</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/projects/:id/sheets/upload</code></td><td>Upload PDF drawing set</td><td>GC+</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/sheets/:id/versions</code></td><td>Sheet version history</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/sheets/:id/versions</code></td><td>Upload new sheet revision</td><td>GC+</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/sheets/:id/pins</code></td><td>Pins placed on a sheet</td><td>Any</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/projects/:id/pins</code></td><td>All pins for a project</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/pins</code></td><td>Create a punch item pin</td><td>FI+</td></tr>
+          <tr><td><span class="pill po">PUT</span></td><td><code>/api/pins/:id</code></td><td>Update a punch item</td><td>FI+</td></tr>
+          <tr><td><span class="pill po">PATCH</span></td><td><code>/api/pins/:id/status</code></td><td>Change pin status (role-gated)</td><td>Role-gated</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/pins/:id/assign</code></td><td>Assign pin to user or company</td><td>GC+</td></tr>
+          <tr><td><span class="pill pr">DELETE</span></td><td><code>/api/pins/:id</code></td><td>Delete a punch item</td><td>Admin only</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/pins/:id/photos</code></td><td>Upload inspection photo</td><td>FI+</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/pins/:id/comments</code></td><td>Add a comment to a pin</td><td>Any</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/sheets/:id/markups</code></td><td>Get markup annotations</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/sheets/:id/markups</code></td><td>Save a markup annotation</td><td>Any</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/companies</code></td><td>List companies</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/companies</code></td><td>Create a company</td><td>Admin/GC</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/team</code></td><td>List all users</td><td>Admin/GC</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/team</code></td><td>Add a user to the team</td><td>Admin</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/documents</code></td><td>List documents</td><td>Any</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/documents/upload</code></td><td>Upload a document</td><td>GC+</td></tr>
+          <tr><td><span class="pill pb">POST</span></td><td><code>/api/sync/batch</code></td><td>Sync offline mutation queue</td><td>Any</td></tr>
+          <tr><td><span class="pill pg">GET</span></td><td><code>/api/audit-logs</code></td><td>View audit trail</td><td>Admin</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 14 PERMISSIONS MATRIX -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num n14">14</div>
+      <div>
+        <div class="section-title">Role Permissions Matrix</div>
+        <div class="section-desc">Every permission mapped to every role at a glance</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Admin</th>
+            <th>Gen. Contractor</th>
+            <th>Subcontractor</th>
+            <th>Architect</th>
+            <th>Owner</th>
+            <th>Field Inspector</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>project.view</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td></tr>
+          <tr><td>project.create</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>project.update</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>team.manage</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>company.manage</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>sheet.view</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td></tr>
+          <tr><td>sheet.manage</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>pin.view</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td></tr>
+          <tr><td>pin.create</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td></tr>
+          <tr><td>pin.update</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td></tr>
+          <tr><td>pin.update.assigned</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td></tr>
+          <tr><td>pin.assign</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>pin.delete</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>pin.close</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+          <tr><td>comment.create</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td></tr>
+          <tr><td>photo.create</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td></tr>
+          <tr><td>report.export</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td></tr>
+          <tr><td>task.manage</td><td class="check">✅</td><td class="check">✅</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td><td class="cross">❌</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById('gen-date').textContent = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 13,
+    flowchart: { curve: 'basis', padding: 20 },
+    er: { diagramPadding: 20 },
+    sequence: { diagramMarginX: 20, diagramMarginY: 20 },
+  });
+</script>
+</body>
+</html>

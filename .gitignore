@@ -9,12 +9,17 @@ dist/
 build/
 .eggs/
 *.so
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 venv/
 .venv/
 env/
 ENV/
+backend/venv/
 
 # Environment / secrets — never commit real credentials
 .env
@@ -23,19 +28,23 @@ ENV/
 backend/.env
 frontend/.env
 !.env.example
+!backend/.env.example
 !frontend/.env.example
 
 # SQLite fallback database (generated at runtime)
 *.db
 *.sqlite3
+backend/data/
 
 # ── ReportLab / upload artefacts ──────────────────────────────────────────────
 backend/uploads/
+!backend/uploads/.gitkeep
 
 # ── Node / Frontend ────────────────────────────────────────────────────────────
 node_modules/
 frontend/node_modules/
 dist/
+frontend/dist/
 .vite/
 
 # ── OS & Editor ────────────────────────────────────────────────────────────────
@@ -49,3 +58,7 @@ Thumbs.db
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
+
+# ── docs ─────────────────────────────────────────────────────────────
+docs/
+

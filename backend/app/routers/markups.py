@@ -1,64 +1,58 @@
-"""
-routers/markups.py — Vector annotation endpoints for blueprint sheets.
+"""routers/markups.py — Vector annotation CRUD for blueprint sheets"""
+import uuid
+import json
+from datetime import datetime, timezone
 
-Routes
-------
-GET    /api/sheets/{sid}/markups      — List markups for a sheet
-POST   /api/sheets/{sid}/markups      — Add a markup annotation
-DELETE /api/markups/{id}              — Delete a markup
-"""
+from fastapi import APIRouter, Depends, HTTPException
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-
-from app.database import get_db
-from app.auth import get_current_user
-from app.models.markup import Markup
+from ..auth import get_current_user
+from ..database import execute_query, execute_one, execute_write, settings
+from ..permissions import can_user_access_project
+from ..sio import sio
 
 router = APIRouter(tags=["markups"])
 
 
-class MarkupCreate(BaseModel):
-    markup_type: str           # "text" | "arrow" | "rectangle" | "freehand" | "callout"
-    geometry:    str           # JSON-encoded geometry dict
-    color:       str = "#D97706"
-    label:       str | None = None
+@router.get("/api/sheets/{sheet_id}/markups")
+def get_markups(sheet_id: str, current_user: dict = Depends(get_current_user)):
+    return execute_query(
+        "SELECT * FROM markups WHERE sheet_id=:sid ORDER BY created_at ASC",
+        {"sid": sheet_id},
+    )
 
 
-@router.get("/sheets/{sheet_id}/markups")
-def list_markups(
-    sheet_id: int,
-    db:       Session = Depends(get_db),
-    user    = Depends(get_current_user),
-):
-    return db.query(Markup).filter(Markup.sheet_id == sheet_id).all()
+@router.post("/api/sheets/{sheet_id}/markups", status_code=201)
+async def create_markup(sheet_id: str, body: dict, current_user: dict = Depends(get_current_user)):
+    markup_id = f"mrk-{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    mtype = body.get("type", "freehand")
+    data = body.get("data")
+    data_str = json.dumps(data) if data is not None else None
+    author_id = body.get("author_id", current_user.get("id"))
+
+    execute_write(
+        """INSERT INTO markups (id,sheet_id,author_id,type,data,created_at)
+           VALUES (:id,:sid,:aid,:type,:data,:now)""",
+        dict(id=markup_id, sid=sheet_id, aid=author_id, type=mtype, data=data_str, now=now),
+    )
+
+    created = execute_one("SELECT * FROM markups WHERE id=:id", {"id": markup_id})
+    sheet = execute_one("SELECT project_id FROM sheets WHERE id=:id", {"id": sheet_id})
+    if sheet:
+        await sio.emit("markup:added", {"sheetId": sheet_id, "markup": created},
+                       room=f"project:{sheet['project_id']}")
+    return created
 
 
-@router.post("/sheets/{sheet_id}/markups", status_code=status.HTTP_201_CREATED)
-def create_markup(
-    sheet_id: int,
-    payload:  MarkupCreate,
-    db:       Session = Depends(get_db),
-    user    = Depends(get_current_user),
-):
-    markup = Markup(sheet_id=sheet_id, author_id=user.id, **payload.model_dump())
-    db.add(markup)
-    db.commit()
-    db.refresh(markup)
-    return markup
-
-
-@router.delete("/markups/{markup_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_markup(
-    markup_id: int,
-    db:        Session = Depends(get_db),
-    user     = Depends(get_current_user),
-):
-    markup = db.get(Markup, markup_id)
+@router.delete("/api/markups/{markup_id}")
+async def delete_markup(markup_id: str, current_user: dict = Depends(get_current_user)):
+    markup = execute_one("SELECT * FROM markups WHERE id=:id", {"id": markup_id})
     if not markup:
-        raise HTTPException(status_code=404, detail="Markup not found.")
-    if markup.author_id != user.id and user.role not in ("admin", "general_contractor"):
-        raise HTTPException(status_code=403, detail="Cannot delete another user's markup.")
-    db.delete(markup)
-    db.commit()
+        raise HTTPException(404, "Markup not found")
+    execute_write("DELETE FROM markups WHERE id=:id", {"id": markup_id})
+    sheet = execute_one("SELECT project_id FROM sheets WHERE id=:id", {"id": markup.get("sheet_id")})
+    if sheet:
+        await sio.emit("markup:deleted",
+                       {"sheetId": markup.get("sheet_id"), "markupId": markup_id},
+                       room=f"project:{sheet['project_id']}")
+    return {"message": "Markup deleted"}

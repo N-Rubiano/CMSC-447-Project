@@ -1,0 +1,88 @@
+﻿version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: punchlist
+      POSTGRES_USER: punchlist
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PunchList@2026!}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U punchlist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-Redis@2026!}
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (FastAPI + Socket.IO) ──────────────────────────────────────────
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://punchlist:${POSTGRES_PASSWORD:-PunchList@2026!}@db:5432/punchlist
+      REDIS_URL: redis://:${REDIS_PASSWORD:-Redis@2026!}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      RATE_LIMIT_ENABLED: "true"
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    depends_on:
+      db:    { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - uploads:/app/uploads
+
+  # ── Frontend (React + nginx) ───────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # ── Kafka + Zookeeper (enable with: docker compose --profile kafka up) ─────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    profiles: ["kafka"]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    profiles: ["kafka"]
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+volumes:
+  pg_data:
+  uploads:

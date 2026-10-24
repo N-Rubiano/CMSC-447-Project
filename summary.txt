@@ -1,0 +1,339 @@
+================================================================================
+                    PUNCHLIST PRO — PROJECT SUMMARY & ARCHITECTURE
+================================================================================
+
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+PunchList Pro is an enterprise, tablet-first construction field management and 
+inspection platform designed in the spirit of PlanGrid and Procore. It enables 
+General Contractors, Subcontractors, Architects, Owners, and Field Inspectors to 
+perform on-site walkthroughs, drop traceable punch pins, stamp subcontractor-
+attributed vector callouts, track document revisions, and resolve QA/QC defects 
+in real time across connected and offline environments.
+
+
+2. TECHNICAL STACK & INFRASTRUCTURE
+--------------------------------------------------------------------------------
+- Frontend Framework:        JavaScript (ES6+), React 18, Vite
+- Styling & User Interface:  Vanilla CSS3, CSS Custom Properties, Glassmorphic HUDs,
+                             Responsive Design (Desktop, Laptop, Tablet, Mobile)
+- Blueprint Rendering:       PDF.js (pdfjs-dist), HTML5 Canvas API, Dynamic Viewport 
+                             Re-rendering Engine (Crystal-clear 4K zoom without pixelation)
+- Offline Storage & Cache:   Dexie.js (IndexedDB wrapper) with background sync queue
+- Backend Server:            Python 3.14, FastAPI, Uvicorn ASGI (Port 4000)
+                             Interactive API Docs at /docs (Swagger) and /redoc
+- Relational Database:       Dual-Engine Database Architecture via SQLAlchemy 2.0:
+                             * PostgreSQL (pg8000 driver, pure-Python, zero C-deps)
+                             * SQLite fallback (automatic portable local storage)
+- Real-Time Synchronization: Socket.IO (python-socketio AsyncServer on /socket.io)
+- Reporting & Export Engine: ReportLab & PyPDF (Annotated plan sets, formal punch 
+                             reports with embedded photos, and CSV spreadsheet exports)
+- Authentication & Security: JWT (python-jose), bcrypt password hashing (passlib/bcrypt), 
+                             Role-Based Access Control guards (RBAC)
+
+
+3. DATABASE ARCHITECTURE (POSTGRESQL & SQLITE)
+--------------------------------------------------------------------------------
+The platform runs on a dual-support relational database (PostgreSQL primary / SQLite dev):
+- `users`: Credentials, avatar, company, contact info, and role assignment.
+- `projects`: Construction projects, project codes, addresses, target dates.
+- `companies`: Contractor and Subcontractor entities with trade categories.
+- `sheets`: Blueprint sheets, building tags, disciplines, active revisions.
+- `sheet_versions`: Revision history timeline, file URLs, and change notes.
+- `pins`: Traceable punch items, room locations, coordinates (x_pct, y_pct), 
+  subcontractor initials stamp, root cause categorization, priority, status.
+- `comments`: Chronological note stream, field updates, author attribution.
+- `photos`: High-resolution punch attachments with captions and dimensions.
+- `markups`: Vector annotations (clouds, rectangles, arrows, pen, text, dimensions).
+- `project_members`: Project-level user roles and assignment mappings.
+- `tasks`: v2 Subcontractor task workflow, trade tracking, status state machine.
+- `audit_logs`: Detailed audit trail and field change history per project.
+
+
+4. USER ROLES & ROLE-BASED ACCESS CONTROL (RBAC) ARCHITECTURE
+--------------------------------------------------------------------------------
+PunchList Pro implements an enterprise construction governance model with six 
+canonical system roles, multi-tier scoping (system, project, and company/trade), 
+and an enforced lifecycle status transition state machine:
+
+1. Canonical Roles & Responsibilities:
+   * Facility Administrator (`admin`):
+     - Role Label: "Facility Administrator"
+     - Scope: Unrestricted system-wide project governance and administrative oversight.
+     - Capabilities: Full project CRUD, drawing set ingestion, team membership allocation, 
+       company directory management, pin creation/assignment, and sole authority to 
+       formally close or permanently delete punch pins.
+   * General Contractor (`general_contractor`):
+     - Role Label: "General Contractor"
+     - Scope: Project-level supervisory management for assigned GC projects or partner GCs.
+     - Capabilities: Project updating, team allocation, sheet upload/management, pin 
+       creation, subcontractor assignment, inspection reviews, field report sign-off, 
+       and PDF/CSV export. GCs can reject submissions back to "In Progress" or escalate 
+       to "Submitted for Admin Review", but cannot directly close pins.
+   * Trade Subcontractor (`sub_contractor`):
+     - Role Label: "Trade Subcontractor"
+     - Scope: Scoped strictly to punch items assigned to their specific trade company 
+       or user account within their assigned projects.
+     - Capabilities: View assigned sheets and punch items, update work status 
+       ("In Progress" and "Submitted for Contractor Review"), post field comments, 
+       and upload "Work Completed" photographic proof. Cannot create or reassign pins.
+   * Architect (`architect`):
+     - Role Label: "Architect"
+     - Scope: Design compliance and architectural specification auditing.
+     - Capabilities: View project drawings, drop architectural punch pins, annotate 
+       markups, log specification comments, upload defect photos, and export reports.
+   * Owner / Client Representative (`owner`):
+     - Role Label: "Owner"
+     - Scope: Read-only executive transparency across commissioned projects.
+     - Capabilities: View project progress, inspect sheets and punch pins, review 
+       audit trails, add stakeholder comments, and generate formal executive reports.
+   * Field Inspector (`field_inspector`):
+     - Role Label: "Field Inspector"
+     - Scope: On-site QA/QC walkthrough and code compliance verification.
+     - Capabilities: Field walkthrough inspection, dropping new punch pins, updating 
+       status to "In Progress" or "Contractor Review", logging comments, and uploading 
+       field photos.
+
+2. Enforced Capability Matrix:
+   ┌──────────────────────┬───────┬───────┬───────┬───────┬───────┬───────┐
+   │ Capability           │ Admin │  GC   │ Sub   │ Arch  │ Owner │ Insp  │
+   ├──────────────────────┼───────┼───────┼───────┼───────┼───────┼───────┤
+   │ project.view         │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │
+   │ project.create       │   ✓   │   -   │   -   │   -   │   -   │   -   │
+   │ project.update       │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   │ team.manage          │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   │ company.manage       │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   │ sheet.view           │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │
+   │ sheet.manage         │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   │ pin.view             │   ✓   │   ✓   │  (1)  │   ✓   │   ✓   │   ✓   │
+   │ pin.create           │   ✓   │   ✓   │   -   │   ✓   │   -   │   ✓   │
+   │ pin.update           │   ✓   │   ✓   │   -   │   ✓   │   -   │   ✓   │
+   │ pin.update.assigned  │   ✓   │   ✓   │   ✓   │   ✓   │   -   │   ✓   │
+   │ pin.assign           │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   │ pin.close            │   ✓   │   -   │   -   │   -   │   -   │   -   │
+   │ pin.delete           │   ✓   │   -   │   -   │   -   │   -   │   -   │
+   │ comment.create       │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │   ✓   │
+   │ photo.create         │   ✓   │   ✓   │   ✓   │   ✓   │   -   │   ✓   │
+   │ report.export        │   ✓   │   ✓   │   -   │   ✓   │   ✓   │   -   │
+   │ task.manage          │   ✓   │   ✓   │   -   │   -   │   -   │   -   │
+   └──────────────────────┴───────┴───────┴───────┴───────┴───────┴───────┘
+   (1) Subcontractor pin visibility is scoped strictly to items assigned to their company.
+
+3. Punch Item Lifecycle & Status Transition State Machine:
+   The backend rigorously enforces status transitions via `validate_status_transition`:
+   [Open / Assigned]
+          │
+          ▼ (Subcontractor / GC / Inspector)
+   [In Progress]
+          │
+          ▼ (Subcontractor / Inspector submit remediation proof)
+   [Submitted for Contractor Review (In Review)]
+          ├──────────────────────────────────────────┐
+          ▼ (GC Rejects / Requests rework)            ▼ (GC Approves)
+   [In Progress]                              [Submitted for Admin Review]
+                                                     │
+                                                     ▼ (Facility Admin Final Sign-Off)
+                                              [Closed / Resolved]
+
+   - Subcontractor Boundary: Permitted only to move Open → In Progress → Contractor Review.
+   - General Contractor Boundary: Evaluates subcontractor remediation; can reject back 
+     to In Progress or approve to Admin Review. Cannot close items directly.
+   - Facility Admin Boundary: Sole role authorized to transition items to "Closed" or delete pins.
+
+4. Scoping & Access Control Hierarchy:
+   - System-Level: Global administrator bypass allows cross-project audit and remediation.
+   - Project-Level (`can_user_access_project`): Non-admins require explicit membership 
+     records in `project_members`, assignment as primary GC (`gc_user_id`), or contractor company link.
+   - Pin-Level (`can_user_access_pin`): Subcontractors can only access pins matching their 
+     `assigned_subcontractor_id`, `assigned_to_user_id`, or `assigned_to_company` name.
+
+
+5. DESIGN SYSTEM ARCHITECTURE
+--------------------------------------------------------------------------------
+The PunchList Pro design system (`frontend/src/styles/theme.css`) is built from the 
+ground up for industrial tablet durability, outdoor sunlight readability, and 
+CAD/BIM precision. It eliminates generic framework styling in favor of bespoke tokens, 
+architectural earth tones, and responsive HUD glassmorphism.
+
+1. Design Philosophy & Ergonomics:
+   - Tablet-First Field Usability: Generous touch targets (38px+ buttons, 36px+ stamps), 
+     `-webkit-tap-highlight-color: transparent`, and zero-latency manipulation.
+   - Glare-Resistant Architectural Palette: High-contrast parchment canvas tones 
+     reducing eye fatigue under direct jobsite sunlight.
+   - Non-Destructive Layering: Glassmorphic floating HUD controls and overlay panels 
+     that maximize active blueprint canvas area.
+
+2. Core Color Palette & Design Tokens:
+   - Structural Surfaces:
+     * App Background:       `--bg-app` (#F8F7F4) — Warm industrial off-white
+     * Blueprint Canvas:     `--bg-canvas` (#F0ECE1) — Architectural drafting surface
+     * Card Surfaces:        `--bg-surface-1` (#FFFFFF), `--bg-surface-2` (#F7F5F0), 
+                             `--bg-surface-3` (#ECE7DC), `--bg-surface-highest` (#DFD9CC)
+     * Heavy Glass HUDs:     `--bg-glass-heavy` (rgba(255, 255, 255, 0.97)) + blur(20px)
+   - Brand Palette:
+     * Construction Amber:   `--primary` / `--brand-yellow-dark` (#D97706) & (#EAB308)
+     * Timber Brown:         `--brand-brown` (#5C3A21) & `--brand-brown-dark` (#3E2413)
+     * Deep Charcoal Black:  `--brand-black` / `--border-strong` (#18181B / #1C1917)
+     * Safety Crimson:       `--brand-red` / `--status-open` (#DC2626)
+   - Semantic Status Tokens:
+     * Open / Action Needed: Red (#DC2626, Bg: #FEF2F2, Border: #FCA5A5, Glow: rgba(220,38,38,0.35))
+     * In Review (Pending GC): Amber (#D97706, Bg: #FFFBEB, Border: #FCD34D, Glow: rgba(217,119,6,0.35))
+     * Closed / Sign-Off:    Green (#15803D, Bg: #F0FDF4, Border: #86EFAC, Glow: rgba(21,128,61,0.35))
+     * Rejected / Inactive:  Warm Slate (#78716C, Bg: #F5F5F4, Border: #D6D3D1)
+   - Priority Hierarchy:
+     * Critical:             Crimson Red (#DC2626) + animated SVG `@keyframes pulseRing`
+     * High:                 Construction Amber (#D97706)
+     * Medium:               Ochre Yellow (#CA8A04)
+     * Low:                  Neutral Slate (#78716C)
+
+3. Typography & Micro-Hierarchy:
+   - Primary Interface:     `--font-sans` ('Inter', system-ui, sans-serif) — Clean geometric 
+                            sans-serif tuned for crisp rendering on retina and mobile displays.
+   - CAD Technical Data:    `--font-mono` ('JetBrains Mono', monospace) — Fixed-width font 
+                            governing live plan coordinate HUDs (X%/Y%), sheet version tags, 
+                            subcontractor trade initials, and numerical item counters.
+
+4. Component Architecture & HUD Systems:
+   - Floating Vector Toolbars (`.floating-toolbar`):
+     * Glassmorphism: `backdrop-filter: blur(20px)`, heavy glass opacity (97%), 
+       warm drop shadows (`--shadow-lg`), and crisp amber active states.
+     * Ergonomic layout: Top-left floating tool switcher, bottom-right zoom & layer controls.
+   - Interactive Stamped Circle Pins (`.pin-circle-stamp`):
+     * Circular badge displaying 2-letter uppercase trade initials (e.g. "MP" for Metro 
+       Plumbing, "AC" for Apex Concrete) with distinct trade color accents.
+     * Dynamic Interaction: Smooth scale up on hover (1.15x), active drag elevation (1.25x 
+       with drop-shadow of 24px), tactile grabbing cursors, and coordinate tooltip.
+   - Traditional Teardrop CAD Pins (`.pin-marker`):
+     * 45-degree rotated counter-head with high-contrast numerical identifier, hovering 
+       room/trade label badge, and pulsating halo for critical blockers.
+   - Real-Time Coordinate HUD (`.coordinate-hud`):
+     * Bottom-center floating pill displaying real-time cursor/drag coordinates in plan percentages.
+   - Slide-Over Drawer Panels (`.drawer-panel`):
+     * 480px side drawer featuring spring-eased slide transitions, full-height inspection 
+       forms, photo attachments, and comment feeds.
+
+5. Responsive Design & Viewport Adaptability:
+   - Desktop & Laptop (>1024px): Full dual-pane workflow with collapsible left navigation 
+     rail, floating CAD HUDs, and real-time cursor coordinate chip.
+   - Tablet Landscape & Portrait (768px - 1024px): Primary on-site operating mode with 
+     touch-optimized toolbar buttons, slide-over detail drawers, and pinch-to-zoom canvas.
+   - Compact Mobile (<820px): Automatic suppression of floating coordinate chips to eliminate 
+     canvas obstruction; toolbars compress to compact floating clusters with touch shields.
+
+
+6. CORE MODULES & IMPLEMENTED CAPABILITIES
+--------------------------------------------------------------------------------
+
+1. Master Dashboard (Primary Overview):
+   - Real-time project KPI metric cards: Resolution Rate (%), Active / In Progress 
+     tasks, Items in Review, and Critical Blockers.
+   - Review Queues: Subcontractor submissions awaiting GC inspection, and 
+     contractor-approved items awaiting Facility Admin final sign-off.
+   - Filterable Master Punch Table: Instant multi-column filtering by trade, 
+     status, priority, keyword search, room location, and assignee.
+   - Subcontractor "My Work" Queue: Scoped task cards with one-click status transitions.
+   - One-Click Exports: Full Annotated Plan Set PDF, Punch Report PDF, and CSV.
+
+2. Centralized Field Report:
+   - Centralized activity feed displaying all field notes, punch updates, and 
+     comments sorted automatically newest-to-oldest.
+   - Quick Field Note Composer to capture immediate on-site observations.
+   - Full context cards showing author avatar, role, timestamp, trade, and room.
+
+3. Project Documents & Blueprint Issue Tracking:
+   - Structured document review table detailing issue info, related comments, 
+     creation date/time, author, and associated architectural sheet.
+   - `[View Document]` Actions: One-click jump opening the referenced sheet in 
+     the interactive blueprint viewer with focus on the exact punch coordinate.
+   - Blueprint and specification catalog management.
+
+4. Photos Gallery:
+   - Dedicated media feed strictly displaying punch items and comments with 
+     images attached, ordered latest first.
+   - Interactive Photo Zoom Lightbox: High-resolution zoom up to 800%, drag-to-pan, 
+     and direct original file download.
+
+5. Architectural Blueprint Ingestion & Version Control:
+   - Multi-format ingestion: Upload building plans in PDF, PNG, JPG, and CAD formats.
+   - Building-Specific Cataloging: Associate blueprints with specific buildings, 
+     levels, and disciplines (Architectural, Structural, MEP, Civil).
+   - Version / Revision Timeline: Ingest updated blueprint revisions (Rev 1, Rev 2, etc.) 
+     while seamlessly preserving all existing punch pins and vector markups.
+
+6. High-Fidelity 4K Blueprint Viewer:
+   - Multi-tier dynamic viewport canvas rendering that re-renders vectors at 
+     actual device pixels during zoom, completely preventing blur or pixelation.
+   - Smooth mouse-wheel zoom, pinch-to-zoom, pan gestures, and minimap navigation.
+
+7. Circle Stamp Tool & Subcontractor Initials:
+   - Interactive creation modal featuring trade/discipline dropdown, status, 
+     location grid, subcontractor name with live initials preview, root cause, 
+     observation description, and photo upload.
+   - Stamped circles display uppercase first and last initials (e.g., "MP" for 
+     Metro Plumbing, "AC" for Apex Concrete) with unique item numbers.
+   - Admin & GC Drag-to-Place Repositioning: Drag stamped circles across the plan 
+     with instant PostgreSQL coordinate persistence and WebSocket broadcast.
+
+8. Vector Annotation & Markup Suite:
+   - CAD-grade vector tools: Revision Clouds, Rectangles, Circles, Arrows, 
+     Freehand Pen, and Dimensioning measurements.
+   - Full Undo / Redo engine supporting keyboard shortcuts (Ctrl+Z / Ctrl+Y) and HUDs.
+
+9. Team Management:
+   - Cleanly segregated participant tables:
+     * General Contractors: General contractors, architects, and owners.
+     * Subcontractors: Trade partners with trade/discipline tags (HVAC, Electrical, 
+       Plumbing, Drywall, Concrete, etc.).
+   - Full participant CRUD: Add, edit, remove, and manage access permissions.
+
+10. Categorized Settings Hub:
+    - Dedicated configuration panels for Account/Profile, Notification preferences, 
+      Project settings, User Permissions matrix (RBAC), Field options, Document 
+      parameters, and Photo upload optimization.
+
+11. Responsive Layout & Collapsible Navigation:
+    - Collapsible left-rail sidebar on desktop; responsive slide-over drawer on tablet/mobile.
+    - Persistent top navigation bar with dynamic project/sheet switchers, offline sync 
+      indicator, and view mode toggles.
+
+
+7. PROJECT DIRECTORY STRUCTURE & RUNNING LOCALLY
+--------------------------------------------------------------------------------
+PunchList/
+├── backend/                      ← Consolidated Python / FastAPI backend (Port 4000)
+│   ├── .env                      ← Database credentials & settings
+│   ├── requirements.txt          ← Python dependencies
+│   ├── venv/                     ← Python 3.14 virtual environment
+│   ├── uploads/                  ← Blueprint PDFs, punch photos, and attachments
+│   └── app/
+│       ├── main.py               ← FastAPI app + Socket.IO ASGI mount
+│       ├── database.py           ← Dual PostgreSQL / SQLite engine + migration helpers
+│       ├── auth.py               ← JWT & bcrypt authentication
+│       ├── config.py             ← Settings loaded from environment
+│       ├── sio.py                ← python-socketio real-time event hub
+│       ├── permissions.py        ← Role-based access control (RBAC)
+│       ├── routers/              ← REST API endpoints (auth, projects, sheets, pins,
+│       │                            markups, reports, sync, tasks, users, companies)
+│       └── services/             ← ReportLab PDF export & task state validation
+├── frontend/                     ← React 18 / Vite tablet-first web app (Port 3000)
+│   ├── src/                      ← Components, canvas renderers, offline Dexie DB
+│   └── vite.config.js            ← Proxies /api, /uploads, /socket.io to backend
+├── package.json                  ← Orchestration scripts (npm run dev)
+└── summary.txt                   ← This architecture and summary document
+
+Quick Start Commands:
+- `npm run dev`                   ← Run both backend and frontend concurrently
+- `npm run dev:backend`           ← Run FastAPI server only (http://localhost:4000)
+- `npm run dev:frontend`          ← Run Vite dev server only (http://localhost:3000)
+- `npm run setup:python`          ← Create venv and install Python dependencies
+
+Default Credentials:
+- Email:    `admin@punchlist.pro`
+- Password: `admin123`
+
+UMBC Campus Building & Floor Hierarchy:
+- 39 UMBC buildings registered under frontend/src/data/umbcBuildings.js
+- Dual-pane cascading selector in top navigation bar: Building → Floor → Blueprint → Projects
+- Direct floor selection switches to floor blueprint canvas or empty state with pre-filled upload modal
+================================================================================
+
