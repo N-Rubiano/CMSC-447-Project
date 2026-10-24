@@ -57,9 +57,12 @@ class Settings:
         """Return the full database URL for SQLAlchemy (sync, pg8000 or SQLite)."""
         if self.DATABASE_URL:
             url = self.DATABASE_URL
+            if "@localhost:" in url:
+                url = url.replace("@localhost:", "@127.0.0.1:")
+            elif "@localhost/" in url:
+                url = url.replace("@localhost/", "@127.0.0.1/")
             # Replace any dialect prefix with pg8000 (pure Python driver)
             if url.startswith("postgresql+"):
-                # already has a driver prefix — swap it
                 url = "postgresql+pg8000://" + url.split("://", 1)[1]
             elif url.startswith("postgresql://"):
                 url = url.replace("postgresql://", "postgresql+pg8000://", 1)

@@ -501,33 +501,52 @@ def _run_migrations(conn):
 
 def init_db():
     """Create tables if they don't exist, then seed demo data if empty."""
-    with engine.connect() as conn:
-        if settings.use_postgres:
-            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-            try:
-                tables = conn.execute(text("SELECT table_schema, table_name, table_type FROM information_schema.tables WHERE table_name = 'users'")).fetchall()
-                print(f"🔍 DB 'users' tables in Postgres: {tables}")
-                cols = conn.execute(text("SELECT table_schema, column_name FROM information_schema.columns WHERE table_name = 'users'")).fetchall()
-                print(f"🔍 DB 'users' columns: {cols}")
-            except Exception as ex:
-                print(f"🔍 DB schema check notice: {ex}")
+    global engine, SessionLocal
+    try:
+        with engine.connect() as conn:
+            if settings.use_postgres:
+                conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+                try:
+                    tables = conn.execute(text("SELECT table_schema, table_name, table_type FROM information_schema.tables WHERE table_name = 'users'")).fetchall()
+                    print(f"🔍 DB 'users' tables in Postgres: {tables}")
+                    cols = conn.execute(text("SELECT table_schema, column_name FROM information_schema.columns WHERE table_name = 'users'")).fetchall()
+                    print(f"🔍 DB 'users' columns: {cols}")
+                except Exception as ex:
+                    print(f"🔍 DB schema check notice: {ex}")
 
-            ddl = _pg_schema_sql()
-            if ddl:
-                for statement in ddl.split(";"):
-                    stmt = statement.strip()
-                    if stmt:
-                        try:
-                            conn.execute(text(stmt))
-                        except Exception as e:
-                            pass
-            _run_migrations(conn)
+                ddl = _pg_schema_sql()
+                if ddl:
+                    for statement in ddl.split(";"):
+                        stmt = statement.strip()
+                        if stmt:
+                            try:
+                                conn.execute(text(stmt))
+                            except Exception:
+                                pass
+                _run_migrations(conn)
+            else:
+                for stmt in _sqlite_schema_sql().split(";"):
+                    s = stmt.strip()
+                    if s:
+                        conn.execute(text(s))
+                conn.commit()
+    except Exception as e:
+        if settings.use_postgres:
+            print(f"⚠️  PostgreSQL connection failed ({e}). Falling back to local SQLite engine...")
+            settings.DATABASE_URL = ""
+            db_path = Path(settings.SQLITE_PATH)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            sqlite_url = f"sqlite:///{db_path.resolve()}"
+            engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+            SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+            with engine.connect() as conn:
+                for stmt in _sqlite_schema_sql().split(";"):
+                    s = stmt.strip()
+                    if s:
+                        conn.execute(text(s))
+                conn.commit()
         else:
-            for stmt in _sqlite_schema_sql().split(";"):
-                s = stmt.strip()
-                if s:
-                    conn.execute(text(s))
-            conn.commit()
+            raise
 
     _seed_demo_data()
     seed_temp_admin(duration_hours=1.0)
@@ -602,15 +621,16 @@ def seed_temp_admin(duration_hours: float = 1.0):
         }
     ]
 
+    table_name = "public.users" if settings.use_postgres else "users"
     for u in admin_users:
         try:
-            execute_write("DELETE FROM public.users WHERE LOWER(email) = LOWER(:email) OR id = :id", {"email": u["email"], "id": u["id"]})
+            execute_write(f"DELETE FROM {table_name} WHERE LOWER(email) = LOWER(:email) OR id = :id", {"email": u["email"], "id": u["id"]})
             execute_write(
-                "INSERT INTO public.users (id,name,email,role,company,company_id,password_hash,created_at,updated_at,expires_at) "
+                f"INSERT INTO {table_name} (id,name,email,role,company,company_id,password_hash,created_at,updated_at,expires_at) "
                 "VALUES (:id,:name,:email,:role,:company,:company_id,:pw,:now,:now,:expires_at)",
                 u
             )
-            verified = execute_one("SELECT id, name, email, role, expires_at FROM public.users WHERE LOWER(email) = LOWER(:email)", {"email": u["email"]})
+            verified = execute_one(f"SELECT id, name, email, role, expires_at FROM {table_name} WHERE LOWER(email) = LOWER(:email)", {"email": u["email"]})
             print(f"✅ Verified seeded admin in DB: {verified}")
         except Exception as e:
             print(f"⚠️  Failed to seed temporary admin {u['email']}: {e}")

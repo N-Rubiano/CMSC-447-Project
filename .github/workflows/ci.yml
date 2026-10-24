@@ -38,9 +38,9 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -52,18 +52,32 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx pytest-asyncio
+      - name: Wait for PostgreSQL
+        run: |
+          python -c "
+          import socket, time
+          for _ in range(30):
+              try:
+                  s = socket.create_connection(('127.0.0.1', 5432), timeout=1)
+                  s.close()
+                  print('PostgreSQL port 5432 ready')
+                  break
+              except Exception:
+                  time.sleep(1)
+          "
       - name: Run migrations
         env:
-          DATABASE_URL: postgresql://punchlist:test_password@localhost:5432/punchlist_test
+          DATABASE_URL: postgresql://punchlist:test_password@127.0.0.1:5432/punchlist_test
         run: python -m migrations.runner || true
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://punchlist:test_password@localhost:5432/punchlist_test
+          DATABASE_URL: postgresql://punchlist:test_password@127.0.0.1:5432/punchlist_test
           JWT_SECRET: test-secret-ci
-        run: |
-          pip install pytest httpx pytest-asyncio
-          pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=short
 
   # ── Docker build check ────────────────────────────────────────────────────
   docker-check:
