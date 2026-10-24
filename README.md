@@ -110,7 +110,6 @@ PunchList Pro enforces an enterprise construction governance matrix:
 ```bash
 # Clone the repository
 git clone https://github.com/SdThakur/CMSC-447-Project.git
-cd CMSC-447-Project
 
 # Install frontend & root dependencies
 npm run install:all
