@@ -58,9 +58,21 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ secrets.DEPLOY_HOST != '' }}
     steps:
+      - name: Check deployment config
+        id: check_deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "DEPLOY_HOST secret is not configured; skipping SSH rollout."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy via SSH
+        if: steps.check_deploy.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
