@@ -1,2 +1,1 @@
-# routers/__init__.py
-# Routers package — all modules are imported explicitly in main.py.
+# backend/app/routers/__init__.py

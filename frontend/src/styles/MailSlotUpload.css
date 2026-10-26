@@ -1,0 +1,662 @@
+/* MailSlotUpload.css: the letterbox, the envelopes and the mail tray.
+   susanoo.ui
+   ------------------------------------------------------------------------
+   Top to bottom: the door with its letterbox (the drop target), the hint,
+   any bounced-file notes, and the mail tray (the upload list). The component
+   fills its parent's width up to --ms-max-width. The door and its hardware
+   scale with it through --ms-k, which the component sets from its own width
+   (1 at 600px and up, 0.62 at its smallest). Colours, finishes and type come
+   from tokens.css.
+
+   Everything is scoped under .mail-slot-root: no bare body/html/* rules, so
+   nothing leaks into the rest of your app.
+   ============================================================================ */
+
+/* Scoped reset: zero specificity via :where(), so the component renders the
+   same whether or not your app has its own CSS reset. */
+:where(.mail-slot-root, .mail-slot-root *, .mail-slot-root *::before, .mail-slot-root *::after) {
+  box-sizing: border-box;
+}
+:where(.mail-slot-root) :where(button, input) { font: inherit; color: inherit; }
+:where(.mail-slot-root) :where(p, ul) { margin: 0; }
+:where(.mail-slot-root) :where(ul) { padding: 0; list-style: none; }
+
+.mail-slot-root {
+  --ms-k: 1;
+  --ms-gap: calc(10px + 6px * var(--ms-k));
+  --ms-stamp-w: calc(106px + 28px * var(--ms-k));   /* RECEIVED */
+  --ms-return-w: calc(116px + 32px * var(--ms-k));  /* RETURN TO SENDER */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ms-gap);
+  width: 100%;
+  max-width: var(--ms-max-width);
+  margin-inline: auto;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tr-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ms-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* =============================== DOOR =============================== */
+/* A section of a painted panel door, cropped by the card: a raised panel
+   running off the top, the middle rail with the letterbox, and another
+   panel running off the bottom. */
+.ms-stage { position: relative; }
+
+.ms-door {
+  position: relative;
+  height: calc(250px * var(--ms-k));
+  overflow: hidden;
+  border-radius: calc(18px * var(--ms-k));
+  background:
+    linear-gradient(105deg, rgba(255, 255, 255, var(--ms-door-sheen)) 0%, transparent 36%,
+      transparent 72%, rgba(255, 255, 255, calc(var(--ms-door-sheen) * 0.45)) 100%),
+    repeating-linear-gradient(90deg,
+      rgba(var(--ms-grain-rgb), 0.03) 0 1px, transparent 1px 5px,
+      rgba(var(--ms-grain-rgb), 0.018) 5px 6px, transparent 6px 11px),
+    linear-gradient(180deg, var(--ms-door-hi), var(--ms-door-lo));
+  box-shadow: var(--ms-door-shadow);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Raised panels: the bevel is four borders of different shades meeting at
+   mitred corners, lit from the top left. */
+.ms-panel {
+  position: absolute;
+  left: calc(34px * var(--ms-k));
+  right: calc(34px * var(--ms-k));
+  height: calc(128px * var(--ms-k));
+  border: calc(10px * var(--ms-k)) solid;
+  border-color: var(--ms-bevel-top) var(--ms-bevel-right) var(--ms-bevel-bottom) var(--ms-bevel-left);
+  border-radius: calc(3px * var(--ms-k));
+  background: linear-gradient(180deg, var(--ms-field-hi), var(--ms-field-lo));
+  box-shadow: 0 0 0 1px var(--ms-groove), 0 0 0 2px var(--ms-groove-light);
+  pointer-events: none;
+}
+.ms-panel-top { top: calc(-70px * var(--ms-k)); }
+.ms-panel-bottom { bottom: calc(-70px * var(--ms-k)); }
+
+/* ============================ LETTERBOX ============================= */
+/* The plate is the button. Positioned with left/top rather than a
+   transform, so the component can measure where the slot is from offsets. */
+.ms-plate {
+  --ms-plate-halo: 0 0 0 0 transparent;
+  position: absolute;
+  left: calc(50% - 162px * var(--ms-k));
+  top: calc(50% - 46px * var(--ms-k));
+  width: calc(324px * var(--ms-k));
+  height: calc(92px * var(--ms-k));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(10px * var(--ms-k));
+  background:
+    linear-gradient(112deg, transparent 20%, rgba(255, 255, 255, var(--ms-metal-glint)) 34%, transparent 48%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--ms-metal-hi), var(--ms-metal-mid) 58%, var(--ms-metal-lo));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--ms-metal-rim)),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.26),
+    inset 0 0 0 1px var(--ms-metal-edge),
+    0 1px 1px rgba(0, 0, 0, 0.22),
+    0 calc(10px * var(--ms-k)) calc(22px * var(--ms-k)) calc(-8px * var(--ms-k)) rgba(0, 0, 0, var(--ms-plate-shadow)),
+    var(--ms-plate-halo);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 320ms var(--ease-out-quart), transform 120ms var(--ease-out-quart);
+}
+.ms-plate:active:not(:disabled) { transform: translateY(1px); }
+.ms-plate:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: calc(3px + 3px * var(--ms-k));
+}
+.is-over .ms-plate {
+  --ms-plate-halo: 0 0 0 calc(6px * var(--ms-k)) var(--ms-halo), 0 0 calc(44px * var(--ms-k)) var(--ms-halo-glow);
+}
+
+.ms-screw {
+  position: absolute;
+  top: calc(50% - 6px * var(--ms-k));
+  width: calc(12px * var(--ms-k));
+  height: calc(12px * var(--ms-k));
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, var(--ms-metal-hi), var(--ms-metal-mid) 45%, var(--ms-metal-lo) 80%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.ms-screw:first-child { left: calc(15px * var(--ms-k)); }
+.ms-screw:nth-child(2) { right: calc(15px * var(--ms-k)); }
+.ms-screw::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  top: calc(50% - 0.6px);
+  height: 1.2px;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.45);
+  transform: rotate(-24deg);
+}
+.ms-screw:nth-child(2)::after { transform: rotate(38deg); }
+
+/* The slot. It clips the flap, so the flap disappears into the door as it
+   swings in, and its perspective gives the swing depth. */
+.ms-opening {
+  position: absolute;
+  left: calc(40px * var(--ms-k));
+  right: calc(40px * var(--ms-k));
+  top: calc(50% - 15px * var(--ms-k));
+  height: calc(30px * var(--ms-k));
+  overflow: hidden;
+  border-radius: calc(5px * var(--ms-k));
+  background: linear-gradient(180deg, var(--ms-slot-deep), var(--ms-slot));
+  box-shadow:
+    inset 0 calc(3px * var(--ms-k)) calc(6px * var(--ms-k)) rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(255, 255, 255, var(--ms-metal-rim));
+  perspective: calc(240px * var(--ms-k));
+}
+
+/* Light from inside the house, seen when the flap lifts. */
+.ms-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 150% at 50% 115%,
+    rgba(var(--ms-glow-rgb), 0.8), rgba(var(--ms-glow-rgb), 0.2) 55%, transparent 82%);
+  opacity: 0;
+  transition: opacity 260ms var(--ease-out-quart);
+}
+.is-over .ms-light,
+.mail-slot-root[data-flap="open"] .ms-light { opacity: 1; }
+
+/* The flap: a nickel bar hinged along its top edge, with LETTERS engraved. */
+.ms-flap {
+  position: absolute;
+  inset: calc(2.5px * var(--ms-k));
+  display: grid;
+  place-items: center;
+  border-radius: calc(3.5px * var(--ms-k));
+  transform-origin: 50% 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--ms-metal-hi) 0%, var(--ms-metal-mid) 48%, var(--ms-metal-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--ms-metal-rim)),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.ms-flap-word {
+  margin-right: -0.5em;            /* the last letter's tracking */
+  font-size: calc(9px * var(--ms-k));
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.5em;
+  color: var(--ms-engrave);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ============================= ENVELOPES ============================ */
+/* In the air: absolutely placed over the door in its own pixels, sized in
+   em from the component (1em is about 10px at full size). */
+.ms-flights {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.ms-flight {
+  position: absolute;
+  inset: 0;
+  perspective: 700px;
+}
+.ms-env {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+.ms-env-paper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 0.35em;
+  background: linear-gradient(170deg, var(--ms-paper-hi), var(--ms-paper) 55%, var(--ms-paper-lo));
+  box-shadow:
+    inset 0 0 0 1px var(--ms-paper-edge),
+    0 0.12em 0.3em rgba(0, 0, 0, 0.16),
+    0 0.8em 1.6em -0.5em rgba(0, 0, 0, var(--ms-env-shadow));
+  color: var(--ms-paper-text);
+}
+/* The return address, as two short grey lines. */
+.ms-env-from,
+.ms-env-from::after {
+  position: absolute;
+  height: 0.3em;
+  border-radius: 0.15em;
+  background: rgba(var(--ms-ink-rgb), 0.14);
+}
+.ms-env-from { left: 1.2em; top: 1.2em; width: 4.4em; }
+.ms-env-from::after { content: ''; left: 0; top: 0.7em; width: 3em; }
+
+.ms-env-postage {
+  position: absolute;
+  top: 0.9em;
+  right: 0.9em;
+  width: 2.9em;
+  height: 3.4em;
+  display: grid;
+  place-items: center;
+  border: 0.2em dotted var(--ms-paper);     /* the dots read as perforations */
+  background: var(--ms-postage);
+  box-shadow: inset 0 0 0 0.12em var(--ms-postage), inset 0 0 0 0.2em rgba(var(--ms-ink-rgb), 0.2);
+  color: var(--ms-paper-text-2);
+}
+.ms-env-postage svg { width: 1.6em; height: 1.6em; }
+.ms-env-postmark {
+  position: absolute;
+  top: 1.35em;
+  right: 2.7em;
+  width: 5.8em;
+  height: 2.7em;
+  fill: none;
+  stroke: rgba(var(--ms-ink-rgb), 0.3);
+  stroke-width: 1.2;
+}
+.ms-env-to {
+  position: absolute;
+  left: 1.3em;
+  right: 1.3em;
+  bottom: 1.15em;
+  display: grid;
+  gap: 0.3em;
+  padding-top: 0.5em;
+  border-top: 1px solid rgba(var(--ms-ink-rgb), 0.1);
+  font-family: var(--font-mono);
+  line-height: 1.1;
+}
+.ms-env-name {
+  overflow: hidden;
+  font-size: 1.28em;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+.ms-env-size { font-size: 0.95em; color: var(--ms-paper-text-3); }
+
+/* ============================== CAPTION ============================= */
+.ms-caption {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding-inline: 8px;
+  text-align: center;
+}
+.ms-hint {
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.ms-choose {
+  color: var(--text-primary);
+  font-weight: 550;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: text-decoration-color 160ms var(--ease-out-quart);
+}
+.ms-choose:hover { text-decoration-color: currentColor; }
+.ms-rules {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+/* Files that bounced off the flap, and why. The wrapper animates its
+   height; its negative margin cancels the column gap while it's closed. */
+.ms-notes-wrap { margin-top: calc(var(--ms-gap) * -1); overflow: hidden; }
+.ms-notes {
+  margin-top: var(--ms-gap);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 12px;
+  background: var(--bg-elevated-1);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.ms-notes ul { flex: 1; display: grid; gap: 3px; padding-top: 3px; }
+.ms-notes-icon { flex: none; margin-top: 4px; color: var(--text-tertiary); }
+.ms-notes-dismiss {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ms-notes-dismiss:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.ms-notes-dismiss:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+/* =============================== TRAY =============================== */
+/* A shallow tray the envelopes fall into. The list clips at its top edge,
+   so each row drops in from just under the rim. */
+.ms-tray {
+  position: relative;
+  padding: calc(8px + 4px * var(--ms-k));
+  border-radius: calc(12px + 6px * var(--ms-k));
+  background: var(--ms-tray);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, var(--ms-tray-inset)),
+    inset 0 0 0 1px var(--ms-tray-edge);
+}
+.ms-tray-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.ms-tray-count { letter-spacing: 0.06em; }
+.ms-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: -12px -6px -8px;
+  padding: 12px 6px 8px;         /* room for the last row's shadow */
+  overflow: hidden;              /* rows fall in from under the rim */
+}
+.ms-empty {
+  padding: 14px 6px 12px;
+  font-size: 13.5px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+/* A row is an envelope lying in the tray: postage with the file type, the
+   name and size, a progress bar, and room on the right for the stamp. */
+.ms-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 0;
+  min-height: 68px;
+  padding: 11px 10px 11px 12px;
+  border-radius: 10px;
+  background: linear-gradient(172deg, var(--ms-paper-hi), var(--ms-paper) 60%, var(--ms-paper-lo));
+  box-shadow:
+    inset 0 0 0 1px var(--ms-paper-edge),
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 8px 16px -10px rgba(0, 0, 0, var(--ms-row-shadow));
+  color: var(--ms-paper-text);
+}
+.ms-postage {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 42px;
+  border: 2.5px dotted var(--ms-paper);
+  background: var(--ms-postage);
+  box-shadow: inset 0 0 0 2px var(--ms-postage), inset 0 0 0 3px rgba(var(--ms-ink-rgb), 0.18);
+  color: var(--ms-paper-text-2);
+  transform: rotate(-2deg);
+}
+.ms-postage svg { width: 19px; height: 19px; }
+.ms-row[data-status="error"] .ms-postage,
+.ms-row[data-status="canceled"] .ms-postage { opacity: 0.6; }
+
+.ms-row-body {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+/* Once stamped, the text stops short of the stamp rather than running
+   under it. */
+.ms-row[data-status="done"] .ms-row-body { padding-right: calc(var(--ms-stamp-w) + 14px); }
+.ms-row[data-status="error"] .ms-row-body { padding-right: calc(var(--ms-return-w) + 10px); }
+.ms-row-name {
+  overflow: hidden;
+  font-size: 14.5px;
+  font-weight: 560;
+  line-height: 1.3;
+  letter-spacing: var(--tr-tight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ms-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ms-paper-text-3);
+}
+.ms-row-meta > span + span::before { content: '·'; margin-right: 8px; }
+.ms-row-status { color: var(--ms-paper-text-2); font-variant-numeric: tabular-nums; }
+.ms-row[data-status="error"] .ms-row-status { color: var(--ms-paper-error); }
+.ms-row-error {
+  grid-column: 2;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ms-paper-error);
+}
+
+.ms-bar {
+  position: relative;
+  height: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(var(--ms-ink-rgb), 0.1);
+}
+.ms-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(var(--ms-ink-rgb), 0.82);
+  transform-origin: 0 50%;
+}
+.ms-bar-indeterminate {
+  right: auto;
+  width: 38%;
+  animation: ms-slide 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.ms-row-actions {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ms-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(var(--ms-ink-rgb), 0.2);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 560;
+  color: var(--ms-paper-text);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out-quart), border-color 160ms var(--ease-out-quart);
+}
+.ms-btn:hover { background: rgba(var(--ms-ink-rgb), 0.06); border-color: rgba(var(--ms-ink-rgb), 0.34); }
+.ms-btn-retry { border-color: rgba(var(--ms-ink-rgb), 0.45); }
+.ms-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ms-paper-text-3);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out-quart), color 160ms var(--ease-out-quart);
+}
+.ms-icon-btn:hover { background: rgba(var(--ms-ink-rgb), 0.07); color: var(--ms-paper-text); }
+.ms-btn:focus-visible,
+.ms-icon-btn:focus-visible {
+  outline: 2px solid var(--ms-paper-text);
+  outline-offset: 2px;
+}
+
+/* ============================== STAMPS ============================== */
+/* Absolutely placed over the right of the row's text, so it never moves
+   the layout. The ink multiplies into the paper like real ink. */
+.ms-stamp {
+  position: absolute;
+  right: 2px;
+  top: calc(50% - var(--ms-stamp-w) * 0.1875);
+  width: var(--ms-stamp-w);
+  height: calc(var(--ms-stamp-w) * 0.375);
+  pointer-events: none;
+  z-index: 1;
+}
+.ms-stamp-return {
+  top: calc(50% - var(--ms-return-w) * 0.176);
+  width: var(--ms-return-w);
+  height: calc(var(--ms-return-w) * 0.352);
+}
+.ms-impression {
+  position: absolute;
+  inset: 0;
+  display: block;
+  mix-blend-mode: multiply;
+}
+.ms-ink { display: block; width: 100%; height: 100%; overflow: visible; }
+.ms-stamp-received .ms-ink { color: rgba(var(--ms-ink-rgb), 0.9); }
+.ms-stamp-return .ms-ink { color: rgba(var(--ms-return-ink-rgb), 0.9); }
+.ms-ink-line { fill: none; stroke: currentColor; }
+.ms-ink-hand { fill: currentColor; }
+.ms-ink-word {
+  fill: currentColor;
+  font-family: var(--font-sans);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 2.4px;
+}
+.ms-ink-word-sm { font-size: 16.5px; letter-spacing: 1.6px; }
+.ms-ink-date {
+  fill: currentColor;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+}
+
+/* The stamp itself, from above: a rubber-mounted block with a round grip. */
+.ms-tool {
+  position: absolute;
+  inset: -9% -5%;
+  z-index: 2;
+  border-radius: calc(6px + 2px * var(--ms-k));
+  background: linear-gradient(160deg, var(--ms-tool-hi), var(--ms-tool-lo));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 16px 24px -10px rgba(0, 0, 0, 0.55);
+}
+.ms-tool::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 36% 30%, var(--ms-knob-hi), var(--ms-knob-lo) 72%);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================== STATES ============================== */
+.is-disabled .ms-stage { opacity: 0.5; }
+.is-disabled .ms-door,
+.is-disabled .ms-plate,
+.is-disabled .ms-choose { cursor: not-allowed; }
+
+@keyframes ms-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(270%); }
+}
+
+/* ========================== REDUCED MOTION ========================== */
+/* The flap and the envelopes hold still (the component skips their trip);
+   rows fade in and stamps appear without the slam. Here: no looping bar. */
+.mail-slot-root.is-still .ms-bar-indeterminate { animation: none; width: 100%; opacity: 0.35; }
+.mail-slot-root.is-still :where(.ms-plate, .ms-light) { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ms-bar-indeterminate { animation: none !important; width: 100%; opacity: 0.35; }
+}
+
+/* ============================== NARROW ============================== */
+/* Under 480px of component width (.is-narrow, set from JS): smaller stamps,
+   the stamped status left to the stamp (it stays in the text for screen
+   readers) and an icon-only Retry. */
+.is-narrow { --ms-stamp-w: 88px; --ms-return-w: 98px; }
+.is-narrow .ms-row { column-gap: 11px; padding: 10px 8px 10px 10px; min-height: 64px; }
+.is-narrow .ms-postage { width: 32px; height: 38px; }
+.is-narrow .ms-postage svg { width: 17px; height: 17px; }
+.is-narrow .ms-row-name { font-size: 14px; }
+.is-narrow .ms-hint { font-size: 14px; }
+.is-narrow .ms-btn { padding: 0 10px; }
+.is-narrow .ms-btn-retry { width: 30px; padding: 0; justify-content: center; }
+.is-narrow .ms-btn-retry span,
+.is-narrow .ms-row:is([data-status="done"], [data-status="error"]) .ms-row-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.is-narrow .ms-row[data-status="done"] .ms-row-body { padding-right: calc(var(--ms-stamp-w) + 8px); }
+.is-narrow .ms-row[data-status="error"] .ms-row-body { padding-right: calc(var(--ms-return-w) + 4px); }

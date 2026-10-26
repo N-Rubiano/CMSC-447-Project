@@ -1,0 +1,186 @@
+/* ============================================================================
+   MailSlotUpload: design tokens
+   susanoo.ui
+   ----------------------------------------------------------------------------
+   Every colour, finish, radius and type setting the component reads. Change a
+   value here to retheme it; MailSlotUpload.css never hard-codes these.
+
+   Tokens are scoped to .mail-slot-root, so they can't clash with your app's
+   own custom properties. Light is the default; put data-theme="dark" on any
+   ancestor (usually <html>) for the dark version.
+   ============================================================================ */
+
+/* ---------- Fonts (self-hosted) ---------- */
+/* Geist + Geist Mono, served from ./fonts. No third-party requests. Variable
+   files cover every weight. SIL Open Font License, see ./fonts/OFL.txt. */
+@font-face {
+  font-family: "Geist";
+  src: url('./fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url('./fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Light (default) ---------- */
+/* Monochrome: a pale painted door with a satin nickel letterbox, white
+   envelopes and black ink. */
+.mail-slot-root {
+  /* Layout: the component fills its parent up to this width; the door and
+     its hardware scale down with it. */
+  --ms-max-width: 600px;
+
+  /* Action: focus ring */
+  --accent-primary: #16121f;
+
+  /* Surfaces and text around the door */
+  --bg-elevated-1: #ffffff;
+  --border-default: #e2e0e7;
+  --border-strong: #cfccd6;
+  --text-primary: #16121f;
+  --text-secondary: #4b4559;
+  --text-tertiary: #6a6578;
+
+  /* The door: painted, with two raised panels */
+  --ms-door-hi: #e9e7ee;
+  --ms-door-lo: #dbd8e2;
+  --ms-door-sheen: 0.5;
+  --ms-grain-rgb: 22, 18, 31;
+  --ms-door-shadow:
+    inset 0 0 0 1px rgba(22, 18, 31, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(22, 18, 31, 0.06),
+    0 26px 50px -30px rgba(22, 18, 31, 0.4);
+  --ms-field-hi: #e6e4eb;
+  --ms-field-lo: #dedbe4;
+  --ms-bevel-top: rgba(255, 255, 255, 0.85);
+  --ms-bevel-left: rgba(255, 255, 255, 0.45);
+  --ms-bevel-bottom: rgba(22, 18, 31, 0.12);
+  --ms-bevel-right: rgba(22, 18, 31, 0.06);
+  --ms-groove: rgba(22, 18, 31, 0.13);
+  --ms-groove-light: rgba(255, 255, 255, 0.7);
+
+  /* The letterbox: satin nickel. --ms-glow-rgb is the light that shows in
+     the slot while files are dragged over; --ms-halo rings the plate. */
+  --ms-metal-hi: #fdfdfe;
+  --ms-metal-mid: #d2cfd9;
+  --ms-metal-lo: #a39eaf;
+  --ms-metal-edge: rgba(22, 18, 31, 0.24);
+  --ms-metal-rim: 0.95;
+  --ms-metal-glint: 0.6;
+  --ms-plate-shadow: 0.34;
+  --ms-engrave: #7d778a;
+  --ms-slot: #1d1726;
+  --ms-slot-deep: #060409;
+  --ms-glow-rgb: 255, 255, 255;
+  --ms-halo: rgba(22, 18, 31, 0.1);
+  --ms-halo-glow: rgba(22, 18, 31, 0.16);
+
+  /* Paper: the envelopes and the rows in the tray, in both themes */
+  --ms-paper: #fbfbfd;
+  --ms-paper-hi: #ffffff;
+  --ms-paper-lo: #f2f1f5;
+  --ms-paper-edge: rgba(22, 18, 31, 0.1);
+  --ms-postage: #efedf3;
+  --ms-paper-text: #16121f;
+  --ms-paper-text-2: #4b4559;
+  --ms-paper-text-3: #6a6578;
+  --ms-paper-error: #c42b23;
+  --ms-env-shadow: 0.3;
+  --ms-row-shadow: 0.22;
+
+  /* Ink, as r, g, b. Set --ms-return-ink-rgb to e.g. 196, 43, 35 for a red
+     RETURN TO SENDER. */
+  --ms-ink-rgb: 22, 18, 31;
+  --ms-return-ink-rgb: 22, 18, 31;
+
+  /* The rubber stamp, seen from above as it comes down */
+  --ms-tool-hi: #4b4459;
+  --ms-tool-lo: #1c1626;
+  --ms-knob-hi: #bdb8c8;
+  --ms-knob-lo: #2b2440;
+
+  /* The tray */
+  --ms-tray: #edebf1;
+  --ms-tray-edge: rgba(22, 18, 31, 0.06);
+  --ms-tray-inset: 0.07;
+
+  /* Shape + motion */
+  --radius-pill: 999px;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Type */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --tr-tight: -0.015em;
+  --tr-base: -0.005em;
+}
+
+/* ---------- Dark ---------- */
+/* Off-white on a violet-black: a black painted door, bright nickel, and the
+   same paper envelopes, a shade softer so they don't glare. */
+[data-theme="dark"] .mail-slot-root {
+  --accent-primary: #fbfbfd;
+
+  --bg-elevated-1: #171022;
+  --border-default: rgba(251, 251, 253, 0.1);
+  --border-strong: rgba(251, 251, 253, 0.18);
+  --text-primary: #fbfbfd;
+  --text-secondary: #bdb8c8;
+  --text-tertiary: #9892a4;
+
+  --ms-door-hi: #221b2e;
+  --ms-door-lo: #17111f;
+  --ms-door-sheen: 0.045;
+  --ms-grain-rgb: 251, 251, 253;
+  --ms-door-shadow:
+    inset 0 0 0 1px rgba(251, 251, 253, 0.07),
+    inset 0 1px 0 rgba(251, 251, 253, 0.09),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 30px 60px -30px rgba(0, 0, 0, 0.85);
+  --ms-field-hi: #211a2d;
+  --ms-field-lo: #1b1526;
+  --ms-bevel-top: rgba(251, 251, 253, 0.075);
+  --ms-bevel-left: rgba(251, 251, 253, 0.04);
+  --ms-bevel-bottom: rgba(0, 0, 0, 0.5);
+  --ms-bevel-right: rgba(0, 0, 0, 0.28);
+  --ms-groove: rgba(0, 0, 0, 0.55);
+  --ms-groove-light: rgba(251, 251, 253, 0.05);
+
+  --ms-metal-hi: #f6f5f9;
+  --ms-metal-mid: #bcb8c6;
+  --ms-metal-lo: #6f697f;
+  --ms-metal-edge: rgba(0, 0, 0, 0.5);
+  --ms-metal-rim: 0.8;
+  --ms-metal-glint: 0.5;
+  --ms-plate-shadow: 0.75;
+  --ms-engrave: #666075;
+  --ms-slot: #0d0913;
+  --ms-slot-deep: #000000;
+  --ms-glow-rgb: 251, 251, 253;
+  --ms-halo: rgba(251, 251, 253, 0.1);
+  --ms-halo-glow: rgba(251, 251, 253, 0.22);
+
+  --ms-paper: #e9e7ee;
+  --ms-paper-hi: #f4f3f7;
+  --ms-paper-lo: #dcd9e2;
+  --ms-paper-edge: rgba(0, 0, 0, 0.3);
+  --ms-postage: #dcd9e3;
+  --ms-env-shadow: 0.7;
+  --ms-row-shadow: 0.6;
+
+  --ms-tool-hi: #5a5369;
+  --ms-tool-lo: #211a2d;
+  --ms-knob-hi: #d4d1db;
+  --ms-knob-lo: #3a3348;
+
+  --ms-tray: #130e1b;
+  --ms-tray-edge: rgba(251, 251, 253, 0.07);
+  --ms-tray-inset: 0.55;
+}

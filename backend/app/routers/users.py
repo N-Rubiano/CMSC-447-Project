@@ -1,6 +1,9 @@
-"""
-routers/users.py — User management endpoints (admin/GC team allocation).
+"""routers/users.py — GET /api/users"""
+from fastapi import APIRouter, Depends
+from ..auth import get_current_user
+from ..database import execute_query, execute_one
 
+<<<<<<< HEAD
 Routes
 ------
 GET    /api/users              — List all users (admin only)
@@ -88,3 +91,21 @@ def deactivate_user(
         raise HTTPException(status_code=404, detail="User not found.")
     target.is_active = False
     db.commit()
+=======
+router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+@router.get("")
+def list_users(current_user: dict = Depends(get_current_user)):
+    users = execute_query("SELECT * FROM users ORDER BY name ASC")
+    return [{k: v for k, v in u.items() if k != "password_hash"} for u in users]
+
+
+@router.get("/{user_id}")
+def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    from fastapi import HTTPException
+    user = execute_one("SELECT * FROM users WHERE id=:id", {"id": user_id})
+    if not user:
+        raise HTTPException(404, "User not found")
+    return {k: v for k, v in user.items() if k != "password_hash"}
+>>>>>>> SdThakur-main

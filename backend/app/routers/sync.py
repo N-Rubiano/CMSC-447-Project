@@ -1,70 +1,74 @@
-"""
-routers/sync.py — Offline sync queue endpoints for Dexie.js background sync.
+"""routers/sync.py — Offline batch sync endpoint: POST /api/sync/batch"""
+import uuid
+from datetime import datetime, timezone
 
-When the device reconnects, the frontend flushes queued mutations here.
+from fastapi import APIRouter, Depends, HTTPException
 
-Routes
-------
-POST /api/sync/push   — Accept a batch of offline operations and apply them
-GET  /api/sync/pull   — Return delta of records updated since a client timestamp
-"""
+from ..auth import get_current_user
+from ..database import execute_write, settings
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from datetime import datetime
-
-from app.auth import get_current_user
-from app.database import get_db
-
-router = APIRouter(prefix="/sync", tags=["sync"])
+router = APIRouter(prefix="/api/sync", tags=["sync"])
 
 
-class SyncOperation(BaseModel):
-    """A single queued offline mutation."""
-    operation:  str        # "create" | "update" | "delete"
-    entity:     str        # "pin" | "comment" | "photo" | "markup"
-    entity_id:  int | None = None
-    payload:    dict
+@router.post("/batch")
+def batch_sync(body: dict, current_user: dict = Depends(get_current_user)):
+    mutations = body.get("mutations")
+    if not isinstance(mutations, list):
+        raise HTTPException(400, "Mutations array required")
 
-
-class SyncPushRequest(BaseModel):
-    operations: list[SyncOperation]
-
-
-@router.post("/push")
-def push_sync(
-    body: SyncPushRequest,
-    db:   Session = Depends(get_db),
-    user = Depends(get_current_user),
-):
-    """
-    Apply a batch of offline-queued mutations.
-    TODO: implement conflict resolution and per-entity dispatch
-    to the appropriate service/router handler.
-    """
     results = []
-    for op in body.operations:
-        # Stub: log and acknowledge each operation
-        results.append({"entity": op.entity, "operation": op.operation, "status": "queued"})
-    return {"applied": len(results), "results": results}
+    now = datetime.now(timezone.utc).isoformat()
 
+    for item in mutations:
+        entity = item.get("entity")
+        mtype = item.get("type")
+        data = item.get("data", {})
+        try:
+            if entity == "pin" and mtype == "create":
+                pin_id = data.get("id") or f"pin-{uuid.uuid4().hex[:8]}"
+                if settings.use_postgres:
+                    execute_write(
+                        """INSERT INTO pins (id,sheet_id,project_id,item_number,title,description,status,
+                           priority,discipline,x_pct,y_pct,room_location,due_date,assigned_to_user_id,
+                           assigned_to_company,created_by_user_id,assigned_contractor_id,
+                           assigned_subcontractor_id,created_at,updated_at)
+                           VALUES (:id,:sid,:pid,:num,:title,:desc,:status,:prio,:disc,:x,:y,:room,
+                           :due,:uid,:company,:created_by,:cid,:scid,:now,:now)
+                           ON CONFLICT (id) DO NOTHING""",
+                        dict(id=pin_id, sid=data.get("sheet_id"), pid=data.get("project_id"),
+                             num=data.get("item_number"), title=data.get("title"),
+                             desc=data.get("description", ""), status=data.get("status", "open"),
+                             prio=data.get("priority", "medium"), disc=data.get("discipline"),
+                             x=data.get("x_pct"), y=data.get("y_pct"), room=data.get("room_location"),
+                             due=data.get("due_date"), uid=data.get("assigned_to_user_id"),
+                             company=data.get("assigned_to_company"), created_by=data.get("created_by_user_id"),
+                             cid=data.get("assigned_contractor_id"), scid=data.get("assigned_subcontractor_id"),
+                             now=now),
+                    )
+                else:
+                    execute_write(
+                        """INSERT OR REPLACE INTO pins (id,sheet_id,project_id,item_number,title,description,
+                           status,priority,discipline,x_pct,y_pct,room_location,due_date,
+                           assigned_to_user_id,assigned_to_company,created_by_user_id,
+                           assigned_contractor_id,assigned_subcontractor_id,created_at,updated_at)
+                           VALUES (:id,:sid,:pid,:num,:title,:desc,:status,:prio,:disc,:x,:y,:room,
+                           :due,:uid,:company,:created_by,:cid,:scid,:now,:now)""",
+                        dict(id=pin_id, sid=data.get("sheet_id"), pid=data.get("project_id"),
+                             num=data.get("item_number"), title=data.get("title"),
+                             desc=data.get("description", ""), status=data.get("status", "open"),
+                             prio=data.get("priority", "medium"), disc=data.get("discipline"),
+                             x=data.get("x_pct"), y=data.get("y_pct"), room=data.get("room_location"),
+                             due=data.get("due_date"), uid=data.get("assigned_to_user_id"),
+                             company=data.get("assigned_to_company"), created_by=data.get("created_by_user_id"),
+                             cid=data.get("assigned_contractor_id"), scid=data.get("assigned_subcontractor_id"),
+                             now=now),
+                    )
+                results.append({"id": pin_id, "status": "synced"})
+            else:
+                results.append({"id": data.get("id"), "status": "skipped",
+                                 "error": f"Unknown entity/type: {entity}/{mtype}"})
+        except Exception as e:
+            results.append({"id": data.get("id"), "status": "failed", "error": str(e)})
 
-@router.get("/pull")
-def pull_sync(
-    since:  str = "1970-01-01T00:00:00Z",
-    db:     Session = Depends(get_db),
-    user  = Depends(get_current_user),
-):
-    """
-    Return all records updated after `since` timestamp for the current user's projects.
-    TODO: query Pin, Comment, Photo, Markup tables filtered by updated_at > since
-    and scoped to the user's accessible projects.
-    """
-    return {
-        "since":   since,
-        "pins":    [],
-        "comments": [],
-        "photos":  [],
-        "markups": [],
-    }
+    synced = [r for r in results if r["status"] == "synced"]
+    return {"syncedCount": len(synced), "results": results}

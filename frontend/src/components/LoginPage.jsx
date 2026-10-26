@@ -23,8 +23,8 @@ export default function LoginPage({ onLogin }) {
       email:    'admin@punchlistpro.demo',
       password: DEFAULT_DEMO_PASSWORD,
       badge:    'ADMIN',
-      color:    '#D97706',
-      bg:       '#FEF3C7',
+      color:    '#DC2626',
+      bg:       '#FEE2E2',
     },
     {
       roleKey:  'general_contractor',
@@ -33,18 +33,48 @@ export default function LoginPage({ onLogin }) {
       email:    'contractor@punchlistpro.demo',
       password: DEFAULT_DEMO_PASSWORD,
       badge:    'GC',
-      color:    '#0284C7',
-      bg:       '#E0F2FE',
+      color:    '#D97706',
+      bg:       '#FEF3C7',
     },
     {
       roleKey:  'sub_contractor',
-      label:    'Trade Sub-Contractor',
-      name:     'Sub-Contractor',
+      label:    'Trade Subcontractor',
+      name:     'Subcontractor',
       email:    'sub@punchlistpro.demo',
       password: DEFAULT_DEMO_PASSWORD,
       badge:    'SUB',
       color:    '#7C3AED',
       bg:       '#EDE9FE',
+    },
+    {
+      roleKey:  'architect',
+      label:    'Architect',
+      name:     'Architect',
+      email:    'architect@punchlistpro.demo',
+      password: DEFAULT_DEMO_PASSWORD,
+      badge:    'ARCH',
+      color:    '#2563EB',
+      bg:       '#DBEAFE',
+    },
+    {
+      roleKey:  'owner',
+      label:    'Owner / Client Rep',
+      name:     'Owner Rep',
+      email:    'owner@punchlistpro.demo',
+      password: DEFAULT_DEMO_PASSWORD,
+      badge:    'OWNER',
+      color:    '#059669',
+      bg:       '#D1FAE5',
+    },
+    {
+      roleKey:  'field_inspector',
+      label:    'Field Inspector',
+      name:     'Field Inspector',
+      email:    'inspector@punchlistpro.demo',
+      password: DEFAULT_DEMO_PASSWORD,
+      badge:    'INSP',
+      color:    '#EA580C',
+      bg:       '#FFEDD5',
     },
   ];
 
@@ -213,7 +243,7 @@ export default function LoginPage({ onLogin }) {
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 5,
+            gap: 6,
             marginBottom: 14,
             padding: '8px 10px',
             borderRadius: 'var(--radius-md)',
@@ -223,12 +253,17 @@ export default function LoginPage({ onLogin }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
               Demo accounts — Password: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink)' }}>Demo@2026!</span>
             </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 6
+            }}>
             {demoAccounts.map((acc) => (
               <button
                 key={acc.roleKey}
                 type="button"
                 aria-pressed={selectedDemoRole === acc.roleKey}
-                aria-label={`Select demo account: ${acc.name}, ${acc.label}`}
+                aria-label={`Select demo account: ${acc.name}`}
                 onClick={() => handleDemoSelect(acc)}
                 style={{
                   display: 'flex',
@@ -266,13 +301,14 @@ export default function LoginPage({ onLogin }) {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>{acc.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{acc.label}</div>
+
                 </div>
                 {selectedDemoRole === acc.roleKey && (
                   <CheckCircle2 size={16} color="var(--amber)" style={{ flexShrink: 0 }} />
                 )}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Form */}

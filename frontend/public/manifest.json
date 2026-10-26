@@ -1,0 +1,13 @@
+﻿{
+  "name": "PunchList Pro",
+  "short_name": "PunchList",
+  "description": "Enterprise Construction Punch List and Field Management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#18181B",
+  "theme_color": "#D97706",
+  "icons": [
+    { "src": "/favicon.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any maskable" },
+    { "src": "/favicon.svg", "sizes": "any",     "type": "image/svg+xml" }
+  ]
+}

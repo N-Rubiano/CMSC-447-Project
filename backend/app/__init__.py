@@ -1,2 +1,1 @@
-# app/__init__.py
-# Backend application package root.
+# backend/app/__init__.py
