@@ -2,13 +2,8 @@
 uvicorn[standard]==0.30.6
 python-socketio==5.11.4
 python-jose[cryptography]==3.3.0
-<<<<<<< HEAD
 bcrypt==5.0.0
 pydantic-settings==2.2.1
-=======
-passlib[bcrypt]==1.7.4
-bcrypt==4.2.0
->>>>>>> SdThakur-main
 python-multipart==0.0.9
 aiofiles==24.1.0
 python-dotenv==1.0.1
