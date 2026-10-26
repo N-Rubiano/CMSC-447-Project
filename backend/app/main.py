@@ -42,65 +42,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting — protects all /api/* routes; stricter on /api/auth/*
-app.add_middleware(RateLimitMiddleware)
+# ── API routers ────────────────────────────────────────────────────────────────
+PREFIX = "/api"
 
-# Security headers — applied to every response
-@app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-    if os.getenv("FORCE_HTTPS", "false").lower() == "true":
-        response.headers.setdefault(
-            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
-        )
-    return response
+app.include_router(auth.router,       prefix=PREFIX)
+app.include_router(users.router,      prefix=PREFIX)
+app.include_router(companies.router,  prefix=PREFIX)
+app.include_router(projects.router,   prefix=PREFIX)
+app.include_router(sheets.router,     prefix=PREFIX)
+app.include_router(pins.router,       prefix=PREFIX)
+app.include_router(markups.router,    prefix=PREFIX)
+app.include_router(comments_photos := tasks.router, prefix=PREFIX)  # placeholder
+app.include_router(reports.router,    prefix=PREFIX)
+app.include_router(sync.router,       prefix=PREFIX)
+app.include_router(tasks.router,      prefix=PREFIX)
 
-# ---------------------------------------------------------------------------
-# Static files
-# ---------------------------------------------------------------------------
+# ── Static file uploads ────────────────────────────────────────────────────────
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir, check_dir=False), name="uploads")
 
-UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+# ── Socket.IO ASGI mount ───────────────────────────────────────────────────────
+app.mount("/socket.io", sio_app)
 
-# Serve frontend production build if available
-FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
-# ---------------------------------------------------------------------------
-# Register routers
-# ---------------------------------------------------------------------------
-
-from .routers import auth, users, companies, projects, sheets, pins, markups, reports, sync, tasks, documents, audit_logs, team
-
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(companies.router)
-app.include_router(projects.router)
-app.include_router(sheets.router)
-app.include_router(pins.router)
-app.include_router(markups.router)
-app.include_router(reports.router)
-app.include_router(sync.router)
-app.include_router(tasks.router)
-app.include_router(documents.router)
-app.include_router(audit_logs.router)
-app.include_router(team.router)
-
-# ---------------------------------------------------------------------------
-# SPA catch-all (serve frontend index.html for non-API routes)
-# ---------------------------------------------------------------------------
-
-from fastapi.responses import FileResponse, JSONResponse
-
-@app.get("/health")
-@app.get("/api/health")
+# ── Health check ──────────────────────────────────────────────────────────────
+@app.get("/health", tags=["health"])
 def health():
     return {"status": "ok", "server": "PunchList Pro Python/FastAPI", "version": "2.0.0"}
 

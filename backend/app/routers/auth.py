@@ -8,11 +8,19 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-from ..auth import create_token, verify_password, get_current_user, _get_supabase_client
-from ..config import settings
-from ..database import execute_one, execute_write
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+from app.auth import (
+    hash_password, verify_password, create_access_token, get_current_user,
+    MAX_PASSWORD_BYTES,
+)
+from app.config import settings
+from app.database import get_db
+from app.models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -23,10 +31,19 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class RegisterRequest(BaseModel):
+    email:     EmailStr
+    password:  str = Field(min_length=8)
+    full_name: str
+    role:      str   # must be one of the 6 canonical roles
 
-class SupabaseLoginRequest(BaseModel):
-    email: str
-    password: str
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, password: str) -> str:
+        if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+            raise ValueError("Password must not exceed 72 UTF-8 bytes.")
+        return password
+
 
 
 # ---------------------------------------------------------------------------
@@ -54,107 +71,32 @@ def supabase_login(body: SupabaseLoginRequest):
         },
         method="POST",
     )
+    db.add(user)
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = _json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode() if e.fp else ""
-        try:
-            err_data = _json.loads(err_body)
-            msg = err_data.get("error_description") or err_data.get("message") or "Invalid credentials"
-        except Exception:
-            msg = "Invalid email or password"
-        raise HTTPException(401, msg)
-    except Exception as e:
-        raise HTTPException(503, f"Supabase authentication unavailable: {e}")
-
-    access_token = data.get("access_token")
-    if not access_token:
-        raise HTTPException(401, "Invalid email or password")
-
-    supa_user = data.get("user", {})
-    user = _provision_local_user(supa_user.get("id", ""), supa_user.get("email", body.email))
-
-    return {
-        "access_token": access_token,
-        "refresh_token": data.get("refresh_token"),
-        "expires_in": data.get("expires_in"),
-        "token_type": "bearer",
-        "user": user,
-    }
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered.")
+    db.refresh(user)
+    return {"id": user.id, "email": user.email, "role": user.role}
 
 
-# ---------------------------------------------------------------------------
-# POST /api/auth/supabase-callback
-# Called by the frontend after a successful Supabase JS SDK login to
-# provision / look up the user in our local DB and return the full profile.
-# ---------------------------------------------------------------------------
-
-@router.post("/supabase-callback")
-def supabase_callback(current_user: dict = Depends(get_current_user)):
-    """
-    After the frontend signs in with Supabase JS SDK it calls this endpoint
-    (with the Supabase access_token as Bearer) to get our role/company profile.
-    """
-    return current_user
-
-
-# ---------------------------------------------------------------------------
-# POST /api/auth/login  (legacy — still works for seeded demo users)
-# ---------------------------------------------------------------------------
-
-@router.post("/login")
-def login(body: LoginRequest):
-    if not body.email or not body.password:
-        raise HTTPException(400, "Email and password are required")
-
-    user = execute_one(
-        "SELECT * FROM users WHERE LOWER(email)=LOWER(:email)",
-        {"email": body.email.strip()},
-    )
-    print(f"🔑 Auth login attempt: email='{body.email.strip()}', found_in_db={bool(user)}")
-    if not user:
-        raise HTTPException(401, "Invalid email or password")
-
-    if user.get("expires_at"):
-        try:
-            from datetime import datetime, timezone
-            from ..database import execute_write
-            exp_raw = user["expires_at"]
-            if isinstance(exp_raw, str):
-                exp_dt = datetime.fromisoformat(exp_raw.replace("Z", "+00:00"))
-            elif isinstance(exp_raw, datetime):
-                exp_dt = exp_raw
-            else:
-                exp_dt = None
-            if exp_dt and exp_dt.tzinfo is None:
-                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
-            if exp_dt and exp_dt < datetime.now(timezone.utc):
-                execute_write("DELETE FROM users WHERE id=:id", {"id": user["id"]})
-                print(f"❌ Demo account expired: {body.email}")
-                raise HTTPException(401, "Temporary demo admin account has expired (1hr limit reached)")
-        except HTTPException:
-            raise
-        except Exception as _e:
-            pass
-
-    pw_ok = verify_password(body.password, user.get("password_hash", ""))
-    if not pw_ok:
-        print(f"❌ Password mismatch for user '{body.email}'")
-        raise HTTPException(401, "Invalid email or password")
-    print(f"✅ Login successful for '{body.email}' ({user.get('role')})")
-
-    from ..database import execute_one as _eo
-    company = _eo("SELECT * FROM companies WHERE id=:id", {"id": user.get("company_id")})
-
-    token = create_token(
-        {
-            "id": user["id"],
-            "role": user["role"],
-            "email": user["email"],
-            "company": user.get("company"),
-            "company_id": user.get("company_id") or (company["id"] if company else None),
-        }
+@router.post("/token", response_model=TokenResponse)
+def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    db:   Session = Depends(get_db),
+):
+    """OAuth2 password flow — returns a JWT bearer token."""
+    user = db.query(User).filter(User.email == form.username).first()
+    if not user or not verify_password(form.password, user.hashed_pw):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = create_access_token(
+        data={"sub": str(user.id), "role": user.role},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
 
     safe_user = {k: v for k, v in user.items() if k != "password_hash"}

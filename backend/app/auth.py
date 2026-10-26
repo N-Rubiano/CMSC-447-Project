@@ -24,6 +24,8 @@ import json
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+import bcrypt
+from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import execute_one
@@ -72,19 +74,8 @@ def _verify_supabase_token(raw_token: str) -> Optional[dict]:
 # Admin Supabase client for server-side sign-in (routers/auth.py)
 # ---------------------------------------------------------------------------
 
-def _get_supabase_client():
-    """
-    Return a Supabase admin client for server-side operations (sign-in).
-    Tries supabase-py first; returns None if not compatible with the key format.
-    The auth router falls back to direct HTTP if this returns None.
-    """
-    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
-        return None
-    try:
-        from supabase import create_client
-        return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-    except Exception:
-        return None
+BCRYPT_ROUNDS = 12
+MAX_PASSWORD_BYTES = 72
 
 
 # ---------------------------------------------------------------------------
@@ -92,13 +83,23 @@ def _get_supabase_client():
 # ---------------------------------------------------------------------------
 
 def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+    """Generate a fresh salt and return the complete bcrypt hash for storage."""
+    password_bytes = plain.encode("utf-8")
+    if not password_bytes or len(password_bytes) > MAX_PASSWORD_BYTES:
+        raise ValueError("Password must contain between 1 and 72 UTF-8 bytes.")
+    return bcrypt.hashpw(
+        password_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+    ).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    """Check the supplied password without truncating it or exposing the hash."""
+    password_bytes = plain.encode("utf-8")
+    if not password_bytes or len(password_bytes) > MAX_PASSWORD_BYTES:
+        return False
     try:
-        return bcrypt.checkpw(plain.encode(), hashed.encode())
-    except Exception:
+        return bcrypt.checkpw(password_bytes, hashed.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
         return False
 
 
