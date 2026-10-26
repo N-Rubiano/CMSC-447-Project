@@ -8,53 +8,16 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-<<<<<<< HEAD
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, EmailStr, Field, field_validator
-
-from app.auth import (
-    hash_password, verify_password, create_access_token, get_current_user,
-    MAX_PASSWORD_BYTES,
-)
-from app.config import settings
-from app.database import get_db
-from app.models.user import User
-
-router = APIRouter(prefix="/auth", tags=["auth"])
-=======
-from ..auth import create_token, verify_password, get_current_user, _get_supabase_client
+from ..auth import create_token, verify_password, get_current_user
 from ..config import settings
 from ..database import execute_one, execute_write
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
->>>>>>> SdThakur-main
 
 
-# ---------------------------------------------------------------------------
-# Pydantic models
-# ---------------------------------------------------------------------------
-
-<<<<<<< HEAD
-class RegisterRequest(BaseModel):
-    email:     EmailStr
-    password:  str = Field(min_length=8)
-    full_name: str
-    role:      str   # must be one of the 6 canonical roles
-=======
 class LoginRequest(BaseModel):
     email: str
     password: str
->>>>>>> SdThakur-main
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, password: str) -> str:
-        if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
-            raise ValueError("Password must not exceed 72 UTF-8 bytes.")
-        return password
 
 
 class SupabaseLoginRequest(BaseModel):
@@ -62,18 +25,8 @@ class SupabaseLoginRequest(BaseModel):
     password: str
 
 
-# ---------------------------------------------------------------------------
-# POST /api/auth/supabase-login
-# Signs the user in through Supabase Auth server-side and returns a
-# Supabase session (access_token + refresh_token) plus our role profile.
-# ---------------------------------------------------------------------------
-
 @router.post("/supabase-login")
 def supabase_login(body: SupabaseLoginRequest):
-    """
-    Server-side Supabase sign-in via GoTrue REST API.
-    Returns: { access_token, refresh_token, expires_in, user: { ...our profile } }
-    """
     import urllib.request, urllib.error, json as _json
 
     url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/token?grant_type=password"
@@ -87,16 +40,6 @@ def supabase_login(body: SupabaseLoginRequest):
         },
         method="POST",
     )
-<<<<<<< HEAD
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Email already registered.")
-    db.refresh(user)
-    return {"id": user.id, "email": user.email, "role": user.role}
-=======
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = _json.loads(resp.read().decode())
@@ -125,27 +68,12 @@ def supabase_login(body: SupabaseLoginRequest):
         "token_type": "bearer",
         "user": user,
     }
->>>>>>> SdThakur-main
 
-
-# ---------------------------------------------------------------------------
-# POST /api/auth/supabase-callback
-# Called by the frontend after a successful Supabase JS SDK login to
-# provision / look up the user in our local DB and return the full profile.
-# ---------------------------------------------------------------------------
 
 @router.post("/supabase-callback")
 def supabase_callback(current_user: dict = Depends(get_current_user)):
-    """
-    After the frontend signs in with Supabase JS SDK it calls this endpoint
-    (with the Supabase access_token as Bearer) to get our role/company profile.
-    """
     return current_user
 
-
-# ---------------------------------------------------------------------------
-# POST /api/auth/login  (legacy — still works for seeded demo users)
-# ---------------------------------------------------------------------------
 
 @router.post("/login")
 def login(body: LoginRequest):
@@ -156,14 +84,11 @@ def login(body: LoginRequest):
         "SELECT * FROM users WHERE LOWER(email)=LOWER(:email)",
         {"email": body.email.strip()},
     )
-    print(f"🔑 Auth login attempt: email='{body.email.strip()}', found_in_db={bool(user)}")
     if not user:
         raise HTTPException(401, "Invalid email or password")
 
     if user.get("expires_at"):
         try:
-            from datetime import datetime, timezone
-            from ..database import execute_write
             exp_raw = user["expires_at"]
             if isinstance(exp_raw, str):
                 exp_dt = datetime.fromisoformat(exp_raw.replace("Z", "+00:00"))
@@ -175,21 +100,17 @@ def login(body: LoginRequest):
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if exp_dt and exp_dt < datetime.now(timezone.utc):
                 execute_write("DELETE FROM users WHERE id=:id", {"id": user["id"]})
-                print(f"❌ Demo account expired: {body.email}")
                 raise HTTPException(401, "Temporary demo admin account has expired (1hr limit reached)")
         except HTTPException:
             raise
-        except Exception as _e:
+        except Exception:
             pass
 
     pw_ok = verify_password(body.password, user.get("password_hash", ""))
     if not pw_ok:
-        print(f"❌ Password mismatch for user '{body.email}'")
         raise HTTPException(401, "Invalid email or password")
-    print(f"✅ Login successful for '{body.email}' ({user.get('role')})")
 
-    from ..database import execute_one as _eo
-    company = _eo("SELECT * FROM companies WHERE id=:id", {"id": user.get("company_id")})
+    company = execute_one("SELECT * FROM companies WHERE id=:id", {"id": user.get("company_id")})
 
     token = create_token(
         {
@@ -206,10 +127,6 @@ def login(body: LoginRequest):
 
     return {"token": token, "user": safe_user}
 
-
-# ---------------------------------------------------------------------------
-# GET /api/auth/me
-# ---------------------------------------------------------------------------
 
 @router.get("/me")
 def me(current_user: dict = Depends(get_current_user)):
@@ -230,7 +147,6 @@ def me(current_user: dict = Depends(get_current_user)):
             user = None
 
     if not user:
-        # Supabase user without a local row yet — return the session claims
         return current_user
 
     company = None
@@ -245,19 +161,9 @@ def me(current_user: dict = Depends(get_current_user)):
     return safe
 
 
-# ---------------------------------------------------------------------------
-# Internal helper: provision a local user row on first Supabase login
-# ---------------------------------------------------------------------------
-
 def _provision_local_user(supabase_uid: str, email: str) -> dict:
-    """
-    Find or create a local users row linked to a Supabase auth identity.
-    Returns the safe user dict (no password_hash).
-    """
-    # Try existing link
     user = execute_one("SELECT * FROM users WHERE supabase_uid=:uid", {"uid": supabase_uid})
 
-    # Try email match (existing seed user — link on first Supabase login)
     if not user:
         user = execute_one(
             "SELECT * FROM users WHERE LOWER(email)=LOWER(:email)", {"email": email}
@@ -268,7 +174,6 @@ def _provision_local_user(supabase_uid: str, email: str) -> dict:
                 {"uid": supabase_uid, "id": user["id"]},
             )
 
-    # Brand-new user — create a minimal row
     if not user:
         user_id = f"usr-{uuid.uuid4().hex[:8]}"
         name = email.split("@")[0].replace(".", " ").title()

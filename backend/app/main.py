@@ -60,18 +60,13 @@ async def security_headers(request: Request, call_next):
         )
     return response
 
-<<<<<<< HEAD
-# ── Static file uploads ────────────────────────────────────────────────────────
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir, check_dir=False), name="uploads")
-=======
 # ---------------------------------------------------------------------------
 # Static files
 # ---------------------------------------------------------------------------
->>>>>>> SdThakur-main
 
-UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
+UPLOADS_DIR = Path(settings.UPLOAD_DIR)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR), check_dir=False), name="uploads")
 
 # Serve frontend production build if available
 FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"

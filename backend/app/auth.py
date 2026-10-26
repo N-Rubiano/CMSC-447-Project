@@ -24,22 +24,14 @@ import json
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-<<<<<<< HEAD
-import bcrypt
-from sqlalchemy.orm import Session
-=======
->>>>>>> SdThakur-main
 
 from .config import settings
 from .database import execute_one
 
-<<<<<<< HEAD
 BCRYPT_ROUNDS = 12
 MAX_PASSWORD_BYTES = 72
-=======
 ALGORITHM = "HS256"
 _bearer = HTTPBearer(auto_error=False)
->>>>>>> SdThakur-main
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +94,6 @@ def _get_supabase_client():
 # ---------------------------------------------------------------------------
 
 def hash_password(plain: str) -> str:
-<<<<<<< HEAD
     """Generate a fresh salt and return the complete bcrypt hash for storage."""
     password_bytes = plain.encode("utf-8")
     if not password_bytes or len(password_bytes) > MAX_PASSWORD_BYTES:
@@ -120,15 +111,6 @@ def verify_password(plain: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(password_bytes, hashed.encode("ascii"))
     except (ValueError, UnicodeEncodeError):
-=======
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    try:
-        return bcrypt.checkpw(plain.encode(), hashed.encode())
-    except Exception:
->>>>>>> SdThakur-main
         return False
 
 
