@@ -61,15 +61,17 @@ npm-debug.log*
 
 # ── docs ─────────────────────────────────────────────────────────────
 docs/
-
-# ── Local Coursework, Presentation & SDD Artefacts ────────────────────────────
 PunchListPro_Diagrams.html
 PunchList_Pro_Software_Design_Document_SDD.pdf
 SRS_PunchListPro.md
 build_sdd_pdf.py
 generate_sdd_assets.py
+guide
+guide.md
+midterm
+midterm.md
 presentation_script.md
 punchlist_pro_explainer.md
 sdd_assets/
-summary.txt
-diagrams.md
+
+

@@ -79,7 +79,7 @@ def can_user_access_project(user: dict, project_id: str) -> bool:
         if project.get("contractor_company_id") and project.get("contractor_company_id") == user.get("company_id"):
             return True
         member = execute_one(
-            "SELECT id FROM project_members WHERE project_id=:pid AND user_id=:uid",
+            "SELECT id FROM project_members WHERE CAST(project_id AS TEXT)=:pid AND CAST(user_id AS TEXT)=:uid",
             {"pid": project_id, "uid": user.get("id")},
         )
         return member is not None
@@ -102,14 +102,14 @@ def can_user_access_project(user: dict, project_id: str) -> bool:
         if assigned:
             return True
         member = execute_one(
-            "SELECT id FROM project_members WHERE project_id=:pid AND user_id=:uid",
+            "SELECT id FROM project_members WHERE CAST(project_id AS TEXT)=:pid AND CAST(user_id AS TEXT)=:uid",
             {"pid": project_id, "uid": user.get("id")},
         )
         return member is not None
 
     if has_permission(user, "project.view"):
         member = execute_one(
-            "SELECT id FROM project_members WHERE project_id=:pid AND user_id=:uid",
+            "SELECT id FROM project_members WHERE CAST(project_id AS TEXT)=:pid AND CAST(user_id AS TEXT)=:uid",
             {"pid": project_id, "uid": user.get("id")},
         )
         return member is not None

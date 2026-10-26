@@ -30,16 +30,16 @@ async def export_annotated_pdf(
         raise HTTPException(404, "Project not found")
 
     if sheetId:
-        sheets = execute_query("SELECT * FROM sheets WHERE id=:id", {"id": sheetId})
+        sheets = execute_query("SELECT * FROM sheets WHERE CAST(id AS TEXT)=:id", {"id": sheetId})
     else:
-        sheets = execute_query("SELECT * FROM sheets WHERE project_id=:pid ORDER BY sheet_number ASC", {"pid": project_id})
+        sheets = execute_query("SELECT * FROM sheets WHERE CAST(project_id AS TEXT)=:pid ORDER BY sheet_number ASC", {"pid": project_id})
 
-    pins = execute_query("SELECT * FROM pins WHERE project_id=:pid", {"pid": project_id})
+    pins = execute_query("SELECT * FROM pins WHERE CAST(project_id AS TEXT)=:pid", {"pid": project_id})
     if current_user.get("role") != "admin":
         pins = [p for p in pins if can_user_access_pin(current_user, p)]
 
     markups = execute_query(
-        "SELECT m.* FROM markups m JOIN sheets s ON s.id=m.sheet_id WHERE s.project_id=:pid",
+        "SELECT m.* FROM markups m JOIN sheets s ON CAST(s.id AS TEXT)=CAST(m.sheet_id AS TEXT) WHERE CAST(s.project_id AS TEXT)=:pid",
         {"pid": project_id},
     )
 

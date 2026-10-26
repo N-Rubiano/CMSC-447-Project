@@ -42,30 +42,65 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── API routers ────────────────────────────────────────────────────────────────
-PREFIX = "/api"
+# Rate limiting — protects all /api/* routes; stricter on /api/auth/*
+app.add_middleware(RateLimitMiddleware)
 
-app.include_router(auth.router,       prefix=PREFIX)
-app.include_router(users.router,      prefix=PREFIX)
-app.include_router(companies.router,  prefix=PREFIX)
-app.include_router(projects.router,   prefix=PREFIX)
-app.include_router(sheets.router,     prefix=PREFIX)
-app.include_router(pins.router,       prefix=PREFIX)
-app.include_router(markups.router,    prefix=PREFIX)
-app.include_router(comments_photos := tasks.router, prefix=PREFIX)  # placeholder
-app.include_router(reports.router,    prefix=PREFIX)
-app.include_router(sync.router,       prefix=PREFIX)
-app.include_router(tasks.router,      prefix=PREFIX)
+# Security headers — applied to every response
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if os.getenv("FORCE_HTTPS", "false").lower() == "true":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
-# ── Static file uploads ────────────────────────────────────────────────────────
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir, check_dir=False), name="uploads")
+# ---------------------------------------------------------------------------
+# Static files
+# ---------------------------------------------------------------------------
 
-# ── Socket.IO ASGI mount ───────────────────────────────────────────────────────
-app.mount("/socket.io", sio_app)
+UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
+# Serve frontend production build if available
+FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
-# ── Health check ──────────────────────────────────────────────────────────────
-@app.get("/health", tags=["health"])
+# ---------------------------------------------------------------------------
+# Register routers
+# ---------------------------------------------------------------------------
+
+from .routers import auth, users, companies, projects, sheets, pins, markups, reports, sync, tasks, documents, audit_logs, team
+
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(companies.router)
+app.include_router(projects.router)
+app.include_router(sheets.router)
+app.include_router(pins.router)
+app.include_router(markups.router)
+app.include_router(reports.router)
+app.include_router(sync.router)
+app.include_router(tasks.router)
+app.include_router(documents.router)
+app.include_router(audit_logs.router)
+app.include_router(team.router)
+
+# ---------------------------------------------------------------------------
+# SPA catch-all (serve frontend index.html for non-API routes)
+# ---------------------------------------------------------------------------
+
+from fastapi.responses import FileResponse, JSONResponse
+
+@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok", "server": "PunchList Pro Python/FastAPI", "version": "2.0.0"}
 
@@ -98,19 +133,6 @@ async def on_startup():
             ) if "@" in settings.DATABASE_URL else settings.DATABASE_URL
             print(f"   → {masked}")
         print(f"📖 API docs: http://localhost:{settings.PORT}/docs")
-
-        import asyncio
-        async def _periodic_cleanup():
-            while True:
-                try:
-                    await asyncio.sleep(300)
-                    from .database import cleanup_expired_users
-                    cleanup_expired_users()
-                except asyncio.CancelledError:
-                    break
-                except Exception:
-                    pass
-        asyncio.create_task(_periodic_cleanup())
     except Exception as e:
         print(f"⚠️  Startup warning: {e}", file=sys.stderr)
 

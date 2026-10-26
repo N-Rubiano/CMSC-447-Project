@@ -67,19 +67,19 @@ def list_sheets(project_id: str, current_user: dict = Depends(get_current_user))
         raise HTTPException(403, "Access forbidden for this project")
     return execute_query(
         """SELECT s.*,
-             (SELECT COUNT(*) FROM pins WHERE sheet_id=s.id) as pin_count,
-             (SELECT COUNT(*) FROM pins WHERE sheet_id=s.id AND status IN ('open','assigned')) as open_pin_count
-           FROM sheets s WHERE s.project_id=:pid ORDER BY s.sheet_number ASC, s.created_at ASC""",
+             (SELECT COUNT(*) FROM pins WHERE sheet_id=CAST(s.id AS TEXT)) as pin_count,
+             (SELECT COUNT(*) FROM pins WHERE sheet_id=CAST(s.id AS TEXT) AND status IN ('open','assigned')) as open_pin_count
+           FROM sheets s WHERE CAST(s.project_id AS TEXT)=:pid ORDER BY s.sheet_number ASC, s.created_at ASC""",
         {"pid": project_id},
     )
 
 
 @router.get("/api/sheets/{sheet_id}")
 def get_sheet(sheet_id: str, current_user: dict = Depends(get_current_user)):
-    sheet = execute_one("SELECT * FROM sheets WHERE id=:id", {"id": sheet_id})
+    sheet = execute_one("SELECT * FROM sheets WHERE CAST(id AS TEXT)=:id", {"id": sheet_id})
     if not sheet:
         raise HTTPException(404, "Sheet not found")
-    if not can_user_access_project(current_user, sheet["project_id"]):
+    if not can_user_access_project(current_user, str(sheet["project_id"])):
         raise HTTPException(403, "Access forbidden for sheet drawing")
     return sheet
 
@@ -90,10 +90,10 @@ def get_sheet(sheet_id: str, current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/sheets/{sheet_id}/pdf")
 def serve_sheet_pdf(sheet_id: str, current_user: dict = Depends(get_current_user)):
-    sheet = execute_one("SELECT * FROM sheets WHERE id=:id", {"id": sheet_id})
+    sheet = execute_one("SELECT * FROM sheets WHERE CAST(id AS TEXT)=:id", {"id": sheet_id})
     if not sheet:
         raise HTTPException(404, "Sheet not found")
-    if not can_user_access_project(current_user, sheet["project_id"]):
+    if not can_user_access_project(current_user, str(sheet["project_id"])):
         raise HTTPException(403, "Forbidden")
     fp = sheet.get("file_path")
     if fp and Path(fp).exists():
@@ -103,10 +103,10 @@ def serve_sheet_pdf(sheet_id: str, current_user: dict = Depends(get_current_user
 
 @router.get("/api/sheets/{sheet_id}/image")
 def serve_sheet_image(sheet_id: str, current_user: dict = Depends(get_current_user)):
-    sheet = execute_one("SELECT * FROM sheets WHERE id=:id", {"id": sheet_id})
+    sheet = execute_one("SELECT * FROM sheets WHERE CAST(id AS TEXT)=:id", {"id": sheet_id})
     if not sheet:
         raise HTTPException(404, "Sheet not found")
-    if not can_user_access_project(current_user, sheet["project_id"]):
+    if not can_user_access_project(current_user, str(sheet["project_id"])):
         raise HTTPException(403, "Forbidden")
     ip = sheet.get("image_path")
     if ip and Path(ip).exists():

@@ -66,6 +66,8 @@ def _make_engine():
 
 engine = _make_engine()
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+from sqlalchemy.orm import declarative_base
+Base = declarative_base()
 
 
 @contextmanager
@@ -150,7 +152,7 @@ CREATE TABLE IF NOT EXISTS sheets (
 );
 CREATE TABLE IF NOT EXISTS sheet_versions (
     id TEXT PRIMARY KEY,
-    sheet_id TEXT REFERENCES sheets(id) ON DELETE CASCADE,
+    sheet_id TEXT,
     project_id TEXT,
     version_number INTEGER NOT NULL,
     version_tag TEXT, version TEXT,
@@ -162,8 +164,8 @@ CREATE TABLE IF NOT EXISTS sheet_versions (
 );
 CREATE TABLE IF NOT EXISTS pins (
     id TEXT PRIMARY KEY,
-    sheet_id TEXT REFERENCES sheets(id) ON DELETE CASCADE,
-    project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+    sheet_id TEXT,
+    project_id TEXT,
     item_number INTEGER NOT NULL,
     task_id TEXT, title TEXT NOT NULL, description TEXT,
     status TEXT NOT NULL DEFAULT 'open',
@@ -475,7 +477,20 @@ def _run_migrations(conn):
             "ALTER TABLE markups ADD COLUMN IF NOT EXISTS data TEXT",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS building_id TEXT",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS building_name TEXT",
-            # Users table schema synchronization (in case table was pre-existing in Supabase)
+            # Users table schema synchronization & constraints
+            "ALTER TABLE public.users DROP CONSTRAINT IF EXISTS ck_users_ck_users_auth_provider",
+            "ALTER TABLE public.users ALTER COLUMN auth_provider SET DEFAULT 'local'",
+            "ALTER TABLE public.users ALTER COLUMN email_verified SET DEFAULT true",
+            "ALTER TABLE public.users ALTER COLUMN email_verified DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN full_name DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN auth_provider DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN mfa_enabled SET DEFAULT false",
+            "ALTER TABLE public.users ALTER COLUMN mfa_enabled DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN is_org_admin SET DEFAULT false",
+            "ALTER TABLE public.users ALTER COLUMN is_org_admin DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN is_active SET DEFAULT true",
+            "ALTER TABLE public.users ALTER COLUMN is_active DROP NOT NULL",
+            "ALTER TABLE public.users ALTER COLUMN org_id DROP NOT NULL",
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS name TEXT",
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT",
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'sub_contractor'",
@@ -491,6 +506,10 @@ def _run_migrations(conn):
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS presence_text TEXT",
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
             "CREATE INDEX IF NOT EXISTS idx_users_supabase_uid ON public.users(supabase_uid)",
+            # Sheets table schema synchronization
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS name TEXT",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS sheet_number TEXT",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS discipline TEXT DEFAULT 'architectural'",
         ]
         for stmt in pg_migrations:
             try:
@@ -549,54 +568,44 @@ def init_db():
             raise
 
     _seed_demo_data()
-    seed_temp_admin(duration_hours=1.0)
+    seed_demo_accounts()
 
 
-def cleanup_expired_users():
-    """Delete any temporary demo users whose expires_at timestamp has passed."""
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
-        res = execute_write(
-            "DELETE FROM users WHERE expires_at IS NOT NULL AND expires_at <= :now",
-            {"now": now_iso}
-        )
-        return res
-    except Exception as e:
-        print(f"⚠️  Cleanup expired users error: {e}")
-
-
-def seed_temp_admin(duration_hours: float = 1.0):
-    """Seed the admin demo account in the database for a temporary period (e.g. 1 hour)."""
-    cleanup_expired_users()
+def seed_demo_accounts():
+    """
+    Seed canonical demo accounts for all 6 roles into the users table.
+    These are regular persistent user rows without auto-expiration.
+    An administrator can delete any of these accounts at any time via the API or Team UI.
+    """
     import bcrypt as _bcrypt
-    from datetime import timedelta
 
     def _hash(pw: str) -> str:
         return _bcrypt.hashpw(pw.encode(), _bcrypt.gensalt()).decode()
 
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
-    expires_at = (now_dt + timedelta(hours=duration_hours)).isoformat()
-
-    # Ensure admin company exists
     is_pg = settings.use_postgres
+
+    # Ensure demo companies exist
     upsert_company = (
         "INSERT INTO companies (id,name,type,trade,created_at) VALUES (:id,:name,:type,:trade,:now) ON CONFLICT (id) DO NOTHING"
         if is_pg else
         "INSERT OR IGNORE INTO companies (id,name,type,trade,created_at) VALUES (:id,:name,:type,:trade,:now)"
     )
-    try:
-        execute_write(upsert_company, {
-            "id": "cmp-gc-1",
-            "name": "Apex Construction Group",
-            "type": "contractor",
-            "trade": "General Contractor",
-            "now": now_iso
-        })
-    except Exception as e:
-        print(f"⚠️  Company upsert notice: {e}")
+    demo_companies = [
+        {"id": "cmp-gc-1", "name": "Apex Construction Group", "type": "contractor", "trade": "General Contractor", "now": now_iso},
+        {"id": "cmp-sub-1", "name": "Apex Mechanical", "type": "subcontractor", "trade": "Mechanical & HVAC", "now": now_iso},
+        {"id": "cmp-sub-2", "name": "Studio Design Arc", "type": "contractor", "trade": "Architecture", "now": now_iso},
+        {"id": "cmp-sub-3", "name": "Capital Asset Group", "type": "owner", "trade": "Owner / Facility", "now": now_iso},
+        {"id": "cmp-sub-4", "name": "City QA Inspections", "type": "contractor", "trade": "Field Inspection", "now": now_iso},
+    ]
+    for c in demo_companies:
+        try:
+            execute_write(upsert_company, c)
+        except Exception as e:
+            print(f"⚠️  Company upsert notice: {e}")
 
-    admin_users = [
+    demo_users = [
         {
             "id": "00000000-0000-0000-0000-000000000001",
             "name": "Admin",
@@ -606,7 +615,6 @@ def seed_temp_admin(duration_hours: float = 1.0):
             "company_id": "cmp-gc-1",
             "pw": _hash("Demo@2026!"),
             "now": now_iso,
-            "expires_at": expires_at,
         },
         {
             "id": "00000000-0000-0000-0000-000000000002",
@@ -617,25 +625,85 @@ def seed_temp_admin(duration_hours: float = 1.0):
             "company_id": "cmp-gc-1",
             "pw": _hash("Demo@2026!"),
             "now": now_iso,
-            "expires_at": expires_at,
-        }
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "name": "Contractor",
+            "email": "contractor@punchlistpro.demo",
+            "role": "general_contractor",
+            "company": "Apex Construction Group",
+            "company_id": "cmp-gc-1",
+            "pw": _hash("Demo@2026!"),
+            "now": now_iso,
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "name": "Subcontractor",
+            "email": "sub@punchlistpro.demo",
+            "role": "sub_contractor",
+            "company": "Apex Mechanical",
+            "company_id": "cmp-sub-1",
+            "pw": _hash("Demo@2026!"),
+            "now": now_iso,
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000005",
+            "name": "Architect",
+            "email": "architect@punchlistpro.demo",
+            "role": "architect",
+            "company": "Studio Design Arc",
+            "company_id": "cmp-sub-2",
+            "pw": _hash("Demo@2026!"),
+            "now": now_iso,
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000006",
+            "name": "Owner Rep",
+            "email": "owner@punchlistpro.demo",
+            "role": "owner",
+            "company": "Capital Asset Group",
+            "company_id": "cmp-sub-3",
+            "pw": _hash("Demo@2026!"),
+            "now": now_iso,
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000007",
+            "name": "Field Inspector",
+            "email": "inspector@punchlistpro.demo",
+            "role": "field_inspector",
+            "company": "City QA Inspections",
+            "company_id": "cmp-sub-4",
+            "pw": _hash("Demo@2026!"),
+            "now": now_iso,
+        },
     ]
 
     table_name = "public.users" if settings.use_postgres else "users"
-    for u in admin_users:
+    for u in demo_users:
         try:
-            execute_write(f"DELETE FROM {table_name} WHERE LOWER(email) = LOWER(:email) OR id = :id", {"email": u["email"], "id": u["id"]})
-            execute_write(
-                f"INSERT INTO {table_name} (id,name,email,role,company,company_id,password_hash,created_at,updated_at,expires_at) "
-                "VALUES (:id,:name,:email,:role,:company,:company_id,:pw,:now,:now,:expires_at)",
-                u
+            # Respect admin deletion: if admin previously deleted this user, do not resurrect
+            was_deleted = execute_one(
+                "SELECT id FROM audit_logs WHERE action IN ('USER_DELETED', 'MEMBER_REMOVED') AND details LIKE :pattern",
+                {"pattern": f"%{u['email']}%"}
             )
-            verified = execute_one(f"SELECT id, name, email, role, expires_at FROM {table_name} WHERE LOWER(email) = LOWER(:email)", {"email": u["email"]})
-            print(f"✅ Verified seeded admin in DB: {verified}")
-        except Exception as e:
-            print(f"⚠️  Failed to seed temporary admin {u['email']}: {e}")
+            if was_deleted:
+                continue
 
-    print(f"✅ Temporary Admin demo accounts active for {duration_hours}h until {expires_at}.")
+            existing = execute_one(
+                f"SELECT id, name, email FROM {table_name} WHERE LOWER(email) = LOWER(:email)",
+                {"email": u["email"]}
+            )
+            if not existing:
+                execute_write(
+                    f"INSERT INTO {table_name} (id,name,email,role,company,company_id,password_hash,created_at,updated_at) "
+                    "VALUES (:id,:name,:email,:role,:company,:company_id,:pw,:now,:now)",
+                    u
+                )
+                print(f"✅ Seeded persistent demo account: {u['email']} ({u['role']})")
+        except Exception as e:
+            print(f"⚠️  Failed to seed demo account {u['email']}: {e}")
+
+    print("✅ All demo user accounts active in database (admin can delete at will).")
 
 
 # ---------------------------------------------------------------------------

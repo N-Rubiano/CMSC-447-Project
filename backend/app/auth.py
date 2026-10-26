@@ -74,6 +74,21 @@ def _verify_supabase_token(raw_token: str) -> Optional[dict]:
 # Admin Supabase client for server-side sign-in (routers/auth.py)
 # ---------------------------------------------------------------------------
 
+def _get_supabase_client():
+    """
+    Return a Supabase admin client for server-side operations (sign-in).
+    Tries supabase-py first; returns None if not compatible with the key format.
+    The auth router falls back to direct HTTP if this returns None.
+    """
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    try:
+        from supabase import create_client
+        return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    except Exception:
+        return None
+
+
 BCRYPT_ROUNDS = 12
 MAX_PASSWORD_BYTES = 72
 

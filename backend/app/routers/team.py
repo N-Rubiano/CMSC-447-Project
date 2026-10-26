@@ -140,6 +140,9 @@ async def remove_team_member(
     current_user: dict = Depends(get_current_user),
 ):
     """Remove a team member from the PostgreSQL database."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(403, "Only administrators can delete team members.")
+
     target = execute_one("SELECT name, email FROM users WHERE id=:id", {"id": user_id})
     if not target:
         raise HTTPException(404, "Team member not found.")
