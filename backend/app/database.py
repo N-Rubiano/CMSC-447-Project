@@ -510,6 +510,72 @@ def _run_migrations(conn):
             "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS name TEXT",
             "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS sheet_number TEXT",
             "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS discipline TEXT DEFAULT 'architectural'",
+            "ALTER TABLE public.projects ALTER COLUMN id TYPE TEXT",
+            "ALTER TABLE public.sheets ALTER COLUMN id TYPE TEXT",
+            "ALTER TABLE public.sheets ALTER COLUMN project_id TYPE TEXT",
+            "ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS code TEXT",
+            "ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS contractor_company_id TEXT",
+            "ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS gc_user_id TEXT",
+            "ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS target_completion TEXT",
+            "ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS client_name TEXT",
+            "ALTER TABLE public.projects ALTER COLUMN org_id DROP NOT NULL",
+            "ALTER TABLE public.projects ALTER COLUMN sync_sequence SET DEFAULT 0",
+            "ALTER TABLE public.projects ALTER COLUMN sync_sequence DROP NOT NULL",
+            "ALTER TABLE public.projects ALTER COLUMN offline_cache_ttl SET DEFAULT 86400",
+            "ALTER TABLE public.projects ALTER COLUMN offline_cache_ttl DROP NOT NULL",
+            "ALTER TABLE public.projects ALTER COLUMN settings SET DEFAULT '{}'",
+            "ALTER TABLE public.projects ALTER COLUMN settings DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN org_id DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN version_set_id DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN version_label SET DEFAULT 'v1'",
+            "ALTER TABLE public.sheets ALTER COLUMN version_label DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN is_current_version SET DEFAULT true",
+            "ALTER TABLE public.sheets ALTER COLUMN is_current_version DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN page_dpi SET DEFAULT 150",
+            "ALTER TABLE public.sheets ALTER COLUMN page_dpi DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN hotspot_regions SET DEFAULT '[]'",
+            "ALTER TABLE public.sheets ALTER COLUMN hotspot_regions DROP NOT NULL",
+            "ALTER TABLE public.sheets ALTER COLUMN publish_status SET DEFAULT 'published'",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS file_path TEXT",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS image_path TEXT",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS width_pts INTEGER DEFAULT 1200",
+            "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS height_pts INTEGER DEFAULT 800",
+            "ALTER TABLE public.sheets ALTER COLUMN version_number SET DEFAULT 1",
+            "ALTER TABLE public.sheets ALTER COLUMN version_number DROP NOT NULL",
+            "ALTER TABLE public.sheets DROP CONSTRAINT IF EXISTS ck_sheets_ck_sheets_publish_status",
+            "ALTER TABLE public.sheets DROP CONSTRAINT IF EXISTS fk_sheets_version_set_id_sheet_version_sets",
+            "ALTER TABLE public.pins ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ",
+            "ALTER TABLE public.pins ADD COLUMN IF NOT EXISTS photo_count INTEGER DEFAULT 0",
+            "ALTER TABLE public.pins ADD COLUMN IF NOT EXISTS comment_count INTEGER DEFAULT 0",
+            "ALTER TABLE public.pins ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE public.pin_photos ADD COLUMN IF NOT EXISTS file_path TEXT",
+            "ALTER TABLE public.pin_photos ADD COLUMN IF NOT EXISTS thumbnail_path TEXT",
+            "ALTER TABLE public.pin_photos ADD COLUMN IF NOT EXISTS uploaded_by_name TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS user_id TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS user_name TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS user_role TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS user_company TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS text TEXT",
+            "ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()",
+            "ALTER TABLE public.comments ALTER COLUMN body DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN id TYPE TEXT",
+            "ALTER TABLE public.markups ALTER COLUMN sheet_id TYPE TEXT",
+            "ALTER TABLE public.markups ADD COLUMN IF NOT EXISTS author_id TEXT",
+            "ALTER TABLE public.markups ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'freehand'",
+            "ALTER TABLE public.markups ADD COLUMN IF NOT EXISTS data TEXT",
+            "ALTER TABLE public.markups ALTER COLUMN layer_id DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN project_id DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN org_id DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN tool_type DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN geometry DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN stroke_color DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN stroke_width DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN opacity DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN z_index DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN is_resolved DROP NOT NULL",
+            "ALTER TABLE public.markups ALTER COLUMN sync_sequence DROP NOT NULL",
+            "ALTER TABLE public.markups DROP CONSTRAINT IF EXISTS ck_markups_ck_markups_tool_type",
+            "ALTER TABLE public.markups DROP CONSTRAINT IF EXISTS fk_markups_layer_id_markup_layers",
         ]
         for stmt in pg_migrations:
             try:
@@ -525,30 +591,40 @@ def init_db():
         with engine.connect() as conn:
             if settings.use_postgres:
                 conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-                try:
-                    tables = conn.execute(text("SELECT table_schema, table_name, table_type FROM information_schema.tables WHERE table_name = 'users'")).fetchall()
-                    print(f"🔍 DB 'users' tables in Postgres: {tables}")
-                    cols = conn.execute(text("SELECT table_schema, column_name FROM information_schema.columns WHERE table_name = 'users'")).fetchall()
-                    print(f"🔍 DB 'users' columns: {cols}")
-                except Exception as ex:
-                    print(f"🔍 DB schema check notice: {ex}")
+                # Quick check: if the users table already exists, schema is already created
+                has_users = conn.execute(text(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users' LIMIT 1"
+                )).scalar()
 
-                ddl = _pg_schema_sql()
-                if ddl:
-                    for statement in ddl.split(";"):
-                        stmt = statement.strip()
-                        if stmt:
-                            try:
-                                conn.execute(text(stmt))
-                            except Exception:
-                                pass
-                _run_migrations(conn)
+                if not has_users:
+                    ddl = _pg_schema_sql()
+                    if ddl:
+                        for statement in ddl.split(";"):
+                            stmt = statement.strip()
+                            if stmt:
+                                try:
+                                    conn.execute(text(stmt))
+                                except Exception:
+                                    pass
+
+                # Track migrations with _schema_migrations so we don't repeat 50+ WAN roundtrips on every startup
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS _schema_migrations (version VARCHAR(64) PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())"
+                ))
+                migrated = conn.execute(text("SELECT 1 FROM _schema_migrations WHERE version = 'v2_init' LIMIT 1")).scalar()
+                if not migrated:
+                    _run_migrations(conn)
+                    conn.execute(text("INSERT INTO _schema_migrations (version) VALUES ('v2_init') ON CONFLICT DO NOTHING"))
             else:
-                for stmt in _sqlite_schema_sql().split(";"):
-                    s = stmt.strip()
-                    if s:
-                        conn.execute(text(s))
-                conn.commit()
+                has_users = conn.execute(text(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1"
+                )).scalar()
+                if not has_users:
+                    for stmt in _sqlite_schema_sql().split(";"):
+                        s = stmt.strip()
+                        if s:
+                            conn.execute(text(s))
+                    conn.commit()
     except Exception as e:
         if settings.use_postgres:
             print(f"⚠️  PostgreSQL connection failed ({e}). Falling back to local SQLite engine...")
@@ -577,10 +653,16 @@ def seed_demo_accounts():
     These are regular persistent user rows without auto-expiration.
     An administrator can delete any of these accounts at any time via the API or Team UI.
     """
-    import bcrypt as _bcrypt
+    # Fast path: check if canonical demo accounts already exist to avoid unnecessary WAN queries & bcrypt hashing
+    existing_demo = execute_one(
+        "SELECT COUNT(*) as cnt FROM users WHERE email LIKE '%@punchlistpro.demo'"
+    )
+    if existing_demo and int(existing_demo.get("cnt", 0)) >= 6:
+        print("✅ Canonical demo accounts are already active in database.")
+        return
 
-    def _hash(pw: str) -> str:
-        return _bcrypt.hashpw(pw.encode(), _bcrypt.gensalt()).decode()
+    import bcrypt as _bcrypt
+    cached_hash = _bcrypt.hashpw(b"Demo@2026!", _bcrypt.gensalt()).decode()
 
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
@@ -604,6 +686,8 @@ def seed_demo_accounts():
             execute_write(upsert_company, c)
         except Exception as e:
             print(f"⚠️  Company upsert notice: {e}")
+
+    _hash = lambda pw: cached_hash
 
     demo_users = [
         {
