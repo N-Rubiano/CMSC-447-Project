@@ -9,21 +9,54 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnon) {
-  console.error(
-    '⚠️  Supabase environment variables are missing.\n' +
-    'Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in frontend/.env'
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+  supabaseAnon &&
+  !supabaseUrl.includes('your-project') &&
+  !supabaseAnon.includes('your-anon-key')
+);
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    '⚠️ Supabase frontend environment variables are missing or unconfigured.\n' +
+    'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel / frontend/.env.\n' +
+    'Falling back to local backend authentication.'
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnon, {
-  auth: {
-    // Persist session across page reloads via localStorage
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnon, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    })
+  : {
+      auth: {
+        async getSession() {
+          return { data: { session: null }, error: null };
+        },
+        onAuthStateChange() {
+          return { data: { subscription: { unsubscribe: () => {} } } };
+        },
+        async signInWithPassword() {
+          return {
+            data: { session: null, user: null },
+            error: new Error('Supabase Auth is not configured on this deployment. Use demo/backend credentials instead.'),
+          };
+        },
+        async signInWithOAuth() {
+          return {
+            data: null,
+            error: new Error('Supabase Auth is not configured on this deployment.'),
+          };
+        },
+        async signOut() {
+          return { error: null };
+        },
+      },
+    };
 
 /**
  * Get the current Supabase access token (Bearer value for API requests).
