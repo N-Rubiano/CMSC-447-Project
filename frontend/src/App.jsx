@@ -124,6 +124,10 @@ export default function App() {
   const [sheets, setSheets] = useState(SHEETS);
   const [activeSheet, setActiveSheet] = useState(SHEETS[0]); // A-301
 
+  // Track whether we've done the initial DB project load so we don't
+  // overwrite a user's project selection on subsequent renders.
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+
   // -------------------------------------------------------------
   // UMBC CAMPUS BUILDING & FLOOR SELECTION STATE
   // -------------------------------------------------------------
@@ -184,11 +188,40 @@ export default function App() {
     loadAuditLogs();
   }, []);
 
-  // Fetch persisted sheets / blueprints from Supabase database on mount & project change
+  // -----------------------------------------------------------------
+  // Fetch projects from the database on first mount.
+  // Falls back to static mock data if the API is unreachable.
+  // -----------------------------------------------------------------
   useEffect(() => {
+    if (!isAuthenticated) return;
+    async function loadProjects() {
+      try {
+        const dbProjects = await api.getProjects();
+        if (Array.isArray(dbProjects) && dbProjects.length > 0) {
+          setProjects(dbProjects);
+          // Only auto-select the first DB project if we haven't yet
+          if (!projectsLoaded) {
+            setActiveProject(dbProjects[0]);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load projects from database, using mock data:', err);
+      } finally {
+        setProjectsLoaded(true);
+      }
+    }
+    loadProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  // -----------------------------------------------------------------
+  // Fetch sheets for the active project from the DB on project change.
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated || !activeProject?.id) return;
     async function loadSheets() {
       try {
-        const pId = activeProject?.id || 'proj-1';
+        const pId = activeProject.id;
         const dbSheets = await api.getSheets(pId);
         if (Array.isArray(dbSheets) && dbSheets.length > 0) {
           setSheets(prev => {
@@ -196,13 +229,50 @@ export default function App() {
             const remaining = prev.filter(s => !dbIds.has(s.id));
             return [...dbSheets, ...remaining];
           });
+          // If the current activeSheet belongs to a different project, clear it
+          setActiveSheet(prev => {
+            if (prev && !dbSheets.some(s => s.id === prev.id)) return dbSheets[0] || null;
+            return prev;
+          });
+        } else {
+          // No sheets in DB for this project — clear the sheet view
+          setSheets([]);
+          setActiveSheet(null);
         }
       } catch (err) {
         console.warn('Could not load sheets from database:', err);
       }
     }
     loadSheets();
-  }, [activeProject?.id]);
+  }, [isAuthenticated, activeProject?.id]);
+
+  // -----------------------------------------------------------------
+  // Fetch all punch pins for the active project from the DB.
+  // This is the primary fix for data disappearing on refresh.
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated || !activeProject?.id) return;
+    async function loadPins() {
+      try {
+        const dbPins = await api.getAllProjectPins(activeProject.id);
+        if (Array.isArray(dbPins)) {
+          // Replace state entirely with DB truth. Filter out any offline-only
+          // optimistic pins that haven't been synced yet.
+          setPunchItems(prev => {
+            const dbIds = new Set(dbPins.map(p => p.id));
+            const offlinePending = prev.filter(
+              p => p.is_offline_pending && !dbIds.has(p.id)
+            );
+            return [...dbPins, ...offlinePending];
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load punch items from database:', err);
+      }
+    }
+    loadPins();
+  }, [isAuthenticated, activeProject?.id]);
+
 
   useEffect(() => {
     try {
@@ -561,9 +631,13 @@ export default function App() {
   // Punch actions
   const handleUpdatePunchStatus = (punchId, newStatus) => {
     let affectedPunch = null;
+    let previousStatus = null;
+
+    // Optimistic update
     setPunchItems(prev => prev.map(p => {
       if (p.id !== punchId) return p;
       affectedPunch = p;
+      previousStatus = p.status;
       return {
         ...p,
         status: newStatus,
@@ -574,8 +648,17 @@ export default function App() {
       };
     }));
 
-    api.updatePinStatus(punchId, newStatus).catch(err => {
-      console.warn('Could not update punch status in DB:', err);
+    api.updatePinStatus(punchId, newStatus).then(updated => {
+      // Reconcile with the actual persisted data returned by the server
+      if (updated && updated.id) {
+        setPunchItems(prev => prev.map(p => p.id === punchId ? { ...p, ...updated } : p));
+      }
+    }).catch(err => {
+      console.warn('Could not update punch status in DB — rolling back:', err);
+      // Roll back the optimistic update so the UI stays consistent with DB
+      setPunchItems(prev => prev.map(p =>
+        p.id === punchId ? { ...p, status: previousStatus } : p
+      ));
     });
 
     addAuditLog({
@@ -633,15 +716,31 @@ export default function App() {
   };
 
   const handleAddNewPunch = (newPunch) => {
-    setPunchItems(prev => [newPunch, ...prev]);
-    setSelectedPinId(newPunch.id);
+    // Optimistic insert with a temporary local ID
+    const tempId = newPunch.id || `tmp-${Date.now()}`;
+    const optimisticPin = { ...newPunch, id: tempId, is_offline_pending: true };
+    setPunchItems(prev => [optimisticPin, ...prev]);
+    setSelectedPinId(tempId);
 
     api.createPin({
       ...newPunch,
       project_id: activeProject?.id || 'proj-1',
       sheet_id: activeSheet?.id || newPunch.sheetId
+    }).then(persistedPin => {
+      if (persistedPin && persistedPin.id) {
+        // Replace the temporary optimistic pin with the real DB-persisted pin
+        // (the server assigns the canonical ID and item_number)
+        setPunchItems(prev => prev.map(p =>
+          p.id === tempId ? { ...p, ...persistedPin, is_offline_pending: false } : p
+        ));
+        setSelectedPinId(persistedPin.id);
+      }
     }).catch(err => {
       console.warn('Could not persist new punch to DB:', err);
+      // Mark pin as still pending so the sync queue can retry it
+      setPunchItems(prev => prev.map(p =>
+        p.id === tempId ? { ...p, is_offline_pending: true } : p
+      ));
     });
 
     addAuditLog({
