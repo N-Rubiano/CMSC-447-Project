@@ -1,32 +1,213 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Download,
   FileSpreadsheet,
   FileText,
   Layers,
   Search,
-  Filter,
-  CheckCircle2,
   Clock,
-  AlertCircle,
-  XCircle,
-  Users,
-  Building2,
-  Calendar,
-  ExternalLink,
-  ChevronRight,
+  Wrench,
   TrendingUp,
   ShieldAlert,
-  HardHat,
-  Wrench,
+  ShieldCheck,
   Check,
   RotateCcw,
   ArrowRight,
-  ShieldCheck
+  ExternalLink,
+  ChevronRight,
+  Calendar,
+  MapPin,
+  Ruler,
+  Camera,
+  MessageSquare,
+  RefreshCw,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { api, getToken } from '../services/api';
 import './DashboardView.css';
+
+/* ------------------------------------------------------------------ */
+/* Config                                                              */
+/* ------------------------------------------------------------------ */
+
+const OPEN_STATUSES = ['open', 'assigned'];
+
+const ROLE_CHIPS = {
+  admin: { tone: 'admin', text: 'Facility admin · System-wide' },
+  architect: { tone: 'architect', text: 'Architect · Design compliance' },
+  owner: { tone: 'owner', text: 'Owner / client rep · Read-only' },
+  field_inspector: { tone: 'inspector', text: 'Field inspector · On-site QA/QC' }
+};
+
+const DISCIPLINES = [
+  ['architectural', 'Architectural'],
+  ['structural', 'Structural'],
+  ['mep', 'MEP / HVAC'],
+  ['electrical', 'Electrical'],
+  ['plumbing', 'Plumbing'],
+  ['drywall', 'Drywall']
+];
+
+const QUEUES = {
+  gc: {
+    tone: 'gc',
+    Icon: Clock,
+    title: 'Submissions awaiting GC review',
+    intro:
+      'Subcontractors have completed these punch items and submitted them for your inspection before they go to the Facility Admin.',
+    approve: {
+      label: 'Approve → Admin',
+      to: 'submitted_for_admin_review',
+      comment: 'GC Approved: Forwarded to Admin for final sign-off'
+    },
+    reject: { label: 'Reject back', to: 'in_progress', comment: 'GC Rejected: Re-work required' },
+    who: (p) => p.assigned_subcontractor_name || p.assigned_to_company
+  },
+  admin: {
+    tone: 'admin',
+    Icon: ShieldCheck,
+    title: 'Awaiting facility admin final sign-off',
+    intro:
+      'General contractors have approved these items. Verify the resolution to formally close them.',
+    approve: {
+      label: 'Approve & close',
+      to: 'closed',
+      comment: 'Facility Admin approved and closed punch item'
+    },
+    reject: {
+      label: 'Reject',
+      to: 'in_progress',
+      comment: 'Admin rejected back to in-progress work'
+    },
+    who: (p) => [p.assigned_contractor_name, p.assigned_subcontractor_name].filter(Boolean).join(' / ')
+  }
+};
+
+const formatStatus = (status = '') => status.replace(/_/g, ' ');
+
+/* ------------------------------------------------------------------ */
+/* Small components                                                    */
+/* ------------------------------------------------------------------ */
+
+function Shell({ sub = false, notice, onDismissNotice, children }) {
+  return (
+    <div className={`dashboard-scroll-container${sub ? ' dashboard-scroll-container--sub' : ''}`}>
+      <div className={`dashboard-inner-container${sub ? ' dashboard-inner-container--sub' : ''}`}>
+        {children}
+      </div>
+
+      {notice && (
+        <div
+          className={`dash-toast dash-toast--${notice.type}`}
+          role={notice.type === 'error' ? 'alert' : 'status'}
+        >
+          <span>{notice.text}</span>
+          <button type="button" onClick={onDismissNotice} aria-label="Dismiss message">
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoleChip({ role, company }) {
+  if (role === 'general_contractor') {
+    return <span className="role-chip role-chip--gc">GC hub: {company || 'General contractor'}</span>;
+  }
+  const chip = ROLE_CHIPS[role];
+  return chip ? <span className={`role-chip role-chip--${chip.tone}`}>{chip.text}</span> : null;
+}
+
+function KpiCard({ variant, label, icon: Icon, value, sub, children }) {
+  return (
+    <div className={`kpi-card kpi-card--${variant}`}>
+      <div className="kpi-card__head">
+        <span className="kpi-card__label">{label}</span>
+        {Icon && <Icon size={16} aria-hidden="true" />}
+      </div>
+      {children ?? <div className="kpi-number">{value}</div>}
+      {sub && <div className="kpi-card__sub">{sub}</div>}
+    </div>
+  );
+}
+
+function ReviewQueue({ config, items, busyIds, onAction, onInspect }) {
+  const { Icon, tone, title, intro, approve, reject, who } = config;
+  const headingId = `queue-${tone}-title`;
+
+  return (
+    <section className={`review-queue-card review-queue-card--${tone}`} aria-labelledby={headingId}>
+      <div className="review-queue__head">
+        <Icon size={18} aria-hidden="true" />
+        <h2 id={headingId}>
+          {title} ({items.length})
+        </h2>
+      </div>
+      <p className="review-queue__intro">{intro}</p>
+
+      <ul className="review-queue__list">
+        {items.map((p) => {
+          const busy = busyIds.has(p.id);
+          const owner = who(p);
+          return (
+            <li key={p.id} className="review-queue__item">
+              <div>
+                <span className="review-queue__num">#{p.item_number}</span>
+                <span className="review-queue__title">{p.title}</span>
+                {owner && <span className="review-queue__who">({owner})</span>}
+              </div>
+              <div className="review-queue__actions">
+                <button
+                  type="button"
+                  className="btn-primary dash-btn dash-btn--sm is-green"
+                  disabled={busy}
+                  onClick={() => onAction(p, approve.to, approve.comment)}
+                >
+                  <Check size={12} aria-hidden="true" /> {approve.label}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary dash-btn dash-btn--sm is-danger"
+                  disabled={busy}
+                  onClick={() => onAction(p, reject.to, reject.comment)}
+                >
+                  <RotateCcw size={12} aria-hidden="true" /> {reject.label}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost dash-btn dash-btn--sm"
+                  disabled={busy}
+                  onClick={() => onInspect(p)}
+                >
+                  Inspect
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function DashboardSkeleton({ sub }) {
+  return (
+    <div aria-busy="true" aria-label="Loading punch items">
+      <div className="skeleton" style={{ height: sub ? 84 : 92 }} />
+      <div className="dashboard-kpi-grid" style={{ marginTop: 20 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="skeleton" style={{ height: 104 }} />
+        ))}
+      </div>
+      <div className="skeleton" style={{ height: 320, marginTop: 20 }} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* DashboardView                                                       */
+/* ------------------------------------------------------------------ */
 
 export default function DashboardView({
   project,
@@ -37,83 +218,143 @@ export default function DashboardView({
   onRefreshData
 }) {
   const [pins, setPins] = useState([]);
-  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [busyIds, setBusyIds] = useState(() => new Set());
+  const [exporting, setExporting] = useState(null); // 'annotated' | 'report' | 'csv' | null
+  const [notice, setNotice] = useState(null);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [disciplineFilter, setDisciplineFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
-  const loadProjectPins = async () => {
-    if (!project) return;
-    try {
-      setLoading(true);
-      const data = await api.getAllProjectPins(project.id);
-      setPins(data);
-      if (currentUser?.role === 'admin' || currentUser?.role === 'general_contractor') {
-        const comps = await api.getCompanies().catch(() => []);
-        setCompanies(comps);
+  const requestId = useRef(0);
+  const noticeTimer = useRef(null);
+
+  const role = currentUser?.role;
+  const isSub = role === 'sub_contractor';
+  const isGc = role === 'general_contractor';
+  const isAdmin = role === 'admin';
+
+  /* ---- notices ---- */
+  const notify = useCallback((type, text) => {
+    clearTimeout(noticeTimer.current);
+    setNotice({ type, text });
+    noticeTimer.current = setTimeout(() => setNotice(null), type === 'error' ? 7000 : 3500);
+  }, []);
+  useEffect(() => () => clearTimeout(noticeTimer.current), []);
+
+  /* ---- data loading (ignores stale responses when project changes) ---- */
+  const loadProjectPins = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!project?.id) {
+        setPins([]);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('Failed to load project pins:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const id = ++requestId.current;
+      try {
+        if (!silent) setLoading(true);
+        setError(null);
+        const data = await api.getAllProjectPins(project.id);
+        if (id === requestId.current) setPins(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (id === requestId.current) setError(err.message || 'Could not load punch items.');
+      } finally {
+        if (id === requestId.current) setLoading(false);
+      }
+    },
+    [project?.id]
+  );
+
+  useEffect(() => {
+    setPins([]); // never show the previous project's items
+  }, [project?.id]);
 
   useEffect(() => {
     loadProjectPins();
-  }, [project?.id]);
+    return () => {
+      requestId.current += 1; // invalidate any in-flight request
+    };
+  }, [loadProjectPins]);
 
+  /* ---- derived data ---- */
+  const sheetById = useMemo(() => new Map(sheets.map((s) => [s.id, s])), [sheets]);
+
+  const { counts, gcQueue, adminQueue } = useMemo(() => {
+    const c = { total: pins.length, open: 0, inProgress: 0, gcReview: 0, adminReview: 0, closed: 0, critical: 0 };
+    const gc = [];
+    const admin = [];
+    for (const p of pins) {
+      if (OPEN_STATUSES.includes(p.status)) c.open += 1;
+      else if (p.status === 'in_progress') c.inProgress += 1;
+      else if (p.status === 'submitted_for_contractor_review') {
+        c.gcReview += 1;
+        gc.push(p);
+      } else if (p.status === 'submitted_for_admin_review') {
+        c.adminReview += 1;
+        admin.push(p);
+      } else if (p.status === 'closed') c.closed += 1;
+
+      if (p.priority === 'critical' && p.status !== 'closed') c.critical += 1;
+    }
+    c.inReview = c.gcReview + c.adminReview;
+    c.resolutionRate = c.total ? Math.round((c.closed / c.total) * 100) : 0;
+    return { counts: c, gcQueue: gc, adminQueue: admin };
+  }, [pins]);
+
+  const filteredPins = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return pins.filter((p) => {
+      // "open" in the dropdown means open + assigned (the count shown includes both)
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'open' ? OPEN_STATUSES.includes(p.status) : p.status === statusFilter);
+      if (!matchesStatus) return false;
+      if (disciplineFilter !== 'all' && p.discipline !== disciplineFilter) return false;
+      if (priorityFilter !== 'all' && p.priority !== priorityFilter) return false;
+      if (!needle) return true;
+
+      return (
+        [p.title, p.description, p.room_location, p.assigned_to_company, p.assigned_subcontractor_name]
+          .filter(Boolean)
+          .some((v) => v.toLowerCase().includes(needle)) || String(p.item_number).includes(needle)
+      );
+    });
+  }, [pins, search, statusFilter, disciplineFilter, priorityFilter]);
+
+  /* ---- actions ---- */
   const handleQuickStatusUpdate = async (pin, nextStatus, comment = '') => {
+    if (busyIds.has(pin.id)) return;
+    setBusyIds((prev) => new Set(prev).add(pin.id));
     try {
       await api.updatePinStatus(pin.id, nextStatus, comment);
-      await loadProjectPins();
+      await loadProjectPins({ silent: true });
       if (onRefreshData) onRefreshData();
+      notify('success', `Item #${pin.item_number} moved to ${formatStatus(nextStatus)}.`);
     } catch (err) {
-      alert(err.message || 'Failed to update status');
+      notify('error', err.message || `Could not update item #${pin.item_number}.`);
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pin.id);
+        return next;
+      });
     }
   };
 
-  const filteredPins = pins.filter(p => {
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    const matchesDisc = disciplineFilter === 'all' || p.discipline === disciplineFilter;
-    const matchesPrio = priorityFilter === 'all' || p.priority === priorityFilter;
-    const matchesSearch = !search ||
-      (p.title && p.title.toLowerCase().includes(search.toLowerCase())) ||
-      (p.description && p.description.toLowerCase().includes(search.toLowerCase())) ||
-      (p.room_location && p.room_location.toLowerCase().includes(search.toLowerCase())) ||
-      (p.assigned_to_company && p.assigned_to_company.toLowerCase().includes(search.toLowerCase())) ||
-      (p.assigned_subcontractor_name && p.assigned_subcontractor_name.toLowerCase().includes(search.toLowerCase())) ||
-      String(p.item_number).includes(search);
-
-    return matchesStatus && matchesDisc && matchesPrio && matchesSearch;
-  });
-
-  // Calculate Metrics
-  const totalCount = pins.length;
-  const openCount = pins.filter(p => p.status === 'open' || p.status === 'assigned').length;
-  const inProgressCount = pins.filter(p => p.status === 'in_progress').length;
-  const gcReviewCount = pins.filter(p => p.status === 'submitted_for_contractor_review').length;
-  const adminReviewCount = pins.filter(p => p.status === 'submitted_for_admin_review').length;
-  const inReviewCount = gcReviewCount + adminReviewCount;
-  const closedCount = pins.filter(p => p.status === 'closed').length;
-  const criticalCount = pins.filter(p => p.priority === 'critical' && p.status !== 'closed').length;
-  const resolutionRate = totalCount > 0 ? Math.round((closedCount / totalCount) * 100) : 0;
-
-  // Exports — use authenticated fetch so the JWT is sent with the request
-  const triggerAuthenticatedDownload = async (url, filename) => {
+  // The JWT is sent in the Authorization header only; never put it in the URL.
+  const downloadExport = async (key, path, filename) => {
+    if (exporting) return;
+    const token = getToken();
+    if (!token) {
+      notify('error', 'Your session has expired. Sign in again to export.');
+      return;
+    }
+    setExporting(key);
     try {
-      const token = getToken();
-      if (!token) {
-        alert('Authentication required: please log in again.');
-        return;
-      }
-      const separator = url.includes('?') ? '&' : '?';
-      const authedUrl = `${url}${separator}token=${encodeURIComponent(token)}`;
-      const res = await fetch(authedUrl, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `Export failed (${res.status})`);
@@ -126,705 +367,481 @@ export default function DashboardView({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (err) {
-      alert(`Export error: ${err.message}`);
+      notify('error', `Export error: ${err.message}`);
+    } finally {
+      setExporting(null);
     }
   };
 
-  const handleExportAnnotatedPdf = () => {
-    triggerAuthenticatedDownload(
-      `/api/projects/${project.id}/export/annotated-pdf`,
-      `${project.code || 'PRJ'}_Annotated_PlanSet.pdf`
-    );
-  };
+  const code = project?.code || 'PRJ';
+  const exportAnnotatedPdf = () =>
+    downloadExport('annotated', `/api/projects/${project.id}/export/annotated-pdf`, `${code}_Annotated_PlanSet.pdf`);
+  const exportPunchReport = () =>
+    downloadExport('report', `/api/projects/${project.id}/export/punch-report`, `${code}_PunchList_Report.pdf`);
+  const exportCsv = () =>
+    downloadExport('csv', `/api/projects/${project.id}/export/csv`, `${code}_PunchList.csv`);
 
-  const handleExportPunchReport = () => {
-    triggerAuthenticatedDownload(
-      `/api/projects/${project.id}/export/punch-report`,
-      `${project.code || 'PRJ'}_PunchList_Report.pdf`
-    );
-  };
+  const shellProps = { sub: isSub, notice, onDismissNotice: () => setNotice(null) };
 
-  const handleExportCsv = () => {
-    triggerAuthenticatedDownload(
-      `/api/projects/${project.id}/export/csv`,
-      `${project.code || 'PRJ'}_PunchList.csv`
-    );
-  };
+  const errorBanner = error && (
+    <div className="dash-banner dash-banner--error" role="alert">
+      <AlertCircle size={16} aria-hidden="true" />
+      <span>{error}</span>
+      <button type="button" className="btn-secondary dash-btn dash-btn--sm" onClick={() => loadProjectPins()}>
+        <RefreshCw size={12} aria-hidden="true" /> Retry
+      </button>
+    </div>
+  );
 
-  // -------------------------------------------------------------
-  // 1. SUBCONTRACTOR VIEW: TABLET-FIRST "MY WORK" QUEUE
-  // -------------------------------------------------------------
-  if (currentUser?.role === 'sub_contractor') {
-    const myPins = pins; // Backend already scopes to this sub
+  if (loading && pins.length === 0 && !error) {
     return (
-      <div className="dashboard-scroll-container" style={{ backgroundColor: '#F8FAFC' }}>
-        <div className="dashboard-inner-container" style={{ maxWidth: 1200 }}>
-
-          {/* Subcontractor Header Banner */}
-          <div style={{
-            backgroundColor: '#FFFFFF',
-            border: '1.5px solid #E2E8F0',
-            borderRadius: 12,
-            padding: '20px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 16,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                backgroundColor: '#EFF6FF',
-                border: '1.5px solid #93C5FD',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Wrench size={22} color="#2563EB" />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h1 style={{ fontSize: 20, fontWeight: 900, color: '#0F172A', margin: 0 }}>
-                    MY WORK ASSIGNMENTS
-                  </h1>
-                  <span style={{ fontSize: 11, background: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                    {currentUser.company}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>
-                  Project: <strong>{project?.name}</strong> • Tap an item to review details, upload photos, or submit work.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Subcontractor KPI Cards */}
-          <div className="dashboard-kpi-grid">
-            <div className="kpi-card kpi-card--sub-total">
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Assigned</div>
-              <div className="kpi-number" style={{ color: '#0F172A' }}>{myPins.length}</div>
-            </div>
-            <div className="kpi-card kpi-card--sub-progress">
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#EA580C', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In Progress</div>
-              <div className="kpi-number" style={{ color: '#EA580C' }}>{inProgressCount}</div>
-            </div>
-            <div className="kpi-card kpi-card--sub-review">
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Awaiting GC Review</div>
-              <div className="kpi-number" style={{ color: '#D97706' }}>{gcReviewCount}</div>
-            </div>
-            <div className="kpi-card kpi-card--sub-closed">
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Closed & Approved</div>
-              <div className="kpi-number" style={{ color: '#15803D' }}>{closedCount}</div>
-            </div>
-          </div>
-
-          {/* Subcontractor Work Cards List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '6px 0 0 0' }}>
-              Assigned Tasks ({filteredPins.length})
-            </h2>
-
-            {filteredPins.length > 0 ? (
-              filteredPins.map((p) => {
-                const sheet = sheets.find(s => s.id === p.sheet_id);
-                return (
-                  <div key={p.id} className="subcontractor-task-card">
-                    <div style={{ flex: 1, minWidth: 280 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#1E293B', fontSize: 15 }}>
-                          #{p.item_number}
-                        </span>
-                        <span className={`badge-priority ${p.priority || 'medium'}`}>
-                          {p.priority}
-                        </span>
-                        <span className={`badge-status ${p.status}`}>
-                          {p.status.replace(/_/g, ' ')}
-                        </span>
-                        {p.due_date && (
-                          <span style={{ fontSize: 11, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Calendar size={12} /> Due: {p.due_date}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ fontWeight: 800, fontSize: 15, color: '#0F172A', marginTop: 6 }}>
-                        {p.title}
-                      </div>
-
-                      <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>
-                        {p.description}
-                      </div>
-
-                      <div style={{ fontSize: 12, color: '#64748B', marginTop: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <span>📍 Location: <strong>{p.room_location || 'Field Site'}</strong></span>
-                        <span>📐 Sheet: <strong>{p.sheet_number || sheet?.sheet_number || 'A-101'}</strong></span>
-                        {p.photo_count > 0 && <span>📷 <strong>{p.photo_count} Photo(s)</strong></span>}
-                      </div>
-                    </div>
-
-                    {/* Subcontractor Action Buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {(p.status === 'open' || p.status === 'assigned') && (
-                        <button
-                          onClick={() => handleQuickStatusUpdate(p, 'in_progress', 'Started on-site work')}
-                          className="btn-primary"
-                          style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, backgroundColor: '#2563EB', borderColor: '#1D4ED8' }}
-                        >
-                          <ArrowRight size={14} /> Start Work
-                        </button>
-                      )}
-
-                      {p.status === 'in_progress' && (
-                        <button
-                          onClick={() => onSelectPinFromTable(p)}
-                          className="btn-primary"
-                          style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, backgroundColor: '#D97706', borderColor: '#B45309' }}
-                        >
-                          <Check size={14} /> Complete & Submit
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => { if (sheet) onSelectSheetFromTable(sheet, p); }}
-                        className="btn-secondary"
-                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700 }}
-                      >
-                        <ExternalLink size={13} /> View on Plan
-                      </button>
-
-                      <button
-                        onClick={() => onSelectPinFromTable(p)}
-                        className="btn-ghost"
-                        style={{ padding: '8px 12px', fontSize: 12, fontWeight: 700, color: '#5C3A21' }}
-                      >
-                        Details & Comments <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 8, padding: 40, textAlign: 'center', color: '#64748B' }}>
-                No active work items assigned to your company.
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
+      <Shell {...shellProps}>
+        <DashboardSkeleton sub={isSub} />
+      </Shell>
     );
   }
 
-  // -------------------------------------------------------------
-  // 2. GENERAL CONTRACTOR & ADMIN VIEW
-  // -------------------------------------------------------------
-  const isGc = currentUser?.role === 'general_contractor';
+  /* ================================================================ */
+  /* 1. Subcontractor view: tablet-first "my work" queue              */
+  /* ================================================================ */
+  if (isSub) {
+    return (
+      <Shell {...shellProps}>
+        {errorBanner}
+
+        <div className="dashboard-header-banner dashboard-header-banner--sub">
+          <div className="sub-banner">
+            <div className="sub-banner__icon">
+              <Wrench size={22} aria-hidden="true" />
+            </div>
+            <div>
+              <div className="sub-banner__title-row">
+                <h1>My work assignments</h1>
+                {currentUser?.company && <span className="role-chip role-chip--sub">{currentUser.company}</span>}
+              </div>
+              <div className="sub-banner__meta">
+                Project: <strong>{project?.name}</strong> · Tap an item to review details, upload photos, or submit
+                work.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-kpi-grid">
+          <KpiCard variant="sub-total" label="Total assigned" value={counts.total} />
+          <KpiCard variant="sub-progress" label="In progress" value={counts.inProgress} />
+          <KpiCard variant="sub-review" label="Awaiting GC review" value={counts.gcReview} />
+          <KpiCard variant="sub-closed" label="Closed & approved" value={counts.closed} />
+        </div>
+
+        <section className="task-list" aria-labelledby="assigned-tasks-title">
+          <h2 id="assigned-tasks-title" className="task-list__title">
+            Assigned tasks ({pins.length})
+          </h2>
+
+          {pins.length > 0 ? (
+            pins.map((p) => {
+              const sheet = sheetById.get(p.sheet_id);
+              const busy = busyIds.has(p.id);
+              return (
+                <article key={p.id} className="subcontractor-task-card">
+                  <div className="task-card__body">
+                    <div className="task-card__top">
+                      <span className="task-card__num">#{p.item_number}</span>
+                      <span className={`badge-priority ${p.priority || 'medium'}`}>{p.priority || 'medium'}</span>
+                      <span className={`badge-status ${p.status}`}>{formatStatus(p.status)}</span>
+                      {p.due_date && (
+                        <span className="task-meta">
+                          <Calendar size={12} aria-hidden="true" /> Due: {p.due_date}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="task-card__title">{p.title}</div>
+                    {p.description && <div className="task-card__desc">{p.description}</div>}
+
+                    <div className="task-card__meta">
+                      <span className="task-meta">
+                        <MapPin size={13} aria-hidden="true" /> Location:{' '}
+                        <strong>{p.room_location || 'Field site'}</strong>
+                      </span>
+                      {(p.sheet_number || sheet?.sheet_number) && (
+                        <span className="task-meta">
+                          <Ruler size={13} aria-hidden="true" /> Sheet:{' '}
+                          <strong>{p.sheet_number || sheet?.sheet_number}</strong>
+                        </span>
+                      )}
+                      {p.photo_count > 0 && (
+                        <span className="task-meta">
+                          <Camera size={13} aria-hidden="true" /> <strong>{p.photo_count} photo(s)</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="task-card__actions">
+                    {OPEN_STATUSES.includes(p.status) && (
+                      <button
+                        type="button"
+                        className="btn-primary dash-btn dash-btn--md is-blue"
+                        disabled={busy}
+                        onClick={() => handleQuickStatusUpdate(p, 'in_progress', 'Started on-site work')}
+                      >
+                        <ArrowRight size={14} aria-hidden="true" /> Start work
+                      </button>
+                    )}
+
+                    {p.status === 'in_progress' && (
+                      <button
+                        type="button"
+                        className="btn-primary dash-btn dash-btn--md is-amber"
+                        onClick={() => onSelectPinFromTable(p)}
+                      >
+                        <Check size={14} aria-hidden="true" /> Complete & submit
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn-secondary dash-btn dash-btn--md"
+                      disabled={!sheet}
+                      onClick={() => sheet && onSelectSheetFromTable(sheet, p)}
+                    >
+                      <ExternalLink size={13} aria-hidden="true" /> View on plan
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-ghost dash-btn dash-btn--md is-brown"
+                      onClick={() => onSelectPinFromTable(p)}
+                    >
+                      Details & comments <ChevronRight size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <div className="dash-empty">No active work items are assigned to your company.</div>
+          )}
+        </section>
+      </Shell>
+    );
+  }
+
+  /* ================================================================ */
+  /* 2. General contractor, admin and read-only roles                 */
+  /* ================================================================ */
+  const metaParts = [
+    project?.address,
+    project?.contractor_company_name && (
+      <>
+        Assigned GC: <strong>{project.contractor_company_name}</strong>
+      </>
+    ),
+    project?.target_completion && (
+      <>
+        Target completion: <strong>{project.target_completion}</strong>
+      </>
+    )
+  ].filter(Boolean);
 
   return (
-    <div className="dashboard-scroll-container">
-      <div className="dashboard-inner-container">
+    <Shell {...shellProps}>
+      {errorBanner}
 
-        {/* Project Header Banner & Export Bar */}
-        <div className="dashboard-header-banner">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-                {project?.name}
-              </h1>
-              <span style={{
-                fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 800,
-                color: '#92400E',
-                backgroundColor: '#FEF3C7',
-                padding: '3px 8px',
-                borderRadius: 4,
-                border: '1px solid #FCD34D'
-              }}>
-                {project?.code}
-              </span>
-              {isGc && (
-                <span style={{ fontSize: 11, background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                  GC Hub: {currentUser?.company || 'General Contractor'}
-                </span>
-              )}
-              {currentUser?.role === 'admin' && (
-                <span style={{ fontSize: 11, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                  Facility Admin • System-wide
-                </span>
-              )}
-              {currentUser?.role === 'architect' && (
-                <span style={{ fontSize: 11, background: '#DBEAFE', color: '#2563EB', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                  Architect • Design Compliance
-                </span>
-              )}
-              {currentUser?.role === 'owner' && (
-                <span style={{ fontSize: 11, background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                  Owner / Client Rep • Read-Only
-                </span>
-              )}
-              {currentUser?.role === 'field_inspector' && (
-                <span style={{ fontSize: 11, background: '#FFEDD5', color: '#EA580C', border: '1px solid #FED7AA', padding: '2px 8px', borderRadius: 12, fontWeight: 800 }}>
-                  Field Inspector • On-Site QA/QC
-                </span>
-              )}
+      {/* Project header and exports */}
+      <div className="dashboard-header-banner">
+        <div>
+          <div className="banner-title-row">
+            <h1>{project?.name}</h1>
+            {project?.code && <span className="project-code">{project.code}</span>}
+            <RoleChip role={role} company={currentUser?.company} />
+          </div>
+          {metaParts.length > 0 && (
+            <div className="banner-meta">
+              {metaParts.map((part, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && ' · '}
+                  {part}
+                </React.Fragment>
+              ))}
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 6, fontWeight: 500 }}>
-              {project?.address} • Assigned GC: <strong>{project?.contractor_company_name || 'Apex Construction GC'}</strong> • Target Completion: <strong>{project?.target_completion || 'Q4 2026'}</strong>
-            </div>
+          )}
+        </div>
+
+        <div className="dashboard-export-group">
+          <button
+            type="button"
+            className="btn-brown dash-btn dash-btn--export"
+            onClick={exportAnnotatedPdf}
+            disabled={!!exporting}
+            aria-busy={exporting === 'annotated'}
+            title="Download the full plan set with pins and markups burned in"
+          >
+            <Layers size={15} color="#FEF3C7" aria-hidden="true" />
+            {exporting === 'annotated' ? 'Preparing…' : 'Annotated plan set (PDF)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary dash-btn dash-btn--export is-amber-outline"
+            onClick={exportPunchReport}
+            disabled={!!exporting}
+            aria-busy={exporting === 'report'}
+            title="Download the punch list summary PDF with photos and assignees"
+          >
+            <FileText size={15} color="#D97706" aria-hidden="true" />
+            {exporting === 'report' ? 'Preparing…' : 'Punch report (PDF)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary dash-btn dash-btn--export"
+            onClick={exportCsv}
+            disabled={!!exporting}
+            aria-busy={exporting === 'csv'}
+            title="Download as a CSV spreadsheet"
+          >
+            <FileSpreadsheet size={15} color="#18181B" aria-hidden="true" />
+            {exporting === 'csv' ? 'Preparing…' : 'Export CSV'}
+          </button>
+        </div>
+      </div>
+
+      {/* Review queues (only the role that can act on them sees the buttons) */}
+      {isGc && gcQueue.length > 0 && (
+        <ReviewQueue
+          config={QUEUES.gc}
+          items={gcQueue}
+          busyIds={busyIds}
+          onAction={handleQuickStatusUpdate}
+          onInspect={onSelectPinFromTable}
+        />
+      )}
+      {isAdmin && adminQueue.length > 0 && (
+        <ReviewQueue
+          config={QUEUES.admin}
+          items={adminQueue}
+          busyIds={busyIds}
+          onAction={handleQuickStatusUpdate}
+          onInspect={onSelectPinFromTable}
+        />
+      )}
+
+      {/* KPIs */}
+      <div className="dashboard-kpi-grid">
+        <KpiCard variant="resolution" label="Resolution rate" icon={TrendingUp}>
+          <div className="kpi-card__rate">
+            <span className="kpi-number">{counts.resolutionRate}%</span>
+            <span className="kpi-card__muted">
+              ({counts.closed} of {counts.total} closed)
+            </span>
+          </div>
+          <div
+            className="kpi-progress"
+            role="progressbar"
+            aria-label="Resolution rate"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={counts.resolutionRate}
+          >
+            <div className="kpi-progress__bar" style={{ width: `${counts.resolutionRate}%` }} />
+          </div>
+        </KpiCard>
+
+        <KpiCard
+          variant="active"
+          label="Active / in progress"
+          icon={Wrench}
+          value={counts.open + counts.inProgress}
+          sub={`${counts.open} open / ${counts.inProgress} underway`}
+        />
+        <KpiCard
+          variant="review"
+          label="In review"
+          icon={Clock}
+          value={counts.inReview}
+          sub={`${counts.gcReview} GC / ${counts.adminReview} admin`}
+        />
+        <KpiCard
+          variant="critical"
+          label="Critical blockers"
+          icon={ShieldAlert}
+          value={counts.critical}
+          sub="High priority / safety / code"
+        />
+      </div>
+
+      {/* Master punch list */}
+      <section className="dash-panel" aria-label="Punch list">
+        <div className="dashboard-filter-bar">
+          <div className="dashboard-search-wrap">
+            <Search size={15} className="dashboard-search-icon" aria-hidden="true" />
+            <input
+              type="search"
+              className="dashboard-search-input"
+              placeholder="Search title, location, trade, sub…"
+              aria-label="Search punch items"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
-          {/* Export Action Group */}
-          <div className="dashboard-export-group">
-            <button
-              onClick={handleExportAnnotatedPdf}
-              className="btn-brown"
-              style={{ padding: '9px 16px', fontSize: 12.5, gap: 7, fontWeight: 700 }}
-              title="Download full architectural plan set with pins and markups burned in"
+          <div className="dashboard-filter-dropdowns">
+            <select
+              className="dashboard-filter-select"
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <Layers size={15} color="#FEF3C7" /> Annotated Plan Set (PDF)
-            </button>
-            <button
-              onClick={handleExportPunchReport}
-              className="btn-secondary"
-              style={{ padding: '9px 16px', fontSize: 12.5, gap: 7, fontWeight: 700, borderColor: '#D97706', color: '#92400E', backgroundColor: '#FFFBEB' }}
-              title="Download formal Punch List Summary PDF with photos and assignees"
+              <option value="all">All statuses ({counts.total})</option>
+              <option value="open">Open / assigned ({counts.open})</option>
+              <option value="in_progress">In progress ({counts.inProgress})</option>
+              <option value="submitted_for_contractor_review">GC review ({counts.gcReview})</option>
+              <option value="submitted_for_admin_review">Admin review ({counts.adminReview})</option>
+              <option value="closed">Closed ({counts.closed})</option>
+            </select>
+
+            <select
+              className="dashboard-filter-select"
+              aria-label="Filter by trade or discipline"
+              value={disciplineFilter}
+              onChange={(e) => setDisciplineFilter(e.target.value)}
             >
-              <FileText size={15} color="#D97706" /> Punch Report (PDF)
-            </button>
-            <button
-              onClick={handleExportCsv}
-              className="btn-secondary"
-              style={{ padding: '9px 16px', fontSize: 12.5, gap: 7, fontWeight: 700 }}
-              title="Download CSV spreadsheet"
+              <option value="all">All trades / disciplines</option>
+              {DISCIPLINES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="dashboard-filter-select"
+              aria-label="Filter by priority"
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
             >
-              <FileSpreadsheet size={15} color="#18181B" /> Export CSV
-            </button>
+              <option value="all">All priorities</option>
+              <option value="critical">Critical only</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
 
-        {/* GC Review Queue (Prominent Callout for Contractor) */}
-        {isGc && gcReviewCount > 0 && (
-          <div style={{
-            backgroundColor: '#FFFBEB',
-            border: '1.5px solid #FCD34D',
-            borderRadius: 'var(--radius-lg)',
-            padding: '18px 22px',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Clock size={18} color="#D97706" />
-              <h2 style={{ fontSize: 15, fontWeight: 900, color: '#92400E', margin: 0 }}>
-                SUBMISSIONS AWAITING GC REVIEW ({gcReviewCount})
-              </h2>
-            </div>
-            <div style={{ fontSize: 12.5, color: '#B45309', marginTop: 4 }}>
-              Subcontractors have completed the following punch items and submitted them for your inspection before forwarding to Facility Admin:
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-              {pins.filter(p => p.status === 'submitted_for_contractor_review').map(p => (
-                <div
-                  key={p.id}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #FDE68A',
-                    borderRadius: 6,
-                    padding: '10px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 12
-                  }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#92400E', marginRight: 8 }}>
-                      #{p.item_number}
-                    </span>
-                    <span style={{ fontWeight: 800, color: '#18181B' }}>{p.title}</span>
-                    <span style={{ fontSize: 12, color: '#64748B', marginLeft: 8 }}>({p.assigned_subcontractor_name || p.assigned_to_company})</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button
-                      onClick={() => handleQuickStatusUpdate(p, 'submitted_for_admin_review', 'GC Approved: Forwarded to Admin for final sign-off')}
-                      className="btn-primary"
-                      style={{ padding: '5px 10px', fontSize: 11, fontWeight: 700, backgroundColor: '#15803D', borderColor: '#166534' }}
-                    >
-                      <Check size={12} /> Approve → Admin
-                    </button>
-                    <button
-                      onClick={() => handleQuickStatusUpdate(p, 'in_progress', 'GC Rejected: Re-work required')}
-                      className="btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: 11, fontWeight: 700, color: '#DC2626', borderColor: '#FCA5A5' }}
-                    >
-                      <RotateCcw size={12} /> Reject Back
-                    </button>
-                    <button
-                      onClick={() => onSelectPinFromTable(p)}
-                      className="btn-ghost"
-                      style={{ padding: '5px 8px', fontSize: 11, fontWeight: 700 }}
-                    >
-                      Inspect
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="dashboard-table-container" tabIndex={0} role="region" aria-label="Punch items table">
+          <table className="dashboard-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Status</th>
+                <th scope="col">Issue & notes</th>
+                <th scope="col">Sheet / location</th>
+                <th scope="col">Trade</th>
+                <th scope="col">Contractor / subcontractor</th>
+                <th scope="col">Due date</th>
+                <th scope="col">Priority</th>
+                <th scope="col" className="is-right">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPins.length > 0 ? (
+                filteredPins.map((p) => {
+                  const sheet = sheetById.get(p.sheet_id);
+                  const sheetLabel = p.sheet_number || sheet?.sheet_number;
+                  return (
+                    <tr key={p.id}>
+                      <td className="cell-num">#{p.item_number}</td>
 
-        {/* Admin Review Queue (Prominent Callout for Admin) */}
-        {!isGc && adminReviewCount > 0 && (
-          <div style={{
-            backgroundColor: '#F5F3FF',
-            border: '1.5px solid #DDD6FE',
-            borderRadius: 'var(--radius-lg)',
-            padding: '18px 22px',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ShieldCheck size={18} color="#7C3AED" />
-              <h2 style={{ fontSize: 15, fontWeight: 900, color: '#5B21B6', margin: 0 }}>
-                PUNCH ITEMS AWAITING FACILITY ADMIN FINAL SIGN-OFF ({adminReviewCount})
-              </h2>
-            </div>
-            <div style={{ fontSize: 12.5, color: '#6D28D9', marginTop: 4 }}>
-              General Contractors have approved these items. As Facility Administrator, verify resolution to formally close:
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-              {pins.filter(p => p.status === 'submitted_for_admin_review').map(p => (
-                <div
-                  key={p.id}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #DDD6FE',
-                    borderRadius: 6,
-                    padding: '10px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 12
-                  }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#5B21B6', marginRight: 8 }}>
-                      #{p.item_number}
-                    </span>
-                    <span style={{ fontWeight: 800, color: '#18181B' }}>{p.title}</span>
-                    <span style={{ fontSize: 12, color: '#64748B', marginLeft: 8 }}>({p.assigned_contractor_name} / {p.assigned_subcontractor_name})</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button
-                      onClick={() => handleQuickStatusUpdate(p, 'closed', 'Facility Admin approved and closed punch item')}
-                      className="btn-primary"
-                      style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, backgroundColor: '#15803D', borderColor: '#166534' }}
-                    >
-                      <Check size={12} /> Approve & Close
-                    </button>
-                    <button
-                      onClick={() => handleQuickStatusUpdate(p, 'in_progress', 'Admin rejected back to in-progress work')}
-                      className="btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: 11, fontWeight: 700, color: '#DC2626', borderColor: '#FCA5A5' }}
-                    >
-                      <RotateCcw size={12} /> Reject
-                    </button>
-                    <button
-                      onClick={() => onSelectPinFromTable(p)}
-                      className="btn-ghost"
-                      style={{ padding: '5px 8px', fontSize: 11, fontWeight: 700 }}
-                    >
-                      Inspect
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                      <td>
+                        <span className={`badge-status ${p.status}`}>{formatStatus(p.status)}</span>
+                      </td>
 
-        {/* KPI Metrics Cards Grid */}
-        <div className="dashboard-kpi-grid">
-          {/* Card 1: Total & Resolution Rate */}
-          <div className="kpi-card kpi-card--resolution">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Resolution Rate
-              </span>
-              <TrendingUp size={16} color="#D97706" />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 10 }}>
-              <span className="kpi-number" style={{ color: '#18181B' }}>
-                {resolutionRate}%
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                ({closedCount} of {totalCount} closed)
-              </span>
-            </div>
-            <div style={{ width: '100%', height: 6, backgroundColor: '#F4F4F5', borderRadius: 3, marginTop: 12, overflow: 'hidden' }}>
-              <div style={{ width: `${resolutionRate}%`, height: '100%', background: 'linear-gradient(90deg, #FBBF24 0%, #D97706 100%)', borderRadius: 3, transition: 'width 0.4s ease' }} />
-            </div>
-          </div>
-
-          {/* Card 2: Open / In Progress */}
-          <div className="kpi-card kpi-card--active">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Active / In Progress
-              </span>
-              <Wrench size={16} color="#2563EB" />
-            </div>
-            <div className="kpi-number" style={{ color: '#2563EB' }}>
-              {openCount + inProgressCount}
-            </div>
-            <div style={{ fontSize: 11, color: '#1E40AF', marginTop: 4, fontWeight: 600 }}>
-              {openCount} Open / {inProgressCount} Underway
-            </div>
-          </div>
-
-          {/* Card 3: In Review */}
-          <div className="kpi-card kpi-card--review">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                In Review
-              </span>
-              <Clock size={16} color="#D97706" />
-            </div>
-            <div className="kpi-number" style={{ color: '#D97706' }}>
-              {inReviewCount}
-            </div>
-            <div style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>
-              {gcReviewCount} GC / {adminReviewCount} Admin
-            </div>
-          </div>
-
-          {/* Card 4: Critical Blockers */}
-          <div className="kpi-card kpi-card--critical">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Critical Blockers
-              </span>
-              <ShieldAlert size={16} color="#DC2626" />
-            </div>
-            <div className="kpi-number" style={{ color: '#DC2626' }}>
-              {criticalCount}
-            </div>
-            <div style={{ fontSize: 11, color: '#991B1B', marginTop: 4, fontWeight: 600 }}>
-              High priority / safety / code
-            </div>
-          </div>
-        </div>
-
-        {/* Master Punch List Table Card */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface-1)',
-          border: '1.5px solid var(--border-default)',
-          borderRadius: 'var(--radius-lg)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          {/* Header & Filter Bar */}
-          <div className="dashboard-filter-bar">
-            {/* Search Input */}
-            <div className="dashboard-search-wrap">
-              <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 10, top: 11 }} />
-              <input
-                type="text"
-                placeholder="Search title, location, trade, sub..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px 8px 32px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-main)',
-                  fontSize: 13,
-                  outline: 'none',
-                  fontWeight: 500
-                }}
-              />
-            </div>
-
-            {/* Filter Dropdowns */}
-            <div className="dashboard-filter-dropdowns">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="dashboard-filter-select"
-              >
-                <option value="all">All Statuses ({pins.length})</option>
-                <option value="open">Open / Assigned ({openCount})</option>
-                <option value="in_progress">In Progress ({inProgressCount})</option>
-                <option value="submitted_for_contractor_review">GC Review ({gcReviewCount})</option>
-                <option value="submitted_for_admin_review">Admin Review ({adminReviewCount})</option>
-                <option value="closed">Closed ({closedCount})</option>
-              </select>
-
-              <select
-                value={disciplineFilter}
-                onChange={(e) => setDisciplineFilter(e.target.value)}
-                className="dashboard-filter-select"
-              >
-                <option value="all">All Trades / Disciplines</option>
-                <option value="architectural">Architectural</option>
-                <option value="structural">Structural</option>
-                <option value="mep">MEP / HVAC</option>
-                <option value="electrical">Electrical</option>
-                <option value="plumbing">Plumbing</option>
-                <option value="drywall">Drywall</option>
-              </select>
-
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="dashboard-filter-select"
-              >
-                <option value="all">All Priorities</option>
-                <option value="critical">Critical Only</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Table Content */}
-          <div className="dashboard-table-container">
-            <table className="dashboard-table">
-              <thead>
-                <tr>
-                  <th style={{ padding: '12px 16px' }}>#</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px' }}>Issue & Notes</th>
-                  <th style={{ padding: '12px 16px' }}>Sheet / Location</th>
-                  <th style={{ padding: '12px 16px' }}>Trade</th>
-                  <th style={{ padding: '12px 16px' }}>Contractor / Subcontractor</th>
-                  <th style={{ padding: '12px 16px' }}>Due Date</th>
-                  <th style={{ padding: '12px 16px' }}>Priority</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPins.length > 0 ? (
-                  filteredPins.map((p) => {
-                    const sheet = sheets.find(s => s.id === p.sheet_id);
-                    return (
-                      <tr key={p.id}>
-                        {/* Item Number */}
-                        <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#5C3A21' }}>
-                          #{p.item_number}
-                        </td>
-
-                        {/* Status Badge */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <span className={`badge-status ${p.status}`}>
-                            {p.status.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-
-                        {/* Title and description */}
-                        <td
-                          style={{ padding: '12px 16px', cursor: 'pointer', maxWidth: 360 }}
-                          onClick={() => onSelectPinFromTable(p)}
-                        >
-                          <div style={{ fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <td className="col-issue">
+                        <button type="button" className="link-cell" onClick={() => onSelectPinFromTable(p)}>
+                          <span className="link-cell__title">
                             {p.title}
                             {p.photo_count > 0 && (
-                              <span style={{ fontSize: 10, color: '#92400E', background: '#FEF3C7', border: '1px solid #FCD34D', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                                📷 {p.photo_count}
+                              <span className="count-chip count-chip--photo">
+                                <Camera size={10} aria-hidden="true" /> {p.photo_count}
+                                <span className="sr-only"> photos</span>
                               </span>
                             )}
                             {p.comment_count > 0 && (
-                              <span style={{ fontSize: 10, color: 'var(--brand-brown)', background: '#EFE8DE', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                                💬 {p.comment_count}
+                              <span className="count-chip count-chip--comment">
+                                <MessageSquare size={10} aria-hidden="true" /> {p.comment_count}
+                                <span className="sr-only"> comments</span>
                               </span>
                             )}
-                          </div>
-                          {p.description && (
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {p.description}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Sheet & Location */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <div
-                            onClick={() => { if (sheet) onSelectSheetFromTable(sheet, p); }}
-                            style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#D97706', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                          >
-                            {p.sheet_number || sheet?.sheet_number} <ExternalLink size={12} />
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 600 }}>
-                            {p.room_location || 'Site General'}
-                          </div>
-                        </td>
-
-                        {/* Discipline */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--brand-brown)' }}>
-                            {p.discipline}
                           </span>
-                        </td>
+                          {p.description && <span className="link-cell__desc">{p.description}</span>}
+                        </button>
+                      </td>
 
-                        {/* Assignee */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: 12.5 }}>
-                            {p.assigned_contractor_name || 'Apex Construction GC'}
-                          </div>
-                          {p.assigned_subcontractor_name && (
-                            <div style={{ fontSize: 11, color: '#D97706', fontWeight: 700, marginTop: 2 }}>
-                              ↳ {p.assigned_subcontractor_name}
-                            </div>
-                          )}
-                        </td>
+                      <td>
+                        {sheetLabel &&
+                          (sheet ? (
+                            <button
+                              type="button"
+                              className="sheet-link"
+                              onClick={() => onSelectSheetFromTable(sheet, p)}
+                              title="Open this sheet"
+                            >
+                              {sheetLabel} <ExternalLink size={12} aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <span className="sheet-link is-static">{sheetLabel}</span>
+                          ))}
+                        <div className="cell-sub">{p.room_location || 'Site general'}</div>
+                      </td>
 
-                        {/* Due Date */}
-                        <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                          {p.due_date || 'No deadline'}
-                        </td>
+                      <td>
+                        <span className="cell-trade">{p.discipline}</span>
+                      </td>
 
-                        {/* Priority */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <span className={`badge-priority ${p.priority || 'medium'}`}>
-                            {p.priority}
-                          </span>
-                        </td>
+                      <td>
+                        <div className="cell-strong">{p.assigned_contractor_name || 'Unassigned'}</div>
+                        {p.assigned_subcontractor_name && (
+                          <div className="cell-sub cell-sub--amber">↳ {p.assigned_subcontractor_name}</div>
+                        )}
+                      </td>
 
-                        {/* Actions */}
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => onSelectPinFromTable(p)}
-                            className="btn-secondary"
-                            style={{ padding: '5px 12px', fontSize: 11.5, fontWeight: 700 }}
-                          >
-                            Inspect <ChevronRight size={13} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No punch list items match current filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      <td className="cell-date">{p.due_date || 'No deadline'}</td>
+
+                      <td>
+                        <span className={`badge-priority ${p.priority || 'medium'}`}>{p.priority || 'medium'}</span>
+                      </td>
+
+                      <td className="is-right">
+                        <button
+                          type="button"
+                          className="btn-secondary dash-btn dash-btn--row"
+                          onClick={() => onSelectPinFromTable(p)}
+                        >
+                          Inspect <ChevronRight size={13} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={9} className="table-empty">
+                    {pins.length === 0
+                      ? 'No punch items yet for this project.'
+                      : 'No punch list items match the current filters.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
-      </div>
-    </div>
+      </section>
+    </Shell>
   );
 }

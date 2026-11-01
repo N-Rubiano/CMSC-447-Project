@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   HardHat,
   LayoutDashboard,
@@ -9,7 +9,6 @@ import {
   Settings,
   ChevronDown,
   Search,
-  Wifi,
   WifiOff,
   RefreshCw,
   Bell,
@@ -18,954 +17,694 @@ import {
   LogOut,
   Building2,
   CheckCircle2,
-  AlertTriangle,
   ChevronRight
 } from 'lucide-react';
 import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
+import './AppShell.css';
+
+/* ------------------------------------------------------------------ */
+/* Constants & helpers                                                 */
+/* ------------------------------------------------------------------ */
+
+const NAV_WORKSPACE = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'photos', label: 'Photos', icon: Camera }
+];
+
+const NAV_MANAGE = [
+  { id: 'team', label: 'Team', icon: Users },
+  { id: 'settings', label: 'Settings', icon: Settings }
+];
+
+const getInitials = (name = '') =>
+  name.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
+const getShortcutLabel = () =>
+  typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
+    ? '⌘K'
+    : 'Ctrl K';
+
+/** Calls onDismiss('outside' | 'escape') while `active` is true. */
+function useDismiss(ref, active, onDismiss) {
+  const handler = useRef(onDismiss);
+  useEffect(() => {
+    handler.current = onDismiss;
+  });
+
+  useEffect(() => {
+    if (!active) return undefined;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) handler.current('outside');
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') handler.current('escape');
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [ref, active]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Small components                                                    */
+/* ------------------------------------------------------------------ */
+
+function NavButton({ item, active, collapsed, onClick }) {
+  const Icon = item.icon;
+  return (
+    <button
+      type="button"
+      className={`nav-btn${active ? ' is-active' : ''}`}
+      onClick={onClick}
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      aria-current={active ? 'page' : undefined}
+      data-collapsed={collapsed || undefined}
+    >
+      <Icon size={19} strokeWidth={active ? 2.4 : 2} aria-hidden="true" />
+      {!collapsed && <span className="nav-btn__label">{item.label}</span>}
+      {!collapsed && item.badge != null && <span className="nav-btn__badge">{item.badge}</span>}
+    </button>
+  );
+}
+
+function Avatar({ user }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [user?.avatar]);
+
+  if (user?.avatar && !failed) {
+    return (
+      <img
+        className="avatar"
+        src={user.avatar}
+        alt=""
+        title={user?.name}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className="avatar avatar--fallback" title={user?.name} aria-hidden="true">
+      {getInitials(user?.name) || '?'}
+    </div>
+  );
+}
+
+function SyncBadge({ state, queuedCount, onToggle }) {
+  return (
+    <button
+      type="button"
+      className="sync-badge"
+      data-state={state}
+      onClick={onToggle}
+      title="Click to cycle offline sync state (demo)"
+      aria-live="polite"
+    >
+      {state === 'synced' && (
+        <>
+          <span className="sync-badge__dot" />
+          <span>SYNCED</span>
+        </>
+      )}
+      {state === 'syncing' && (
+        <>
+          <RefreshCw size={12} className="sync-badge__spin" aria-hidden="true" />
+          <span>SYNCING…</span>
+        </>
+      )}
+      {state === 'offline' && (
+        <>
+          <WifiOff size={13} aria-hidden="true" />
+          <span>OFFLINE · {queuedCount} QUEUED</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+function NotificationsMenu({ notifications, onMarkAllRead }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useDismiss(ref, open, () => setOpen(false));
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  return (
+    <div className="notif" ref={ref}>
+      <button
+        type="button"
+        className="btn-icon"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-haspopup="true"
+        aria-expanded={open}
+        style={{ position: 'relative' }}
+      >
+        <Bell size={19} aria-hidden="true" />
+        {unreadCount > 0 && <span className="notif__dot" />}
+      </button>
+
+      {open && (
+        <div className="glass-hud notif__panel">
+          <div className="notif__head">
+            <span className="notif__title">Field Notifications</span>
+            <button
+              type="button"
+              className="notif__mark"
+              onClick={onMarkAllRead}
+              disabled={unreadCount === 0}
+            >
+              Mark all read
+            </button>
+          </div>
+
+          {notifications.length === 0 ? (
+            <div className="notif__empty">You're all caught up</div>
+          ) : (
+            <div className="notif__list">
+              {notifications.map((n) => (
+                <div key={n.id} className={`notif__item${n.unread ? ' is-unread' : ''}`}>
+                  <div className="notif__item-title">{n.title}</div>
+                  <div className="notif__item-text">{n.text}</div>
+                  <div className="notif__item-time">{n.time}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Building & floor selector                                           */
+/* ------------------------------------------------------------------ */
+
+function BuildingFloorSelector({
+  selectedBuildingId,
+  selectedFloorId,
+  onSelectBuilding,
+  onSelectFloor
+}) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState('building'); // 'building' | 'floor' (mobile stepper)
+  const [query, setQuery] = useState('');
+  const [hoveredId, setHoveredId] = useState(selectedBuildingId || umbcBuildings[0]?.id);
+
+  const rootRef = useRef(null);
+  const buildingBtnRef = useRef(null);
+  const floorBtnRef = useRef(null);
+  const searchRef = useRef(null);
+  const buildingsRef = useRef(null);
+  const floorsRef = useRef(null);
+
+  const selected = getBuildingById(selectedBuildingId);
+  const preview = getBuildingById(hoveredId) || selected || umbcBuildings[0];
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return umbcBuildings;
+    return umbcBuildings.filter(
+      (b) => b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)
+    );
+  }, [query]);
+
+  const close = useCallback((returnFocus = false) => {
+    setOpen(false);
+    setQuery(''); // reopening should never show a stale filter
+    if (returnFocus) buildingBtnRef.current?.focus();
+  }, []);
+
+  useDismiss(rootRef, open, (reason) => close(reason === 'escape'));
+
+  const openAt = (nextStep) => {
+    if (open) {
+      close();
+      return;
+    }
+    setStep(nextStep);
+    setHoveredId(selectedBuildingId || umbcBuildings[0]?.id); // sync preview with selection
+    setOpen(true);
+  };
+
+  const pickBuilding = (id) => {
+    setHoveredId(id);
+    onSelectBuilding(id);
+    setStep('floor');
+  };
+
+  const pickFloor = (floor, buildingId) => {
+    onSelectFloor(floor, buildingId);
+    close(true);
+  };
+
+  /* Keyboard: search -> buildings -> floors */
+  const buildingButtons = () => [...(buildingsRef.current?.querySelectorAll('[data-building]') || [])];
+  const floorButtons = () => [...(floorsRef.current?.querySelectorAll('[data-floor]') || [])];
+
+  const move = (list, dir) => {
+    if (!list.length) return;
+    const idx = list.indexOf(document.activeElement);
+    const next = list[Math.min(Math.max(idx + dir, 0), list.length - 1)];
+    next?.focus();
+  };
+
+  const onSearchKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      buildingButtons()[0]?.focus();
+    }
+  };
+
+  const onBuildingKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      move(buildingButtons(), 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const list = buildingButtons();
+      if (list.indexOf(document.activeElement) <= 0) searchRef.current?.focus();
+      else move(list, -1);
+    } else if (e.key === 'ArrowRight' && preview?.floors.length) {
+      e.preventDefault();
+      setStep('floor');
+      requestAnimationFrame(() => floorButtons()[0]?.focus());
+    }
+  };
+
+  const onFloorKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      move(floorButtons(), 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      move(floorButtons(), -1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setStep('building');
+      requestAnimationFrame(() =>
+        buildingsRef.current?.querySelector(`[data-building="${preview?.id}"]`)?.focus()
+      );
+    }
+  };
+
+  const floorCount = (n) => `${n} ${n === 1 ? 'floor' : 'floors'}`;
+
+  return (
+    <div className="selector" ref={rootRef}>
+      <button
+        ref={buildingBtnRef}
+        type="button"
+        id="umbc-building-btn"
+        className={`sel-btn${selected ? ' has-value' : ''}${open ? ' is-open' : ''}`}
+        onClick={() => openAt('building')}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title="Select UMBC building"
+      >
+        <span className="sel-btn__eyebrow">Building</span>
+        <span className="sel-btn__value">
+          <span>{selected ? selected.name : 'Select building'}</span>
+          <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
+        </span>
+      </button>
+
+      {selected && (
+        <>
+          <span className="selector__sep" aria-hidden="true">/</span>
+          <button
+            ref={floorBtnRef}
+            type="button"
+            id="umbc-floor-btn"
+            className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
+              open && step === 'floor' ? ' is-open' : ''
+            }`}
+            onClick={() => openAt('floor')}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            title={`Select floor in ${selected.name}`}
+          >
+            <span className="sel-btn__eyebrow">Floor</span>
+            <span className="sel-btn__value">
+              <span>{selectedFloorId || 'Select floor'}</span>
+              <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
+            </span>
+          </button>
+        </>
+      )}
+
+      {open && (
+        <div
+          className="glass-hud floating-hud sel-panel"
+          role="dialog"
+          aria-label="UMBC building and floor selector"
+        >
+          <div className="sel-panel__head">
+            <div className="sel-panel__title-row">
+              <div className="sel-panel__title">
+                <Building2 size={16} color="var(--amber)" aria-hidden="true" />
+                <span>UMBC Campus Building &amp; Floor Selector</span>
+              </div>
+              <div className="sel-panel__path">
+                {selected ? (
+                  <>
+                    <strong>{selected.name}</strong>
+                    {selectedFloorId && <em> · {selectedFloorId}</em>}
+                  </>
+                ) : (
+                  'Choose a building first'
+                )}
+              </div>
+            </div>
+
+            <div className="sel-search">
+              <Search size={14} color="var(--text-muted)" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="text"
+                className="input-field"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onSearchKeyDown}
+                placeholder={`Search ${umbcBuildings.length} UMBC buildings (e.g. Engineering, ILSB, Library)…`}
+                aria-label="Search buildings"
+                autoFocus
+              />
+            </div>
+
+            <div className="mobile-step-tabs" style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                className={`sel-step sel-step--building${step === 'building' ? ' is-active' : ''}`}
+                onClick={() => setStep('building')}
+              >
+                1. Building {selected ? `(${selected.name.split(' ')[0]})` : ''}
+              </button>
+              <button
+                type="button"
+                className={`sel-step sel-step--floor${step === 'floor' ? ' is-active' : ''}`}
+                onClick={() => selected && setStep('floor')}
+                disabled={!selected}
+              >
+                2. Floor {selectedFloorId ? `(${selectedFloorId})` : ''}
+              </button>
+            </div>
+          </div>
+
+          <div className="sel-panel__body">
+            {/* Buildings */}
+            <div
+              ref={buildingsRef}
+              className={`buildings-column${step === 'floor' ? ' hide-on-mobile' : ''}`}
+              onKeyDown={onBuildingKeyDown}
+            >
+              <div className="col-label">Buildings ({filtered.length})</div>
+
+              {filtered.map((b) => {
+                const isSelected = selectedBuildingId === b.id;
+                const isPreviewed = hoveredId === b.id;
+                const hasFloors = b.floors.length > 0;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    data-building={b.id}
+                    className={`b-row${isSelected ? ' is-selected' : ''}${isPreviewed ? ' is-previewed' : ''}`}
+                    onMouseEnter={() => setHoveredId(b.id)}
+                    onFocus={() => setHoveredId(b.id)}
+                    onClick={() => pickBuilding(b.id)}
+                    aria-pressed={isSelected}
+                  >
+                    <span className="b-row__text">
+                      <div className="b-row__name">{b.name}</div>
+                      <div className="b-row__meta">
+                        {hasFloors ? floorCount(b.floors.length) : 'No floors'}
+                      </div>
+                    </span>
+                    <span className="b-row__icons">
+                      {isSelected && <CheckCircle2 size={14} color="var(--amber)" aria-hidden="true" />}
+                      {hasFloors && <ChevronRight size={14} color="var(--text-muted)" aria-hidden="true" />}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {filtered.length === 0 && (
+                <div className="panel-empty">No UMBC buildings match "{query}"</div>
+              )}
+            </div>
+
+            {/* Floors */}
+            <div
+              ref={floorsRef}
+              className={`floors-column${step === 'building' ? ' hide-on-mobile' : ''}`}
+              onKeyDown={onFloorKeyDown}
+            >
+              {preview ? (
+                <>
+                  <div className="floors-head">
+                    <div className="col-label">Available floors</div>
+                    <div className="floors-head__row">
+                      <span>{preview.name}</span>
+                      <span className="floors-head__count">{floorCount(preview.floors.length)}</span>
+                    </div>
+                  </div>
+
+                  {preview.floors.length > 0 ? (
+                    <div className="floor-list">
+                      {preview.floors.map((floor) => {
+                        const isFloorSelected =
+                          selectedBuildingId === preview.id && selectedFloorId === floor;
+                        return (
+                          <button
+                            key={floor}
+                            type="button"
+                            data-floor={floor}
+                            className={`f-row${isFloorSelected ? ' is-selected' : ''}`}
+                            onClick={() => pickFloor(floor, preview.id)}
+                            aria-pressed={isFloorSelected}
+                          >
+                            <span className="f-row__label">
+                              <Layers
+                                size={14}
+                                color={isFloorSelected ? '#FFFFFF' : 'var(--amber)'}
+                                aria-hidden="true"
+                              />
+                              <span>{floor}</span>
+                            </span>
+                            {isFloorSelected && <CheckCircle2 size={15} color="#FFFFFF" aria-hidden="true" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="floors-empty">
+                      <p>No floor levels defined for this facility.</p>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: 12, height: 32 }}
+                        onClick={() => pickFloor('Ground Floor', preview.id)}
+                      >
+                        Select facility
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="panel-empty">Pick a building on the left to see its floors.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AppShell                                                            */
+/* ------------------------------------------------------------------ */
 
 export default function AppShell({
   activeModule,
   onNavigate,
-  projects,
-  activeProject,
-  onSelectProject,
-  activeBuilding,
-  onSelectBuilding,
-  activeFloor,
-  onSelectFloor,
-  // UMBC Building & Floor Selection State & Handlers
+  // UMBC building & floor selection
   selectedBuildingId,
   selectedFloorId,
   onSelectUmbcBuilding,
   onSelectUmbcFloor,
   currentUser,
-  openPunchCount,
+  openPunchCount = 0,
   syncState, // 'synced' | 'syncing' | 'offline'
+  queuedCount = 0,
   onToggleSyncState,
   onOpenQuickSearch,
   onLogout,
+  initialNotifications = [],
   children
 }) {
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null); // 'project' | 'umbc-selector' | 'notifications' | 'user'
-  const [hoveredBuildingId, setHoveredBuildingId] = useState(selectedBuildingId || 'engineering');
-  const [buildingSearchQuery, setBuildingSearchQuery] = useState('');
-  const [mobileStep, setMobileStep] = useState('building'); // 'building' | 'floor'
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Critical Door Closer Open', text: 'PL-0401 requires positive latch verification', time: '10m ago', unread: true },
-    { id: 2, title: 'RFI-0142 Answered', text: 'Throat dimension detail uploaded by Clara Oswald', time: '1h ago', unread: true },
-    { id: 3, title: 'Sprinkler Inspection Passed', text: 'NFPA 13 hydrostatic test approved', time: '3h ago', unread: false }
-  ]);
+  const [notifications, setNotifications] = useState(initialNotifications);
 
-  const topbarRef = useRef(null);
-  const sidebarRef = useRef(null);
+  const shortcut = useMemo(getShortcutLabel, []);
 
-  // Close dropdowns on outside click (checks both topbar and sidebar)
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      const inTopbar = topbarRef.current && topbarRef.current.contains(e.target);
-      const inSidebar = sidebarRef.current && sidebarRef.current.contains(e.target);
-      if (!inTopbar && !inSidebar) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+  const markAllRead = useCallback(
+    () => setNotifications((prev) => prev.map((n) => ({ ...n, unread: false }))),
+    []
+  );
 
-  const navItemsWorkspace = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'photos', label: 'Photos', icon: Camera }
-  ];
+  // Open punch count rides on the Dashboard item (hidden when zero)
+  const workspaceItems = useMemo(
+    () =>
+      NAV_WORKSPACE.map((item) =>
+        item.id === 'dashboard' && openPunchCount > 0 ? { ...item, badge: openPunchCount } : item
+      ),
+    [openPunchCount]
+  );
 
-  const navItemsManage = [
-    { id: 'team', label: 'Team', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings }
-  ];
-
-  const buildings = activeProject?.buildings || [];
-  const floors = activeBuilding?.floors || [];
+  const mobileItems = [...NAV_WORKSPACE, ...NAV_MANAGE];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: 'var(--bg)' }}>
-      {/* -------------------------------------------------------------
-          LEFT RAIL (Collapsible 248px -> 72px)
-          ------------------------------------------------------------- */}
-      <aside
-        ref={sidebarRef}
-        className="desktop-rail"
-        style={{
-          width: isRailCollapsed ? 'var(--rail-collapsed-width)' : 'var(--rail-width)',
-          backgroundColor: 'var(--ink)',
-          color: '#FFFFFF',
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid var(--ink-border)',
-          transition: 'width var(--ease-smooth)',
-          flexShrink: 0,
-          zIndex: 40,
-          position: 'relative'
-        }}
-      >
-        {/* Brand Header */}
-        <div style={{
-          height: 'var(--topbar-height)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: isRailCollapsed ? '0 18px' : '0 20px',
-          gap: 12,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
-        }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            backgroundColor: 'var(--amber)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: '0 2px 8px var(--amber-glow)'
-          }}>
-            <HardHat size={20} color="#FFFFFF" strokeWidth={2.4} />
+    <div className="app-shell">
+      {/* ---------------- Left rail ---------------- */}
+      <aside className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}>
+        <div className="rail__brand">
+          <div className="rail__logo">
+            <HardHat size={20} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
           </div>
-
           {!isRailCollapsed && (
-            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                PunchList <span style={{ color: 'var(--amber)', fontWeight: 800 }}>PRO</span>
-              </div>
+            <div className="rail__name">
+              PunchList <span>PRO</span>
             </div>
           )}
         </div>
 
-        {/* Navigation Sections */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 10px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Workspace Group */}
+        <nav className="rail__nav" aria-label="Main">
           <div>
-            {!isRailCollapsed && (
-              <div style={{
-                fontSize: 10,
-                textTransform: 'uppercase',
-                fontWeight: 700,
-                color: '#71717A',
-                letterSpacing: '0.09em',
-                padding: '0 12px 8px'
-              }}>
-                Workspace
-              </div>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {navItemsWorkspace.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeModule === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onNavigate(item.id)}
-                    title={isRailCollapsed ? item.label : undefined}
-                    style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      width: '100%',
-                      padding: isRailCollapsed ? '10px 0' : '10px 14px',
-                      justifyContent: isRailCollapsed ? 'center' : 'flex-start',
-                      borderRadius: 8,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(217, 119, 6, 0.16)' : 'transparent',
-                      color: isActive ? '#FFFFFF' : '#A1A1AA',
-                      fontWeight: isActive ? 600 : 500,
-                      fontSize: 14,
-                      transition: 'all var(--ease-quick)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                        e.currentTarget.style.color = '#FFFFFF';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#A1A1AA';
-                      }
-                    }}
-                  >
-                    {/* Active Left Amber Indicator */}
-                    {isActive && (
-                      <span style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 6,
-                        bottom: 6,
-                        width: 3.5,
-                        backgroundColor: 'var(--amber)',
-                        borderRadius: '0 4px 4px 0'
-                      }} />
-                    )}
-                    <Icon size={19} color={isActive ? 'var(--amber)' : 'currentColor'} strokeWidth={isActive ? 2.4 : 2} />
-                    {!isRailCollapsed && (
-                      <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
-                    )}
-                    {!isRailCollapsed && item.badge !== undefined && (
-                      <span style={{
-                        background: 'var(--amber)',
-                        color: '#FFFFFF',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '1px 7px',
-                        borderRadius: 12
-                      }}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            {!isRailCollapsed && <div className="rail__group-label">Workspace</div>}
+            <div className="rail__group">
+              {workspaceItems.map((item) => (
+                <NavButton
+                  key={item.id}
+                  item={item}
+                  active={activeModule === item.id}
+                  collapsed={isRailCollapsed}
+                  onClick={() => onNavigate(item.id)}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Manage Group */}
           <div>
-            {!isRailCollapsed && (
-              <div style={{
-                fontSize: 10,
-                textTransform: 'uppercase',
-                fontWeight: 700,
-                color: '#71717A',
-                letterSpacing: '0.09em',
-                padding: '0 12px 8px'
-              }}>
-                Manage
-              </div>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {navItemsManage.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeModule === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onNavigate(item.id)}
-                    title={isRailCollapsed ? item.label : undefined}
-                    style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      width: '100%',
-                      padding: isRailCollapsed ? '10px 0' : '10px 14px',
-                      justifyContent: isRailCollapsed ? 'center' : 'flex-start',
-                      borderRadius: 8,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(217, 119, 6, 0.16)' : 'transparent',
-                      color: isActive ? '#FFFFFF' : '#A1A1AA',
-                      fontWeight: isActive ? 600 : 500,
-                      fontSize: 14,
-                      transition: 'all var(--ease-quick)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                        e.currentTarget.style.color = '#FFFFFF';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#A1A1AA';
-                      }
-                    }}
-                  >
-                    {isActive && (
-                      <span style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 6,
-                        bottom: 6,
-                        width: 3.5,
-                        backgroundColor: 'var(--amber)',
-                        borderRadius: '0 4px 4px 0'
-                      }} />
-                    )}
-                    <Icon size={19} color={isActive ? 'var(--amber)' : 'currentColor'} strokeWidth={isActive ? 2.4 : 2} />
-                    {!isRailCollapsed && (
-                      <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
-                    )}
-                  </button>
-                );
-              })}
+            {!isRailCollapsed && <div className="rail__group-label">Manage</div>}
+            <div className="rail__group">
+              {NAV_MANAGE.map((item) => (
+                <NavButton
+                  key={item.id}
+                  item={item}
+                  active={activeModule === item.id}
+                  collapsed={isRailCollapsed}
+                  onClick={() => onNavigate(item.id)}
+                />
+              ))}
             </div>
           </div>
-        </div>
+        </nav>
 
-        {/* User Card & Collapse Toggle at Rail Bottom */}
-        <div style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: isRailCollapsed ? '12px 8px' : '14px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          backgroundColor: 'var(--ink-dark)'
-        }}>
-          <img
-            src={currentUser?.avatar}
-            alt={currentUser?.name}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              border: '2px solid var(--amber)',
-              objectFit: 'cover',
-              flexShrink: 0
-            }}
-          />
+        <div className="rail__footer">
+          <Avatar user={currentUser} />
 
           {!isRailCollapsed && (
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentUser?.name}
-              </div>
-              <div style={{ fontSize: 11, color: '#A1A1AA', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentUser?.role}
-              </div>
+            <div className="rail__user">
+              <div className="rail__user-name">{currentUser?.name}</div>
+              <div className="rail__user-role">{currentUser?.role}</div>
             </div>
           )}
 
           <button
-            onClick={() => setIsRailCollapsed(!isRailCollapsed)}
-            className="btn-icon"
+            type="button"
+            className="btn-icon rail__toggle"
+            onClick={() => setIsRailCollapsed((c) => !c)}
             title={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{ color: '#A1A1AA', width: 32, height: 32 }}
+            aria-label={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!isRailCollapsed}
           >
-            {isRailCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {isRailCollapsed ? (
+              <PanelLeftOpen size={18} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={18} aria-hidden="true" />
+            )}
           </button>
         </div>
       </aside>
 
-      {/* -------------------------------------------------------------
-          MAIN CONTENT AREA (Topbar + Page)
-          ------------------------------------------------------------- */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
-        {/* Sticky Topbar (60px) */}
-        <header
-          ref={topbarRef}
-          style={{
-            height: 'var(--topbar-height)',
-            backgroundColor: '#FFFFFF',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 20px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 30
-          }}
-        >
-          {/* UMBC Building & Floor Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', minWidth: 0 }}>
-            {(() => {
-              const selectedUmbcBuilding = getBuildingById(selectedBuildingId);
-              const activePreviewBuilding = getBuildingById(hoveredBuildingId) || selectedUmbcBuilding || umbcBuildings[0];
-              const filteredUmbcBuildings = umbcBuildings.filter(b => {
-                if (!buildingSearchQuery.trim()) return true;
-                const q = buildingSearchQuery.toLowerCase().trim();
-                return b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q);
-              });
+      {/* ---------------- Main column ---------------- */}
+      <div className="shell-main">
+        <header className="topbar">
+          <BuildingFloorSelector
+            selectedBuildingId={selectedBuildingId}
+            selectedFloorId={selectedFloorId}
+            onSelectBuilding={onSelectUmbcBuilding}
+            onSelectFloor={onSelectUmbcFloor}
+          />
 
-              return (
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {/* Building Button */}
-                  <button
-                    id="umbc-building-btn"
-                    onClick={() => {
-                      setOpenDropdown(openDropdown === 'umbc-selector' ? null : 'umbc-selector');
-                      setMobileStep('building');
-                    }}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      padding: '4px 12px',
-                      borderRadius: 6,
-                      border: openDropdown === 'umbc-selector' ? '1.5px solid var(--amber)' : '1px solid var(--border)',
-                      backgroundColor: selectedUmbcBuilding ? 'var(--surface-muted)' : 'var(--surface-muted)',
-                      cursor: 'pointer',
-                      transition: 'all var(--ease-quick)'
-                    }}
-                    title="Select UMBC Building"
-                  >
-                    <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--timber)', letterSpacing: '0.04em' }}>
-                      Building
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: selectedUmbcBuilding ? 700 : 500, color: selectedUmbcBuilding ? 'var(--ink)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {selectedUmbcBuilding ? selectedUmbcBuilding.name : 'Select Building'}
-                      <ChevronDown size={14} color="var(--text-muted)" />
-                    </span>
-                  </button>
-
-                  {/* Floor Button (visible / active once building is selected, or shows Select Floor) */}
-                  {selectedUmbcBuilding && (
-                    <>
-                      <span style={{ color: 'var(--border)', fontWeight: 300 }}>/</span>
-                      <button
-                        id="umbc-floor-btn"
-                        onClick={() => {
-                          setOpenDropdown(openDropdown === 'umbc-selector' ? null : 'umbc-selector');
-                          setMobileStep('floor');
-                        }}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                          padding: '4px 12px',
-                          borderRadius: 6,
-                          border: openDropdown === 'umbc-selector' && mobileStep === 'floor' ? '1.5px solid var(--amber)' : '1px solid var(--border)',
-                          backgroundColor: selectedFloorId ? 'var(--amber-light)' : 'var(--surface-muted)',
-                          cursor: 'pointer',
-                          transition: 'all var(--ease-quick)'
-                        }}
-                        title={`Select floor in ${selectedUmbcBuilding.name}`}
-                      >
-                        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--amber-hover)', letterSpacing: '0.04em' }}>
-                          Floor
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: selectedFloorId ? 700 : 500, color: selectedFloorId ? 'var(--amber-hover)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {selectedFloorId || 'Select Floor'}
-                          <ChevronDown size={14} color="var(--text-muted)" />
-                        </span>
-                      </button>
-                    </>
-                  )}
-
-                  {/* Dropdown Menu (Desktop Flyout & Mobile/Tablet Stepper) */}
-                  {openDropdown === 'umbc-selector' && (
-                    <div
-                      className="glass-hud floating-hud"
-                      style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        marginTop: 8,
-                        width: 'min(620px, 94vw)',
-                        backgroundColor: '#FFFFFF',
-                        borderRadius: 10,
-                        boxShadow: '0 20px 45px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08)',
-                        border: '1px solid var(--border)',
-                        zIndex: 100,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column'
-                      }}
-                    >
-                      {/* Search Header */}
-                      <div style={{
-                        padding: '12px 14px',
-                        borderBottom: '1px solid var(--border)',
-                        backgroundColor: 'var(--surface-muted)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Building2 size={16} color="var(--amber)" />
-                            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)' }}>
-                              UMBC Campus Building & Floor Selector
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                            {selectedUmbcBuilding ? (
-                              <span>
-                                <strong style={{ color: 'var(--ink)' }}>{selectedUmbcBuilding.name}</strong>
-                                {selectedFloorId && <span style={{ color: 'var(--amber-hover)' }}> · {selectedFloorId}</span>}
-                              </span>
-                            ) : (
-                              'Choose a building first'
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Search input */}
-                        <div style={{ position: 'relative' }}>
-                          <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-                          <input
-                            type="text"
-                            value={buildingSearchQuery}
-                            onChange={(e) => setBuildingSearchQuery(e.target.value)}
-                            placeholder="Search 39 UMBC buildings (e.g. Engineering, ILSB, Library)..."
-                            autoFocus
-                            className="input-field"
-                            style={{
-                              width: '100%',
-                              paddingLeft: 32,
-                              height: 34,
-                              fontSize: 12,
-                              backgroundColor: '#FFFFFF'
-                            }}
-                          />
-                        </div>
-
-                        {/* Mobile/Tablet Step Tabs */}
-                        <div className="mobile-step-tabs" style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => setMobileStep('building')}
-                            style={{
-                              flex: 1,
-                              padding: '6px 10px',
-                              borderRadius: 6,
-                              border: 'none',
-                              backgroundColor: mobileStep === 'building' ? 'var(--ink)' : 'var(--surface)',
-                              color: mobileStep === 'building' ? '#FFFFFF' : 'var(--text-secondary)',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            1. Building {selectedUmbcBuilding ? `(${selectedUmbcBuilding.name.split(' ')[0]})` : ''}
-                          </button>
-                          <button
-                            onClick={() => selectedUmbcBuilding && setMobileStep('floor')}
-                            disabled={!selectedUmbcBuilding}
-                            style={{
-                              flex: 1,
-                              padding: '6px 10px',
-                              borderRadius: 6,
-                              border: 'none',
-                              backgroundColor: mobileStep === 'floor' ? 'var(--amber)' : 'var(--surface)',
-                              color: mobileStep === 'floor' ? '#FFFFFF' : selectedUmbcBuilding ? 'var(--ink)' : 'var(--text-muted)',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: selectedUmbcBuilding ? 'pointer' : 'not-allowed',
-                              opacity: selectedUmbcBuilding ? 1 : 0.6
-                            }}
-                          >
-                            2. Floor {selectedFloorId ? `(${selectedFloorId})` : ''}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Cascading Split Pane */}
-                      <div style={{ display: 'flex', height: 340, overflow: 'hidden' }}>
-                        {/* Left: 39 UMBC Buildings */}
-                        <div
-                          className={`buildings-column ${mobileStep === 'floor' ? 'hide-on-mobile' : ''}`}
-                          style={{
-                            width: '54%',
-                            minWidth: 260,
-                            borderRight: '1px solid var(--border)',
-                            overflowY: 'auto',
-                            padding: 6
-                          }}
-                        >
-                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--timber)', padding: '6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Buildings ({filteredUmbcBuildings.length})
-                          </div>
-                          {filteredUmbcBuildings.map((b) => {
-                            const isHovered = (hoveredBuildingId || selectedBuildingId) === b.id;
-                            const isSelected = selectedBuildingId === b.id;
-                            const hasFloors = b.floors.length > 0;
-                            return (
-                              <div
-                                key={b.id}
-                                onMouseEnter={() => setHoveredBuildingId(b.id)}
-                                onClick={() => {
-                                  setHoveredBuildingId(b.id);
-                                  onSelectUmbcBuilding(b.id);
-                                  setMobileStep('floor');
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  padding: '8px 10px',
-                                  borderRadius: 6,
-                                  cursor: 'pointer',
-                                  backgroundColor: isSelected ? 'var(--amber-light)' : isHovered ? 'var(--surface-hover)' : 'transparent',
-                                  color: isSelected ? 'var(--amber-hover)' : 'var(--ink)',
-                                  marginBottom: 2,
-                                  transition: 'all 60ms ease-out'
-                                }}
-                              >
-                                <div style={{ minWidth: 0, paddingRight: 6 }}>
-                                  <div style={{ fontSize: 12.5, fontWeight: isSelected || isHovered ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {b.name}
-                                  </div>
-                                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                                    {hasFloors ? `${b.floors.length} ${b.floors.length === 1 ? 'Floor' : 'Floors'}` : 'No floors'}
-                                  </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                                  {isSelected && <CheckCircle2 size={14} color="var(--amber)" />}
-                                  {hasFloors && <ChevronRight size={14} color="var(--text-muted)" />}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {filteredUmbcBuildings.length === 0 && (
-                            <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-                              No UMBC buildings match "{buildingSearchQuery}"
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Right: Available Floors for Hovered/Selected Building */}
-                        <div
-                          className={`floors-column ${mobileStep === 'building' ? 'hide-on-mobile' : ''}`}
-                          style={{
-                            flex: 1,
-                            overflowY: 'auto',
-                            padding: 8,
-                            backgroundColor: 'var(--surface-muted)'
-                          }}
-                        >
-                          {activePreviewBuilding ? (
-                            <>
-                              <div style={{ padding: '4px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 8 }}>
-                                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--timber)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                  Available Floors
-                                </div>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <span>{activePreviewBuilding.name}</span>
-                                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                    {activePreviewBuilding.floors.length} {activePreviewBuilding.floors.length === 1 ? 'floor' : 'floors'}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {activePreviewBuilding.floors.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  {activePreviewBuilding.floors.map((floor) => {
-                                    const isFloorSelected = selectedBuildingId === activePreviewBuilding.id && selectedFloorId === floor;
-                                    return (
-                                      <div
-                                        key={floor}
-                                        onClick={() => {
-                                          onSelectUmbcFloor(floor, activePreviewBuilding.id);
-                                          setOpenDropdown(null);
-                                        }}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          padding: '9px 12px',
-                                          borderRadius: 6,
-                                          cursor: 'pointer',
-                                          backgroundColor: isFloorSelected ? 'var(--amber)' : '#FFFFFF',
-                                          color: isFloorSelected ? '#FFFFFF' : 'var(--ink)',
-                                          border: isFloorSelected ? '1px solid var(--amber)' : '1px solid var(--border-subtle)',
-                                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                                          transition: 'all var(--ease-quick)'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          if (!isFloorSelected) {
-                                            e.currentTarget.style.backgroundColor = 'var(--surface-hover)';
-                                            e.currentTarget.style.borderColor = 'var(--amber)';
-                                          }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          if (!isFloorSelected) {
-                                            e.currentTarget.style.backgroundColor = '#FFFFFF';
-                                            e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                                          }
-                                        }}
-                                      >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <Layers size={14} color={isFloorSelected ? '#FFFFFF' : 'var(--amber)'} />
-                                          <span style={{ fontSize: 13, fontWeight: isFloorSelected ? 700 : 600 }}>
-                                            {floor}
-                                          </span>
-                                        </div>
-                                        {isFloorSelected && <CheckCircle2 size={15} color="#FFFFFF" />}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <div style={{ padding: '30px 16px', textAlign: 'center' }}>
-                                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-                                    No floor levels defined for this facility.
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      onSelectUmbcFloor('Ground Floor', activePreviewBuilding.id);
-                                      setOpenDropdown(null);
-                                    }}
-                                    className="btn btn-ghost"
-                                    style={{ fontSize: 12, height: 32 }}
-                                  >
-                                    Select Facility
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
-                              Hover or tap a building on the left to reveal its floor levels.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Right Controls: Search Pill, Offline Sync Badge, Notification Bell, Logout */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Search Pill with ⌘K Hint */}
+          <div className="topbar__right">
             <button
+              type="button"
+              className="search-pill"
               onClick={onOpenQuickSearch}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-full)',
-                border: '1.5px solid var(--border)',
-                backgroundColor: 'var(--surface-muted)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: 13,
-                transition: 'all var(--ease-quick)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--amber)'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              aria-label="Search"
             >
-              <Search size={15} color="var(--text-secondary)" />
-              <span style={{ display: 'none', minWidth: 100, textAlign: 'left', '@media(min-width: 900px)': { display: 'inline' } }}>
-                Search field...
-              </span>
-              <kbd style={{
-                fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-                padding: '2px 6px',
-                borderRadius: 4,
-                backgroundColor: '#FFFFFF',
-                border: '1px solid var(--border)',
-                color: 'var(--ink)',
-                fontWeight: 600
-              }}>
-                ⌘K
-              </kbd>
+              <Search size={15} color="var(--text-secondary)" aria-hidden="true" />
+              <span className="search-pill__label">Search field…</span>
+              <kbd>{shortcut}</kbd>
             </button>
 
-            {/* Offline Sync Badge (Cycles states: synced -> syncing -> offline on click) */}
+            <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
+
+            <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
+
             <button
-              onClick={onToggleSyncState}
-              title="Click to cycle offline sync state (demo)"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: 12,
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                border: syncState === 'synced'
-                  ? '1px solid #86EFAC'
-                  : syncState === 'syncing'
-                    ? '1px solid #FCD34D'
-                    : '1px solid #FCA5A5',
-                backgroundColor: syncState === 'synced'
-                  ? '#F0FDF4'
-                  : syncState === 'syncing'
-                    ? '#FFFBEB'
-                    : '#FEF2F2',
-                color: syncState === 'synced'
-                  ? '#166534'
-                  : syncState === 'syncing'
-                    ? '#B45309'
-                    : '#991B1B',
-                transition: 'all var(--ease-quick)'
-              }}
-            >
-              {syncState === 'synced' && (
-                <>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#16A34A' }} />
-                  <span>SYNCED</span>
-                </>
-              )}
-              {syncState === 'syncing' && (
-                <>
-                  <RefreshCw size={12} className="spin-icon" style={{ animation: 'spin 1s linear infinite' }} />
-                  <span>SYNCING…</span>
-                </>
-              )}
-              {syncState === 'offline' && (
-                <>
-                  <WifiOff size={13} color="#DC2626" />
-                  <span>OFFLINE · 2 QUEUED</span>
-                </>
-              )}
-            </button>
-
-            {/* Notification Bell with Unread Dot */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setOpenDropdown(openDropdown === 'notifications' ? null : 'notifications')}
-                className="btn-icon"
-                style={{ position: 'relative' }}
-              >
-                <Bell size={19} />
-                <span style={{
-                  position: 'absolute',
-                  top: 7,
-                  right: 8,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--amber)',
-                  border: '1.5px solid #FFFFFF'
-                }} />
-              </button>
-
-              {openDropdown === 'notifications' && (
-                <div
-                  className="glass-hud"
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: 8,
-                    width: 320,
-                    padding: 12,
-                    zIndex: 50
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Field Notifications</span>
-                    <span style={{ fontSize: 11, color: 'var(--amber)', cursor: 'pointer', fontWeight: 600 }}>Mark all read</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {notifications.map((n) => (
-                      <div key={n.id} style={{ padding: '8px 10px', borderRadius: 6, backgroundColor: n.unread ? 'var(--amber-light)' : 'var(--surface-muted)' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{n.title}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{n.text}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{n.time}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Logout Button */}
-            <button
-              onClick={onLogout}
+              type="button"
               className="btn-icon"
+              onClick={onLogout}
               title="Sign out of PunchList Pro"
+              aria-label="Sign out"
               style={{ color: 'var(--text-muted)' }}
             >
-              <LogOut size={18} />
+              <LogOut size={18} aria-hidden="true" />
             </button>
           </div>
         </header>
 
-        {/* Page View Container */}
-        <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {children}
-        </main>
+        <main className="shell-content">{children}</main>
 
-        {/* -------------------------------------------------------------
-            MOBILE BOTTOM TAB BAR (Screens <820px)
-            ------------------------------------------------------------- */}
-        <nav
-          className="mobile-tab-bar"
-          style={{
-            height: 56,
-            backgroundColor: 'var(--ink)',
-            borderTop: '1px solid var(--ink-border)',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'space-around',
-            zIndex: 40,
-            padding: '0 6px'
-          }}
-        >
-          {navItemsWorkspace.map((item) => {
+        {/* Mobile bottom tab bar (<820px) */}
+        <nav className="mobile-tab-bar" aria-label="Main">
+          {mobileItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeModule === item.id;
+            const active = activeModule === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
+                className={`tab-btn${active ? ' is-active' : ''}`}
                 onClick={() => onNavigate(item.id)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 3,
-                  background: 'transparent',
-                  border: 'none',
-                  color: isActive ? 'var(--amber)' : '#A1A1AA',
-                  fontSize: 10,
-                  fontWeight: isActive ? 700 : 500,
-                  cursor: 'pointer',
-                  padding: '6px 12px'
-                }}
+                aria-current={active ? 'page' : undefined}
               >
-                <Icon size={18} />
+                <Icon size={18} aria-hidden="true" />
                 <span>{item.label}</span>
               </button>
             );
           })}
-          <button
-            onClick={() => onNavigate('team')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 3,
-              background: 'transparent',
-              border: 'none',
-              color: activeModule === 'team' ? 'var(--amber)' : '#A1A1AA',
-              fontSize: 10,
-              fontWeight: activeModule === 'team' ? 700 : 500,
-              cursor: 'pointer',
-              padding: '6px 12px'
-            }}
-          >
-            <Users size={18} />
-            <span>Team</span>
-          </button>
-          <button
-            onClick={() => onNavigate('settings')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 3,
-              background: 'transparent',
-              border: 'none',
-              color: activeModule === 'settings' ? 'var(--amber)' : '#A1A1AA',
-              fontSize: 10,
-              fontWeight: activeModule === 'settings' ? 700 : 500,
-              cursor: 'pointer',
-              padding: '6px 12px'
-            }}
-          >
-            <Settings size={18} />
-            <span>Settings</span>
-          </button>
         </nav>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
