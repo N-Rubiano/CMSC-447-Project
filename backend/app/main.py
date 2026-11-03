@@ -64,8 +64,12 @@ async def security_headers(request: Request, call_next):
 # Static files
 # ---------------------------------------------------------------------------
 
-UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    UPLOADS_DIR = Path("/tmp/uploads")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 # Serve frontend production build if available

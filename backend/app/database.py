@@ -109,6 +109,19 @@ CREATE TABLE IF NOT EXISTS users (
     company_id TEXT REFERENCES companies(id) ON DELETE SET NULL,
     phone TEXT, avatar_url TEXT, password_hash TEXT,
     supabase_uid TEXT,
+    status TEXT DEFAULT 'active',
+    trade TEXT,
+    invited_by TEXT,
+    invitation_token TEXT,
+    invitation_expires_at TIMESTAMPTZ,
+    must_reset_password BOOLEAN DEFAULT FALSE,
+    approved_by TEXT,
+    approved_at TIMESTAMPTZ,
+    rejected_by TEXT,
+    rejected_at TIMESTAMPTZ,
+    rejection_reason TEXT,
+    presence TEXT DEFAULT 'active',
+    presence_text TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -272,6 +285,19 @@ CREATE TABLE IF NOT EXISTS users (
     company_id TEXT REFERENCES companies(id) ON DELETE SET NULL,
     phone TEXT, avatar_url TEXT, password_hash TEXT,
     supabase_uid TEXT,
+    status TEXT DEFAULT 'active',
+    trade TEXT,
+    invited_by TEXT,
+    invitation_token TEXT,
+    invitation_expires_at TEXT,
+    must_reset_password INTEGER DEFAULT 0,
+    approved_by TEXT,
+    approved_at TEXT,
+    rejected_by TEXT,
+    rejected_at TEXT,
+    rejection_reason TEXT,
+    presence TEXT DEFAULT 'active',
+    presence_text TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -506,6 +532,19 @@ def _run_migrations(conn):
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS presence_text TEXT",
             "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
             "CREATE INDEX IF NOT EXISTS idx_users_supabase_uid ON public.users(supabase_uid)",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS trade TEXT",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS invited_by TEXT",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS invitation_token TEXT",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS invitation_expires_at TIMESTAMPTZ",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS must_reset_password BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS approved_by TEXT",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS rejected_by TEXT",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ",
+            "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
+            "CREATE INDEX IF NOT EXISTS idx_users_status ON public.users(status)",
+            "CREATE INDEX IF NOT EXISTS idx_users_invitation_token ON public.users(invitation_token)",
             # Sheets table schema synchronization
             "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS name TEXT",
             "ALTER TABLE public.sheets ADD COLUMN IF NOT EXISTS sheet_number TEXT",
@@ -611,10 +650,10 @@ def init_db():
                 conn.execute(text(
                     "CREATE TABLE IF NOT EXISTS _schema_migrations (version VARCHAR(64) PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())"
                 ))
-                migrated = conn.execute(text("SELECT 1 FROM _schema_migrations WHERE version = 'v2_init' LIMIT 1")).scalar()
+                migrated = conn.execute(text("SELECT 1 FROM _schema_migrations WHERE version = 'v3_onboarding' LIMIT 1")).scalar()
                 if not migrated:
                     _run_migrations(conn)
-                    conn.execute(text("INSERT INTO _schema_migrations (version) VALUES ('v2_init') ON CONFLICT DO NOTHING"))
+                    conn.execute(text("INSERT INTO _schema_migrations (version) VALUES ('v3_onboarding') ON CONFLICT DO NOTHING"))
             else:
                 has_users = conn.execute(text(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1"
@@ -624,6 +663,32 @@ def init_db():
                         s = stmt.strip()
                         if s:
                             conn.execute(text(s))
+                    conn.commit()
+                else:
+                    for col_name, col_sql in [
+                        ("presence", "TEXT DEFAULT 'active'"),
+                        ("presence_text", "TEXT"),
+                        ("status", "TEXT DEFAULT 'active'"),
+                        ("trade", "TEXT"),
+                        ("invited_by", "TEXT"),
+                        ("invitation_token", "TEXT"),
+                        ("invitation_expires_at", "TEXT"),
+                        ("must_reset_password", "INTEGER DEFAULT 0"),
+                        ("approved_by", "TEXT"),
+                        ("approved_at", "TEXT"),
+                        ("rejected_by", "TEXT"),
+                        ("rejected_at", "TEXT"),
+                        ("rejection_reason", "TEXT"),
+                    ]:
+                        try:
+                            conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_sql}"))
+                        except Exception:
+                            pass
+                    try:
+                        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)"))
+                        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_invitation_token ON users(invitation_token)"))
+                    except Exception:
+                        pass
                     conn.commit()
     except Exception as e:
         if settings.use_postgres:
@@ -643,153 +708,87 @@ def init_db():
         else:
             raise
 
-    _seed_demo_data()
-    seed_demo_accounts()
+    seed_admin_account()
 
 
-def seed_demo_accounts():
+def seed_admin_account():
     """
-    Seed canonical demo accounts for all 6 roles into the users table.
-    These are regular persistent user rows without auto-expiration.
-    An administrator can delete any of these accounts at any time via the API or Team UI.
+    Ensure the canonical administrator account (uw61778@umbc.edu) is active in the database.
+    Also clean up legacy demo accounts so they are not resurrected.
     """
-    # Fast path: check if canonical demo accounts already exist to avoid unnecessary WAN queries & bcrypt hashing
-    existing_demo = execute_one(
-        "SELECT COUNT(*) as cnt FROM users WHERE email LIKE '%@punchlistpro.demo'"
-    )
-    if existing_demo and int(existing_demo.get("cnt", 0)) >= 6:
-        print("✅ Canonical demo accounts are already active in database.")
-        return
-
-    import bcrypt as _bcrypt
-    cached_hash = _bcrypt.hashpw(b"Demo@2026!", _bcrypt.gensalt()).decode()
-
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
     is_pg = settings.use_postgres
 
-    # Ensure demo companies exist
+    # 1. Clean up legacy demo accounts if any exist
+    try:
+        execute_write(
+            "DELETE FROM users WHERE email LIKE '%@punchlistpro.demo' OR email IN ('admin@punchlist.pro', 'gc@punchlist.pro', 'sub@punchlist.pro')"
+        )
+    except Exception as e:
+        print(f"⚠️  Demo cleanup notice: {e}")
+
+    # 2. Ensure company exists
     upsert_company = (
         "INSERT INTO companies (id,name,type,trade,created_at) VALUES (:id,:name,:type,:trade,:now) ON CONFLICT (id) DO NOTHING"
         if is_pg else
         "INSERT OR IGNORE INTO companies (id,name,type,trade,created_at) VALUES (:id,:name,:type,:trade,:now)"
     )
-    demo_companies = [
-        {"id": "cmp-gc-1", "name": "Apex Construction Group", "type": "contractor", "trade": "General Contractor", "now": now_iso},
-        {"id": "cmp-sub-1", "name": "Apex Mechanical", "type": "subcontractor", "trade": "Mechanical & HVAC", "now": now_iso},
-        {"id": "cmp-sub-2", "name": "Studio Design Arc", "type": "contractor", "trade": "Architecture", "now": now_iso},
-        {"id": "cmp-sub-3", "name": "Capital Asset Group", "type": "owner", "trade": "Owner / Facility", "now": now_iso},
-        {"id": "cmp-sub-4", "name": "City QA Inspections", "type": "contractor", "trade": "Field Inspection", "now": now_iso},
-    ]
-    for c in demo_companies:
+    admin_company = {
+        "id": "cmp-gc-1",
+        "name": "UMBC Facility Operations",
+        "type": "owner",
+        "trade": "Facility Management",
+        "now": now_iso
+    }
+    try:
+        execute_write(upsert_company, admin_company)
+    except Exception as e:
+        print(f"⚠️  Company upsert notice: {e}")
+
+    # Ensure canonical projects exist
+    upsert_project = (
+        "INSERT INTO projects (id,name,code,address,status,created_at) VALUES (:id,:name,:code,:address,:status,:now) ON CONFLICT (id) DO NOTHING"
+        if is_pg else
+        "INSERT OR IGNORE INTO projects (id,name,code,address,status,created_at) VALUES (:id,:name,:code,:address,:status,:now)"
+    )
+    for p in [
+        {"id": "proj-1", "name": "UMBC Campus & Harbor Point", "code": "UMBC-2026", "address": "1000 Hilltop Circle, Baltimore, MD 21250", "status": "active", "now": now_iso},
+        {"id": "proj-2", "name": "Apex Innovation Center", "code": "AIC-2026", "address": "100 Technology Square, Cambridge, MA 02139", "status": "active", "now": now_iso},
+    ]:
         try:
-            execute_write(upsert_company, c)
-        except Exception as e:
-            print(f"⚠️  Company upsert notice: {e}")
+            execute_write(upsert_project, p)
+        except Exception:
+            pass
 
-    _hash = lambda pw: cached_hash
-
-    demo_users = [
-        {
-            "id": "00000000-0000-0000-0000-000000000001",
-            "name": "Admin",
-            "email": "admin@punchlistpro.demo",
-            "role": "admin",
-            "company": "Apex Construction Group",
-            "company_id": "cmp-gc-1",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000002",
-            "name": "Alex Morgan",
-            "email": "admin@punchlist.pro",
-            "role": "admin",
-            "company": "Apex Construction Group",
-            "company_id": "cmp-gc-1",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000003",
-            "name": "Contractor",
-            "email": "contractor@punchlistpro.demo",
-            "role": "general_contractor",
-            "company": "Apex Construction Group",
-            "company_id": "cmp-gc-1",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000004",
-            "name": "Subcontractor",
-            "email": "sub@punchlistpro.demo",
-            "role": "sub_contractor",
-            "company": "Apex Mechanical",
-            "company_id": "cmp-sub-1",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000005",
-            "name": "Architect",
-            "email": "architect@punchlistpro.demo",
-            "role": "architect",
-            "company": "Studio Design Arc",
-            "company_id": "cmp-sub-2",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000006",
-            "name": "Owner Rep",
-            "email": "owner@punchlistpro.demo",
-            "role": "owner",
-            "company": "Capital Asset Group",
-            "company_id": "cmp-sub-3",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-        {
-            "id": "00000000-0000-0000-0000-000000000007",
-            "name": "Field Inspector",
-            "email": "inspector@punchlistpro.demo",
-            "role": "field_inspector",
-            "company": "City QA Inspections",
-            "company_id": "cmp-sub-4",
-            "pw": _hash("Demo@2026!"),
-            "now": now_iso,
-        },
-    ]
-
+    # 3. Ensure uw61778@umbc.edu exists with password Thakur@531
     table_name = "public.users" if settings.use_postgres else "users"
-    for u in demo_users:
-        try:
-            # Respect admin deletion: if admin previously deleted this user, do not resurrect
-            was_deleted = execute_one(
-                "SELECT id FROM audit_logs WHERE action IN ('USER_DELETED', 'MEMBER_REMOVED') AND details LIKE :pattern",
-                {"pattern": f"%{u['email']}%"}
+    try:
+        existing_admin = execute_one(
+            f"SELECT id, email FROM {table_name} WHERE LOWER(email) = 'uw61778@umbc.edu'"
+        )
+        import bcrypt as _bcrypt
+        pw_hash = _bcrypt.hashpw(b"Thakur@531", _bcrypt.gensalt(12)).decode()
+        if existing_admin:
+            execute_write(
+                f"UPDATE {table_name} SET role = 'admin', status = 'active', must_reset_password = FALSE, company = 'UMBC Facility Operations', company_id = 'cmp-gc-1' WHERE LOWER(email) = 'uw61778@umbc.edu'"
             )
-            if was_deleted:
-                continue
-
-            existing = execute_one(
-                f"SELECT id, name, email FROM {table_name} WHERE LOWER(email) = LOWER(:email)",
-                {"email": u["email"]}
+            print("✅ Admin account uw61778@umbc.edu verified active.")
+        else:
+            admin_id = str(uuid.uuid4())
+            execute_write(
+                f"INSERT INTO {table_name} (id,name,email,role,company,company_id,password_hash,status,must_reset_password,created_at,updated_at) "
+                "VALUES (:id,'Satya Thakur','uw61778@umbc.edu','admin','UMBC Facility Operations','cmp-gc-1',:pw,'active',FALSE,:now,:now)",
+                {"id": admin_id, "pw": pw_hash, "now": now_iso}
             )
-            if not existing:
-                execute_write(
-                    f"INSERT INTO {table_name} (id,name,email,role,company,company_id,password_hash,created_at,updated_at) "
-                    "VALUES (:id,:name,:email,:role,:company,:company_id,:pw,:now,:now)",
-                    u
-                )
-                print(f"✅ Seeded persistent demo account: {u['email']} ({u['role']})")
-        except Exception as e:
-            print(f"⚠️  Failed to seed demo account {u['email']}: {e}")
-
-    print("✅ All demo user accounts active in database (admin can delete at will).")
+            print("✅ Seeded administrator: uw61778@umbc.edu (admin)")
+    except Exception as e:
+        print(f"⚠️  Admin seed error: {e}")
 
 
+def seed_demo_accounts():
+    """Backwards compatibility alias."""
+    seed_admin_account()
 # ---------------------------------------------------------------------------
 # Helper: run a raw SQL query and return rows as list[dict]
 # ---------------------------------------------------------------------------
@@ -946,9 +945,7 @@ def _seed_demo_data():
         {"id": "cmp-sub-3", "name": "Summit Electric", "type": "subcontractor", "trade": "Electrical", "now": now},
     ]
     users = [
-        {"id": "usr-1", "name": "Alex Morgan", "email": "admin@punchlist.pro", "role": "admin", "company": "Apex Construction Group", "company_id": "cmp-gc-1", "pw": _hash("admin123"), "now": now},
-        {"id": "usr-2", "name": "Jordan Rivera", "email": "gc@punchlist.pro", "role": "general_contractor", "company": "Apex Construction Group", "company_id": "cmp-gc-1", "pw": _hash("gc123"), "now": now},
-        {"id": "usr-3", "name": "Sam Chen", "email": "sub@punchlist.pro", "role": "sub_contractor", "company": "Metro Plumbing", "company_id": "cmp-sub-1", "pw": _hash("sub123"), "now": now},
+        {"id": "usr-admin-1", "name": "Satya Thakur", "email": "uw61778@umbc.edu", "role": "admin", "company": "UMBC Facility Operations", "company_id": "cmp-gc-1", "pw": _hash("Thakur@531"), "now": now},
     ]
     projects = [
         {"id": "proj-1", "name": "UMBC Campus & Harbor Point", "code": "UMBC-2026", "address": "1000 Hilltop Circle, Baltimore, MD 21250", "status": "active", "now": now},

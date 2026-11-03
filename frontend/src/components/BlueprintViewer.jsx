@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
+import { renderPdfToCanvas } from '../services/pdfRenderer';
 
 export default function BlueprintViewer({
   sheets,
@@ -42,6 +43,33 @@ export default function BlueprintViewer({
   currentUser
 }) {
   const containerRef = useRef(null);
+  const pdfCanvasRef = useRef(null);
+  const [pdfRendered, setPdfRendered] = useState(false);
+
+  const pdfUrl = activeSheet?.pdf_url ||
+    (activeSheet?.file_path ? `/api/sheets/${activeSheet.id}/pdf` : null) ||
+    (typeof activeSheet?.image_url === 'string' && activeSheet.image_url.endsWith('.pdf') ? activeSheet.image_url : null);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!activeSheet || activeSheet.image_url || !pdfUrl) {
+      setPdfRendered(false);
+      return;
+    }
+    const canvas = pdfCanvasRef.current;
+    if (!canvas) return;
+
+    renderPdfToCanvas(pdfUrl, activeSheet.page_index || 0, canvas).then(result => {
+      if (isCurrent && result.success) {
+        setPdfRendered(true);
+      }
+    }).catch(err => {
+      console.warn('PDF canvas render failed:', err);
+      if (isCurrent) setPdfRendered(false);
+    });
+
+    return () => { isCurrent = false; };
+  }, [activeSheet, pdfUrl]);
 
   // Pan & Zoom state
   const [zoom, setZoom] = useState(1);
@@ -324,23 +352,37 @@ export default function BlueprintViewer({
         {/* Inner wrapper — provides position:relative context for image + SVG overlay */}
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
 
-        {/* ── Mode A: Uploaded Blueprint Image ─────────────────────── */}
-        {activeSheet?.image_url ? (
+        {/* ── Mode A: Uploaded Blueprint Image or Rendered PDF Canvas ─────────────────────── */}
+        {activeSheet?.image_url || pdfUrl ? (
           <>
-            {/* Uploaded image fills the full canvas */}
-            <img
-              src={activeSheet.image_url}
-              alt={activeSheet.title || activeSheet.name || 'Blueprint'}
-              style={{
-                display: 'block',
-                width: activeSheet?.dimensions?.width || 1400,
-                height: activeSheet?.dimensions?.height || 900,
-                objectFit: 'contain',
-                userSelect: 'none',
-                pointerEvents: 'none'
-              }}
-              draggable={false}
-            />
+            {activeSheet?.image_url ? (
+              <img
+                src={activeSheet.image_url}
+                alt={activeSheet.title || activeSheet.name || 'Blueprint'}
+                style={{
+                  display: 'block',
+                  width: activeSheet?.dimensions?.width || 1400,
+                  height: activeSheet?.dimensions?.height || 900,
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none'
+                }}
+                draggable={false}
+              />
+            ) : (
+              <canvas
+                ref={pdfCanvasRef}
+                style={{
+                  display: 'block',
+                  width: activeSheet?.dimensions?.width || 1400,
+                  height: activeSheet?.dimensions?.height || 900,
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                  backgroundColor: '#FFFFFF'
+                }}
+              />
+            )}
 
             {/* SVG Annotation Overlay — pins, measurement, title block */}
             <svg

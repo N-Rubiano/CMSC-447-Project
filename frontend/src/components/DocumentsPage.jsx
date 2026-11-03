@@ -18,9 +18,11 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
+let _cachedDocuments = null;
+
 export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBlueprint }) {
-  const [documents, setDocuments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [documents, setDocuments] = useState(() => _cachedDocuments || []);
+  const [isLoading, setIsLoading] = useState(!_cachedDocuments);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [activeFolder, setActiveFolder] = useState('All');
@@ -36,10 +38,12 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
 
   // Load documents from PostgreSQL database
   const loadDocuments = async () => {
-    setIsLoading(true);
+    if (!_cachedDocuments) setIsLoading(true);
     try {
       const data = await api.getDocuments();
-      setDocuments(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      _cachedDocuments = list;
+      setDocuments(list);
     } catch (err) {
       console.warn('Could not load documents from backend database:', err);
     } finally {

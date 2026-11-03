@@ -1,4 +1,12 @@
 import os
+
+# Set testing environment variables before importing app modules
+os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = ""
+os.environ["SQLITE_PATH"] = "./data/test_punchlist.db"
+os.environ["SUPABASE_URL"] = ""
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = ""
+
 import pytest
 from fastapi.testclient import TestClient
 

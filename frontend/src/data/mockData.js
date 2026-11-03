@@ -125,59 +125,15 @@ export const INITIAL_PUNCH_ITEMS = [];
 
 export const TEAM_MEMBERS = [
   {
-    id: 'user-1',
-    name: 'Marcus Vance',
-    email: 'marcus.vance@apexconstruct.com',
-    phone: '+1 (617) 555-0142',
-    role: 'Superintendent',
-    organization: 'Apex Construction GC',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    presence: 'on_site',
-    presenceText: 'On site — Level 03'
-  },
-  {
-    id: 'user-2',
-    name: 'Sarah Chen, PE',
-    email: 'sarah.chen@apexconstruct.com',
-    phone: '+1 (617) 555-0199',
-    role: 'Project Executive',
-    organization: 'Apex Construction GC',
+    id: 'usr-admin-1',
+    name: 'Satya Thakur',
+    email: 'uw61778@umbc.edu',
+    phone: '+1 (410) 455-1000',
+    role: 'admin',
+    organization: 'UMBC Facility Operations',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
     presence: 'on_site',
-    presenceText: 'On site — Trailer'
-  },
-  {
-    id: 'user-3',
-    name: 'Liam Harrington',
-    email: 'liam.h@apexconstruct.com',
-    phone: '+1 (617) 555-0183',
-    role: 'Project Engineer',
-    organization: 'Apex Construction GC',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    presence: 'away',
-    presenceText: 'Away — City Hall Permit'
-  },
-  {
-    id: 'user-4',
-    name: 'Clara Oswald, AIA',
-    email: 'c.oswald@studiovanguard.com',
-    phone: '+1 (617) 555-0211',
-    role: 'Architect of Record',
-    organization: 'Studio Vanguard Architects',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80',
-    presence: 'offline',
-    presenceText: 'Offline'
-  },
-  {
-    id: 'user-5',
-    name: 'Gregory Hughes',
-    email: 'g.hughes@beaconcapital.com',
-    phone: '+1 (617) 555-0377',
-    role: "Owner's Representative",
-    organization: 'Beacon Point Capital RE',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    presence: 'on_site',
-    presenceText: 'On site — QA Walk'
+    presenceText: 'Active'
   }
 ];
 
@@ -277,12 +233,12 @@ export const FIELD_PHOTOS = [];
 export const DOCUMENTS = [];
 
 export const CURRENT_USER = {
-  id: 'user-1',
-  name: 'Marcus Vance',
-  email: 'marcus.vance@apexconstruct.com',
-  role: 'Superintendent',
-  company: 'Apex Construction GC',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
+  id: 'usr-admin-1',
+  name: 'Satya Thakur',
+  email: 'uw61778@umbc.edu',
+  role: 'admin',
+  company: 'UMBC Facility Operations',
+  avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
 };
 
 export const PRODUCT_STATS = {

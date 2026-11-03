@@ -1,0 +1,302 @@
+/* ==========================================================================
+   OnboardingPage.css — Industrial First-Login & Credential Setup Styling
+   ========================================================================== */
+
+.onboard-container {
+  min-height: 100vh;
+  width: 100vw;
+  background-color: #18181B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  padding: 24px 16px;
+  box-sizing: border-box;
+}
+
+/* Blueprint grid background */
+.onboard-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+}
+
+/* Warm ambient glow */
+.onboard-glow {
+  position: absolute;
+  top: -150px;
+  right: -150px;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(217, 119, 6, 0.22) 0%, rgba(217, 119, 6, 0) 70%);
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+.onboard-card {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 480px;
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.onboard-header {
+  padding: 28px 32px 20px;
+  border-bottom: 1px solid #F2EFE9;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboard-brand-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: #D97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+  flex-shrink: 0;
+}
+
+.onboard-brand-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #18181B;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.onboard-brand-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: #71717A;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.onboard-body {
+  padding: 28px 32px 32px;
+}
+
+.onboard-user-badge {
+  background-color: #F8F7F4;
+  border: 1px solid #E4E4E7;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onboard-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: #D97706;
+  color: #FFFFFF;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.onboard-user-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #18181B;
+  line-height: 1.2;
+}
+
+.onboard-user-meta {
+  font-size: 12px;
+  color: #71717A;
+  margin-top: 2px;
+}
+
+.onboard-role-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+.onboard-form-group {
+  margin-bottom: 18px;
+}
+
+.onboard-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #27272A;
+  margin-bottom: 6px;
+}
+
+.onboard-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.onboard-input-icon {
+  position: absolute;
+  left: 12px;
+  color: #A1A1AA;
+}
+
+.onboard-input {
+  width: 100%;
+  padding: 10px 40px 10px 38px;
+  border: 1.5px solid #D4D4D8;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #FFFFFF;
+  color: #18181B;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.onboard-input:focus {
+  outline: none;
+  border-color: #D97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+}
+
+.onboard-eye-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #71717A;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.onboard-eye-btn:hover {
+  color: #18181B;
+}
+
+/* Requirements list */
+.onboard-requirements {
+  background-color: #F8F7F4;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 22px;
+}
+
+.onboard-req-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #71717A;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.onboard-req-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #52525B;
+  margin-bottom: 4px;
+}
+
+.onboard-req-item.met {
+  color: #15803D;
+  font-weight: 600;
+}
+
+.onboard-submit-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: #D97706;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+}
+
+.onboard-submit-btn:hover:not(:disabled) {
+  background-color: #B45309;
+}
+
+.onboard-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.onboard-error-alert {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background-color: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  color: #991B1B;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.onboard-alert-title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.onboard-alert-msg {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.onboard-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #D97706;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.onboard-back-link:hover {
+  text-decoration: underline;
+}
+

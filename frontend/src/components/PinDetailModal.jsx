@@ -617,7 +617,7 @@ export default function PinDetailModal({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ color: '#64748B', fontWeight: 600 }}>Created By:</span>
-                        <span style={{ fontWeight: 800, color: '#0F172A' }}>{pin?.created_by_name || 'Sarah Chen, PE (Admin)'}</span>
+                        <span style={{ fontWeight: 800, color: '#0F172A' }}>{pin?.created_by_name || 'Admin'}</span>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -3,7 +3,6 @@ import {
   HardHat,
   Lock,
   ShieldCheck,
-  CheckCircle2,
   ArrowRight,
   Sparkles
 } from 'lucide-react';
@@ -13,90 +12,15 @@ import './LoginPage.css';
 // so they don't block the login-page first paint.
 
 export default function LoginPage({ onLogin }) {
-  const DEFAULT_DEMO_PASSWORD = 'Demo@2026!';
-
-  const demoAccounts = [
-    {
-      roleKey:  'admin',
-      label:    'Facility Administrator',
-      name:     'Admin',
-      email:    'admin@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'ADMIN',
-      color:    '#DC2626',
-      bg:       '#FEE2E2',
-    },
-    {
-      roleKey:  'general_contractor',
-      label:    'General Contractor',
-      name:     'Contractor',
-      email:    'contractor@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'GC',
-      color:    '#D97706',
-      bg:       '#FEF3C7',
-    },
-    {
-      roleKey:  'sub_contractor',
-      label:    'Trade Subcontractor',
-      name:     'Subcontractor',
-      email:    'sub@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'SUB',
-      color:    '#7C3AED',
-      bg:       '#EDE9FE',
-    },
-    {
-      roleKey:  'architect',
-      label:    'Architect',
-      name:     'Architect',
-      email:    'architect@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'ARCH',
-      color:    '#2563EB',
-      bg:       '#DBEAFE',
-    },
-    {
-      roleKey:  'owner',
-      label:    'Owner / Client Rep',
-      name:     'Owner Rep',
-      email:    'owner@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'OWNER',
-      color:    '#059669',
-      bg:       '#D1FAE5',
-    },
-    {
-      roleKey:  'field_inspector',
-      label:    'Field Inspector',
-      name:     'Field Inspector',
-      email:    'inspector@punchlistpro.demo',
-      password: DEFAULT_DEMO_PASSWORD,
-      badge:    'INSP',
-      color:    '#EA580C',
-      bg:       '#FFEDD5',
-    },
-  ];
-
-  const [email, setEmail] = useState('admin@punchlistpro.demo');
-  const [password, setPassword] = useState(DEFAULT_DEMO_PASSWORD);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(null); // 'google' | null
   const [authError, setAuthError] = useState('');
-  const [selectedDemoRole, setSelectedDemoRole] = useState('admin');
-
-  const handleDemoSelect = (account) => {
-    setSelectedDemoRole(account.roleKey);
-    setEmail(account.email);
-    setPassword(account.password || DEFAULT_DEMO_PASSWORD);
-    setAuthError('');
-  };
 
   const handleInputChange = (field, val) => {
     if (field === 'email') setEmail(val);
     if (field === 'password') setPassword(val);
-    // Un-highlight demo role if user enters custom text
-    setSelectedDemoRole(null);
   };
 
   const handleSubmit = async (e) => {
@@ -111,13 +35,8 @@ export default function LoginPage({ onLogin }) {
       // Lazy-import api so supabase + socket.io aren't on the critical path
       const { api } = await import('../services/api');
       const { user } = await api.login(email.trim(), password);
-      onLogin({ email, role: selectedDemoRole || 'admin', ...user });
+      onLogin({ email: email.trim(), role: user.role || 'admin', ...user });
     } catch (err) {
-      const matchedDemo = demoAccounts.find(a => a.email.toLowerCase() === email.trim().toLowerCase());
-      if (matchedDemo) {
-        onLogin({ email: matchedDemo.email, role: matchedDemo.roleKey, name: matchedDemo.name });
-        return;
-      }
       setAuthError(err.message || 'Sign in failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -239,77 +158,7 @@ export default function LoginPage({ onLogin }) {
             </h3>
           </div>
 
-          {/* Demo Accounts Quick-Select */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            marginBottom: 14,
-            padding: '8px 10px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--surface-muted)',
-            border: '1px solid var(--border-subtle)'
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
-              Demo accounts — Password: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink)' }}>Demo@2026!</span>
-            </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 6
-            }}>
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.roleKey}
-                type="button"
-                aria-pressed={selectedDemoRole === acc.roleKey}
-                aria-label={`Select demo account: ${acc.name}`}
-                onClick={() => handleDemoSelect(acc)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '6px 10px',
-                  borderRadius: 6,
-                  border: selectedDemoRole === acc.roleKey ? '1.5px solid var(--amber)' : '1px solid var(--border)',
-                  backgroundColor: selectedDemoRole === acc.roleKey ? '#FFFFFF' : 'transparent',
-                  color: selectedDemoRole === acc.roleKey ? 'var(--ink)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 120ms ease',
-                  width: '100%',
-                  minHeight: 36
-                }}
-              >
-                {/* Role badge */}
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: 42,
-                  height: 20,
-                  padding: '0 6px',
-                  borderRadius: 4,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  backgroundColor: acc.bg,
-                  color: acc.color,
-                  flexShrink: 0,
-                }}>
-                  {acc.badge}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>{acc.name}</div>
 
-                </div>
-                {selectedDemoRole === acc.roleKey && (
-                  <CheckCircle2 size={16} color="var(--amber)" style={{ flexShrink: 0 }} />
-                )}
-              </button>
-            ))}
-            </div>
-          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -16,6 +16,7 @@ const TeamPage              = lazy(() => import('./components/TeamPage'));
 const SettingsPage          = lazy(() => import('./components/SettingsPage'));
 const PrivacyPolicy         = lazy(() => import('./components/PrivacyPolicy'));
 const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions'));
+const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
 
 // ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
@@ -62,6 +63,23 @@ export default function App() {
   // -------------------------------------------------------------
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [onboardingToken, setOnboardingToken] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const searchParams = new URLSearchParams(window.location.search);
+      const sToken = searchParams.get('token') || searchParams.get('onboard_token');
+      if (sToken) return sToken;
+      if (window.location.hash) {
+        const hash = window.location.hash.replace(/^#/, '');
+        const qIdx = hash.indexOf('?');
+        if (qIdx !== -1) {
+          const hParams = new URLSearchParams(hash.substring(qIdx));
+          return hParams.get('token') || hParams.get('onboard_token');
+        }
+      }
+    } catch (_) {}
+    return null;
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('punchlist_user');
@@ -74,26 +92,12 @@ export default function App() {
   // Internal helper: map any user object (Supabase or local) to app state & persist
   const _handleLoginUser = useCallback((userInfo) => {
     if (!userInfo) return;
-    let finalUser = CURRENT_USER;
-    const role = userInfo.role || userInfo.email;
-    if (role === 'executive' || userInfo.email?.includes('sarah.chen')) {
-      finalUser = TEAM_MEMBERS[1];
-    } else if (role === 'foreman' || userInfo.email?.includes('elena')) {
-      finalUser = {
-        id: userInfo.id || 'tp-2',
-        name: userInfo.name || userInfo.email?.split('@')[0] || 'Elena Rostova',
-        email: userInfo.email || 'elena@primedrywall.com',
-        role: userInfo.role || 'Drywall Foreman',
-        company: userInfo.company || 'Prime Drywall & Doors',
-        avatar: userInfo.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80'
-      };
-    } else {
-      finalUser = {
-        ...CURRENT_USER,
-        ...userInfo,
-        name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
-      };
-    }
+    const finalUser = {
+      ...CURRENT_USER,
+      ...userInfo,
+      name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
+      company: userInfo.company || userInfo.organization || CURRENT_USER.company,
+    };
     setCurrentUser(finalUser);
     try {
       localStorage.setItem('punchlist_user', JSON.stringify(finalUser));
@@ -535,6 +539,18 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [_handleLoginUser]);
 
+  // Preload tab chunks in background when authenticated so clicking tabs is instantaneous
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timer = setTimeout(() => {
+      import('./components/DocumentsPage');
+      import('./components/PhotosPage');
+      import('./components/TeamPage');
+      import('./components/SettingsPage');
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
   // Cycle sync state on click: synced -> syncing -> offline -> synced
   const handleToggleSyncState = () => {
     setSyncState(prev => {
@@ -795,6 +811,30 @@ export default function App() {
     return <PageLoader />;
   }
 
+  // If visiting with an invitation or credential-handoff token, render onboarding workflow
+  if (onboardingToken) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <OnboardingPage
+          token={onboardingToken}
+          onComplete={(userInfo) => {
+            setOnboardingToken(null);
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (_) {}
+            _handleLoginUser(userInfo);
+          }}
+          onBackToLogin={() => {
+            setOnboardingToken(null);
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (_) {}
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   if (!isAuthenticated) {
     if (legalPage === 'privacy') return <Suspense fallback={<PageLoader />}><PrivacyPolicy onBack={() => setLegalPage(null)} /></Suspense>;
     if (legalPage === 'terms')   return <Suspense fallback={<PageLoader />}><TermsAndConditions onBack={() => setLegalPage(null)} /></Suspense>;
@@ -909,7 +949,7 @@ export default function App() {
         {/* 4.6 Team View */}
         {activeModule === 'team' && (
           <Suspense fallback={<PageLoader />}>
-            <TeamPage />
+            <TeamPage currentUser={currentUser} projects={projects} />
           </Suspense>
         )}
 

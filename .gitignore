@@ -33,7 +33,10 @@ frontend/.env
 
 # SQLite fallback database (generated at runtime)
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
+data/
 backend/data/
 
 # ── ReportLab / upload artefacts ──────────────────────────────────────────────

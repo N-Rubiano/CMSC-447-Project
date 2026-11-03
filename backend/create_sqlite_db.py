@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
     # ── Seed Initial Data ──────────────────────────────────────────
     now = datetime.now(timezone.utc).isoformat()
-    pw_hash = bcrypt.hashpw(b"Demo@2026!", bcrypt.gensalt()).decode()
+    pw_hash = bcrypt.hashpw(b"Thakur@531", bcrypt.gensalt(12)).decode()
 
     # 1. Companies
     companies = [
@@ -380,11 +380,9 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, companies)
 
-    # 2. Users (3 Demo accounts + team members)
+    # 2. Users (Admin account)
     users = [
-        ("usr-demo-admin", "Admin", "admin@punchlistpro.demo", "admin", "PunchList Pro Construction Ops", "cmp-demo-1", "555-0101", "/avatars/admin.jpg", pw_hash, None, "active", "On Site - Level 4", now, now),
-        ("usr-demo-gc", "Contractor", "contractor@punchlistpro.demo", "general_contractor", "Apex Construction General Contracting", "cmp-demo-2", "555-0201", "/avatars/gc.jpg", pw_hash, None, "active", "Supervising Core & Shell", now, now),
-        ("usr-demo-sub", "Sub-Contractor", "sub@punchlistpro.demo", "sub_contractor", "Prime Trade Solutions", "cmp-demo-3", "555-0301", "/avatars/sub.jpg", pw_hash, None, "active", "Running Conduit L2", now, now),
+        ("usr-admin-1", "Satya Thakur", "uw61778@umbc.edu", "admin", "UMBC Facility Operations", "cmp-demo-1", "555-0101", "/avatars/admin.jpg", pw_hash, None, "active", "On Site", now, now),
     ]
     cursor.executemany("""
         INSERT INTO users (id, name, email, role, company, company_id, phone, avatar_url, password_hash, supabase_uid, presence, presence_text, created_at, updated_at)
