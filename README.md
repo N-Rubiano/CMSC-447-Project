@@ -540,17 +540,6 @@ docker-compose ps
 
 ---
 
-## 📚 Documentation Index
-
-Detailed engineering documentation is located under the [`docs/`](./docs) folder:
-- [**Architecture.md**](./docs/Architecture.md) — Architectural blueprints, caching, and network flows
-- [**database.md**](./docs/database.md) — Complete database schema, indexes, and migration log
-- [**api.md**](./docs/api.md) — REST API endpoint catalog and request/response specifications
-- [**testing.md**](./docs/testing.md) — Test matrix, fixtures, and QA verification procedures
-- [**debugging.md**](./docs/debugging.md) — Troubleshooting guide, common errors, and diagnostic tools
-
----
-
 ## 📄 License
 
 Developed for **CMSC 447** at the University of Maryland, Baltimore County (UMBC).  
