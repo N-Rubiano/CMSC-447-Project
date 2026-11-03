@@ -121,3 +121,4 @@ describe('SettingsPage Component — Avatar & Profile', () => {
     expect(screen.getByText(/Project Name/i)).toBeInTheDocument();
   });
 });
+
