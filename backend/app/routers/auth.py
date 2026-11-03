@@ -47,6 +47,12 @@ class CompleteOnboardingRequest(BaseModel):
     password: str
 
 
+class ProfileUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    phone: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # POST /api/auth/supabase-login
 # Signs the user in through Supabase Auth server-side and returns a
@@ -214,6 +220,47 @@ def me(current_user: dict = Depends(get_current_user)):
     safe = {k: v for k, v in user.items() if k != "password_hash"}
     safe["company_type"] = company.get("type") if company else user.get("role")
     return safe
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/auth/profile
+# ---------------------------------------------------------------------------
+
+@router.patch("/profile")
+def update_profile(body: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("id")
+    email = current_user.get("email")
+    if not user_id and not email:
+        raise HTTPException(401, "Not authenticated")
+
+    updates = {}
+    if body.name is not None and body.name.strip():
+        updates["name"] = body.name.strip()
+    if body.avatar_url is not None:
+        updates["avatar_url"] = body.avatar_url.strip()
+    if body.phone is not None:
+        updates["phone"] = body.phone.strip()
+
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        set_clauses = [f"{col}=:{col}" for col in updates.keys()]
+        if user_id:
+            sql = f"UPDATE users SET {', '.join(set_clauses)} WHERE id=:uid"
+            execute_write(sql, {**updates, "uid": user_id})
+        else:
+            sql = f"UPDATE users SET {', '.join(set_clauses)} WHERE LOWER(email)=LOWER(:email)"
+            execute_write(sql, {**updates, "email": email})
+
+    user = None
+    if user_id:
+        user = execute_one("SELECT * FROM users WHERE id=:id", {"id": user_id})
+    if not user and email:
+        user = execute_one("SELECT * FROM users WHERE LOWER(email)=LOWER(:email)", {"email": email})
+
+    if user:
+        user.pop("password_hash", None)
+
+    return {"user": user or {**current_user, **updates}}
 
 
 # ---------------------------------------------------------------------------

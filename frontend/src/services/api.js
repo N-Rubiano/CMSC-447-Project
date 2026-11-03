@@ -133,6 +133,19 @@ export const api = {
     return await res.json();
   },
 
+  async updateProfile(payload) {
+    const res = await authFetch(`${BASE_URL}/auth/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to update profile');
+    }
+    return await res.json();
+  },
+
   async logout() {
     removeToken();
     try { await supabaseSignOut(); } catch (_) {}

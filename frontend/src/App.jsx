@@ -958,6 +958,14 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <SettingsPage
               project={activeProject}
+              currentUser={currentUser}
+              onUpdateUser={(updated) => {
+                const merged = { ...currentUser, ...updated };
+                setCurrentUser(merged);
+                try {
+                  localStorage.setItem('punchlist_user', JSON.stringify(merged));
+                } catch (_) {}
+              }}
               onSaveProject={(updated) => {
                 setActiveProject({ ...activeProject, ...updated });
                 addAuditLog({

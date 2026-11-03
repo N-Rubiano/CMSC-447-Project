@@ -94,13 +94,14 @@ function NavButton({ item, active, collapsed, onClick }) {
 
 function Avatar({ user }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [user?.avatar]);
+  const avatarUrl = user?.avatar || user?.avatar_url;
+  useEffect(() => setFailed(false), [avatarUrl]);
 
-  if (user?.avatar && !failed) {
+  if (avatarUrl && !failed) {
     return (
       <img
         className="avatar"
-        src={user.avatar}
+        src={avatarUrl}
         alt=""
         title={user?.name}
         onError={() => setFailed(true)}
