@@ -503,6 +503,10 @@ def _run_migrations(conn):
             "ALTER TABLE markups ADD COLUMN IF NOT EXISTS data TEXT",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS building_id TEXT",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS building_name TEXT",
+            # project_members table schema synchronization & constraints
+            "ALTER TABLE public.project_members DROP CONSTRAINT IF EXISTS ck_project_members_ck_project_members_role",
+            "ALTER TABLE public.project_members ALTER COLUMN id TYPE TEXT",
+            "ALTER TABLE public.project_members ALTER COLUMN project_id TYPE TEXT",
             # Users table schema synchronization & constraints
             "ALTER TABLE public.users DROP CONSTRAINT IF EXISTS ck_users_ck_users_auth_provider",
             "ALTER TABLE public.users ALTER COLUMN auth_provider SET DEFAULT 'local'",

@@ -193,10 +193,22 @@ async def create_pin(body: dict, current_user: dict = Depends(get_current_user))
     # Inline photos
     photos = body.get("photos", [])
     for ph in photos:
+        if not ph:
+            continue
         ph_id = f"pht-{uuid.uuid4().hex[:8]}"
+        if isinstance(ph, dict):
+            ph_url = ph.get("url") or ph.get("src") or ""
+            ph_cap = ph.get("caption", "") or ""
+            ph_type = ph.get("type", "issue") or "issue"
+        else:
+            ph_url = str(ph).strip()
+            ph_cap = ""
+            ph_type = "issue"
+        if not ph_url:
+            continue
         execute_write(
-            "INSERT INTO pin_photos (id,pin_id,url,caption,uploaded_by,created_at) VALUES (:id,:pid,:url,:cap,:by,:now)",
-            dict(id=ph_id, pid=pin_id, url=ph.get("url"), cap=ph.get("caption", ""), by=user.get("name"), now=now),
+            "INSERT INTO pin_photos (id,pin_id,url,type,caption,uploaded_by,created_at) VALUES (:id,:pid,:url,:type,:cap,:by,:now)",
+            dict(id=ph_id, pid=pin_id, url=ph_url, type=ph_type, cap=ph_cap, by=user.get("name"), now=now),
         )
 
     created = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
