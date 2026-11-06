@@ -6,8 +6,8 @@ const ROLE_DISPLAY = {
   admin: { label: 'Facility Administrator', icon: Shield, color: '#DC2626', bg: '#FEE2E2' },
   general_contractor: { label: 'General Contractor', icon: HardHat, color: '#D97706', bg: '#FFFBEB' },
   sub_contractor: { label: 'Trade Subcontractor', icon: Wrench, color: '#4B5563', bg: '#F4F4F5' },
-  architect: { label: 'Architect', icon: Layers, color: '#2563EB', bg: '#DBEAFE' },
-  owner: { label: 'Owner / Client Rep', icon: Building2, color: '#059669', bg: '#D1FAE5' },
+  architect: { label: 'Architect / Engineer', icon: Layers, color: '#2563EB', bg: '#DBEAFE' },
+  owner: { label: 'Owner Representative', icon: Building2, color: '#059669', bg: '#D1FAE5' },
   field_inspector: { label: 'Field Inspector', icon: CheckCircle2, color: '#EA580C', bg: '#FFEDD5' }
 };
 
@@ -109,9 +109,9 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
         width: '100%',
         maxWidth: 580,
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
+        borderRadius: 'var(--radius-xl)',
         border: '1.5px solid #DCD5C8',
-        boxShadow: '0 24px 64px rgba(40, 30, 20, 0.2)',
+        boxShadow: 'var(--shadow-lg)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
@@ -119,7 +119,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
       }}>
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #5C3A21 0%, #3E2413 100%)',
+          backgroundColor: '#18181B',
           padding: '20px 24px',
           display: 'flex',
           alignItems: 'center',
@@ -131,13 +131,13 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
               width: 38,
               height: 38,
               borderRadius: 10,
-              backgroundColor: 'rgba(234, 179, 8, 0.2)',
-              border: '1px solid rgba(234, 179, 8, 0.4)',
+              backgroundColor: '#D97706',
+              border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Users size={20} color="#FEF3C7" />
+              <Users size={20} color="#FFFFFF" />
             </div>
             <div>
               <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.3px' }}>

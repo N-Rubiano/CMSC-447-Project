@@ -219,6 +219,7 @@ def me(current_user: dict = Depends(get_current_user)):
 
     safe = {k: v for k, v in user.items() if k != "password_hash"}
     safe["company_type"] = company.get("type") if company else user.get("role")
+    safe["avatar"] = safe.get("avatar_url")
     return safe
 
 
@@ -259,8 +260,11 @@ def update_profile(body: ProfileUpdatePayload, current_user: dict = Depends(get_
 
     if user:
         user.pop("password_hash", None)
+        user["avatar"] = user.get("avatar_url")
 
-    return {"user": user or {**current_user, **updates}}
+    res_user = user or {**current_user, **updates}
+    res_user["avatar"] = res_user.get("avatar_url")
+    return {"user": res_user}
 
 
 # ---------------------------------------------------------------------------

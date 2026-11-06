@@ -1,22 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   HardHat,
   Lock,
+  Mail,
   ShieldCheck,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Info,
+  AlertCircle
 } from 'lucide-react';
 import './LoginPage.css';
 
-// api and supabase are imported lazily inside handleSubmit / handleOAuth
-// so they don't block the login-page first paint.
-
+// api is imported lazily inside handleSubmit so it doesn't block first paint
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [savePassword, setSavePassword] = useState(() => {
+    try {
+      return localStorage.getItem('punchlist_save_creds') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(null); // 'google' | null
   const [authError, setAuthError] = useState('');
+
+  // Prepopulate saved credentials if user previously checked "Save password"
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('punchlist_save_creds') === 'true') {
+        const saved = localStorage.getItem('punchlist_saved_creds');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.email) setEmail(parsed.email);
+          if (parsed.password) setPassword(parsed.password);
+        }
+      }
+    } catch (_) {}
+  }, []);
 
   const handleInputChange = (field, val) => {
     if (field === 'email') setEmail(val);
@@ -31,10 +52,26 @@ export default function LoginPage({ onLogin }) {
     }
     setLoading(true);
     setAuthError('');
+
     try {
-      // Lazy-import api so supabase + socket.io aren't on the critical path
+      // Lazy-import api so supabase + socket.io aren't on critical path
       const { api } = await import('../services/api');
       const { user } = await api.login(email.trim(), password);
+
+      // Handle Save Password preference
+      try {
+        if (savePassword) {
+          localStorage.setItem('punchlist_save_creds', 'true');
+          localStorage.setItem('punchlist_saved_creds', JSON.stringify({
+            email: email.trim(),
+            password: password
+          }));
+        } else {
+          localStorage.removeItem('punchlist_save_creds');
+          localStorage.removeItem('punchlist_saved_creds');
+        }
+      } catch (_) {}
+
       onLogin({ email: email.trim(), role: user.role || 'admin', ...user });
     } catch (err) {
       setAuthError(err.message || 'Sign in failed. Please check your credentials.');
@@ -43,342 +80,183 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
-  const handleOAuth = async (provider) => {
-    setOauthLoading(provider);
-    setAuthError('');
-    try {
-      const { signInWithOAuth } = await import('../services/supabase');
-      const { error } = await signInWithOAuth(provider);
-      if (error) {
-        setAuthError(error.message || `${provider} sign-in failed.`);
-      }
-    } catch (err) {
-      setAuthError(err.message || `${provider} sign-in failed.`);
-    } finally {
-      setOauthLoading(null);
-    }
-  };
-
   return (
     <div className="login-page-container">
-      {/* -------------------------------------------------------------
-          LEFT HALF: Deep Charcoal (#18181B) with Amber Glow & Blueprint Grid
-          ------------------------------------------------------------- */}
+      {/* ── Left Hero Panel (Architectural Amber & Ink) ── */}
       <div className="login-hero-panel">
-        {/* CAD / Blueprint grid texture overlay */}
-        <div className="login-hero-grid" />
-
-        {/* Ambient Amber Radial Glow */}
-        <div className="login-hero-glow" />
+        <div className="login-hero-grid" aria-hidden="true" />
+        <div className="login-hero-glow" aria-hidden="true" />
 
         {/* Brand Header */}
-        <div className="login-brand-header" style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            backgroundColor: 'var(--amber)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 16px var(--amber-glow)',
-            flexShrink: 0
-          }}>
+        <div className="login-brand-header">
+          <div className="login-brand-icon">
             <HardHat size={26} color="#FFFFFF" strokeWidth={2.4} />
           </div>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              PunchList <span style={{ color: 'var(--amber)' }}>PRO</span>
+            <div className="login-brand-title">
+              PunchList <span className="login-brand-highlight">PRO</span>
             </div>
-            <div style={{ fontSize: 11, color: '#A1A1AA', letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 600 }}>
+            <div className="login-brand-badge">
               Construction Management Software
             </div>
           </div>
         </div>
 
-        {/* Central Headline - Vertically Centered in Left Bar */}
-        <div className="login-hero-content" style={{ position: 'relative', zIndex: 10, maxWidth: 600, margin: 'auto 0' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '6px 14px',
-            borderRadius: 20,
-            backgroundColor: 'rgba(217, 119, 6, 0.15)',
-            border: '1px solid rgba(217, 119, 6, 0.3)',
-            color: '#FCD34D',
-            fontSize: 12,
-            fontWeight: 700,
-            marginBottom: 20,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em'
-          }}>
-            <Sparkles size={14} />
-            Group 6 Project - Punch List
+        {/* Central Headline & Mission Statement */}
+        <div className="login-hero-content">
+          <div className="login-hero-pill">
+            <Sparkles size={13} />
+            Enterprise Field Operations
           </div>
 
           <h1 className="login-hero-headline">
-            Smarter <span style={{ color: 'var(--amber)' }}>Punch</span>, <br />
-            Stronger <span style={{ color: 'var(--amber)' }}>Buildings</span>.
+            Smarter <span className="login-brand-highlight">Punch</span>, <br />
+            Stronger <span className="login-brand-highlight">Buildings</span>.
           </h1>
 
           <p className="login-hero-desc">
-            Capture, track, and resolve construction punch items with photos, locations, and real-time collaboration - all in one place.
+            Capture, track, and resolve architectural punch items with blueprint pins,
+            field photos, and real-time trade coordination in one unified system.
           </p>
         </div>
 
-        {/* Bottom balancing element */}
-        <div className="login-hero-spacer" style={{ height: 44, opacity: 0, pointerEvents: 'none' }} aria-hidden="true" />
+        <div className="login-hero-spacer" aria-hidden="true" />
       </div>
 
-      {/* -------------------------------------------------------------
-          RIGHT HALF: Warm Off-White (#F8F7F4) with Centered Sign-in Card
-          ------------------------------------------------------------- */}
+      {/* ── Right Sign-in Panel ── */}
       <main id="main-content" role="main" aria-label="Sign In" className="login-main-panel">
         <div className="login-card">
-          <div style={{ marginBottom: 14 }}>
+          <div className="login-card-header">
             <h2 className="login-card-title">
               Welcome!
             </h2>
-            <h3 className="login-card-subtitle">
-              <span>Log In</span>{' '}
-              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>or</span>{' '}
-              <a
-                href="https://accounts.umbc.edu/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: 'var(--amber, #D97706)',
-                  textDecoration: 'underline',
-                  fontWeight: 700
-                }}
-              >
-                Create an Account
-              </a>
-            </h3>
+            <p className="login-card-subtitle">
+              Sign in with your authorized facility credentials
+            </p>
           </div>
 
-
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label
-                htmlFor="login-email"
-                style={{ display: 'block', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 5 }}
-              >
+          {/* Sign In Form */}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="login-field-group">
+              <label htmlFor="login-email" className="login-label">
                 Username / Email
               </label>
-              <div style={{ position: 'relative' }}>
+              <div className="login-input-wrap">
+                <Mail size={16} className="login-input-icon" aria-hidden="true" />
                 <input
                   id="login-email"
                   type="text"
                   autoComplete="username"
-                  className="input-field"
+                  className="input-field login-input"
                   value={email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  style={{ textAlign: 'left', paddingLeft: 14, height: 40 }}
                   placeholder="Enter your username or email"
                   required
                 />
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="login-password"
-                style={{ display: 'block', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 5 }}
-              >
+            <div className="login-field-group">
+              <label htmlFor="login-password" className="login-label">
                 Password
               </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} aria-hidden="true" />
+              <div className="login-input-wrap">
+                <Lock size={16} className="login-input-icon" aria-hidden="true" />
                 <input
                   id="login-password"
                   type="password"
                   autoComplete="current-password"
-                  className="input-field"
+                  className="input-field login-input"
                   value={password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  style={{ paddingLeft: 38, height: 40 }}
                   placeholder="Enter your password"
                   required
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 5 }}>
-                <a
-                  href="#forgot"
-                  onClick={(e) => { e.preventDefault(); alert('Demo password reset link simulated.'); }}
-                  style={{ fontSize: 12, color: 'var(--amber)', textDecoration: 'none', fontWeight: 600 }}
-                >
-                  Forgot password?
-                </a>
-              </div>
             </div>
 
-            {/* Inline auth error banner */}
-            {authError && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                style={{
-                  padding: '9px 12px',
-                  backgroundColor: '#FEE2E2',
-                  border: '1.5px solid #FCA5A5',
-                  borderRadius: 8,
-                  color: '#7F1D1D',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8
+            {/* Remember Me & Assistance Row */}
+            <div className="login-options-row">
+              <label htmlFor="save-password-toggle" className="login-remember-label">
+                <input
+                  id="save-password-toggle"
+                  type="checkbox"
+                  checked={savePassword}
+                  onChange={(e) => setSavePassword(e.target.checked)}
+                  className="login-remember-checkbox"
+                />
+                <span>Save password</span>
+              </label>
+
+              <a
+                href="#forgot"
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert('Password assistance: Accounts are provisioned by project administrators. If you forgot your password or need an activation link, please contact your facility admin or superintendent.');
                 }}
+                className="login-forgot-link"
               >
-                <span style={{ fontSize: 16 }} aria-hidden="true">⚠</span>
-                {authError}
+                Forgot password?
+              </a>
+            </div>
+
+            {/* Inline Auth Error Banner */}
+            {authError && (
+              <div role="alert" aria-live="assertive" className="login-error-banner">
+                <AlertCircle size={15} className="login-error-icon" aria-hidden="true" />
+                <span>{authError}</span>
               </div>
             )}
 
-            {/* Sign In Button */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                height: 42,
-                fontSize: 15,
-                marginTop: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8
-              }}
+              className="btn btn-primary login-submit-btn"
             >
               {loading ? (
                 <>
-                  <span className="spin-icon" style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span className="spin-icon" aria-hidden="true" />
                   <span>Connecting to Field Ops…</span>
                 </>
               ) : (
                 <>
                   <span>Log In</span>
-                  <ArrowRight size={16} />
+                  <ArrowRight size={16} aria-hidden="true" />
                 </>
               )}
             </button>
           </form>
 
-          {/* OAuth: Google */}
-          <div style={{ marginTop: 14 }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              marginBottom: 10
-            }}>
-              <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Or continue with
-              </span>
-              <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                type="button"
-                id="btn-google-oauth"
-                aria-label="Continue with Google"
-                disabled={!!oauthLoading}
-                onClick={() => handleOAuth('google')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                  width: '100%',
-                  height: 40,
-                  borderRadius: 8,
-                  border: '1.5px solid var(--border)',
-                  backgroundColor: oauthLoading === 'google' ? '#F9F9F9' : '#FFFFFF',
-                  cursor: oauthLoading ? 'not-allowed' : 'pointer',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--ink)',
-                  transition: 'all 120ms ease',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
-                }}
-              >
-                {oauthLoading === 'google' ? (
-                  <span style={{ width: 16, height: 16, border: '2px solid #CBD5E0', borderTopColor: '#4285F4', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                )}
-                Continue with Google
-              </button>
-            </div>
+          {/* Administrator Managed Notice */}
+          <div className="login-managed-notice">
+            <Info size={14} className="login-managed-icon" aria-hidden="true" />
+            <span>
+              Personnel accounts are provisioned exclusively by project administrators.
+              Need access? Request an invite from your superintendent.
+            </span>
           </div>
 
-          {/* SOC 2 / Security Trust Line */}
-          <div style={{
-            marginTop: 14,
-            paddingTop: 10,
-            borderTop: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            fontSize: 11,
-            color: 'var(--text-muted)'
-          }}>
-            <ShieldCheck size={22} color="#16A34A" style={{ flexShrink: 0 }} />
-            <span style={{ lineHeight: 1.3 }}>
-              When you are finished...
-              <br />
-              <strong>LOG OUT &amp; CLOSE YOUR BROWSER</strong>
+          {/* SOC 2 / Security Notice */}
+          <div className="login-trust-line">
+            <ShieldCheck size={20} color="#16A34A" style={{ flexShrink: 0 }} aria-hidden="true" />
+            <span>
+              When finished with field operations, please <strong>log out</strong> and close your session.
             </span>
           </div>
 
           {/* UMBC Policy & Compliance Notice */}
-          <div style={{
-            marginTop: 10,
-            textAlign: 'center',
-            fontSize: 11,
-            lineHeight: 1.45,
-            color: 'var(--text-muted)'
-          }}>
-            <p style={{ margin: 0 }}>
+          <div className="login-compliance-footer">
+            <p>
               <strong>Important:</strong> Usage of UMBC computing resources is governed by the{' '}
               <a
                 href="https://my.umbc.edu/go/responsible-computing"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  color: 'var(--amber, #D97706)',
-                  textDecoration: 'underline',
-                  fontWeight: 600
-                }}
               >
                 UMBC Policy for Responsible Computing
               </a>{' '}
-              and this{' '}
-              <a
-                href="https://webauth.umbc.edu/motd.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: 'var(--amber, #D97706)',
-                  textDecoration: 'underline',
-                  fontWeight: 600
-                }}
-              >
-                notice
-              </a>.
+              and compliance requirements.
             </p>
           </div>
         </div>

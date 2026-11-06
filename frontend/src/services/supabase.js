@@ -18,7 +18,7 @@ export const isSupabaseConfigured = Boolean(
 
 if (!isSupabaseConfigured) {
   console.warn(
-    '⚠️ Supabase frontend environment variables are missing or unconfigured.\n' +
+    '[PunchList Pro] Supabase frontend environment variables are missing or unconfigured.\n' +
     'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel / frontend/.env.\n' +
     'Falling back to local backend authentication.'
   );

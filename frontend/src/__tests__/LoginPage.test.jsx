@@ -24,6 +24,7 @@ describe('LoginPage Component', () => {
   beforeEach(() => {
     mockOnLogin = vi.fn();
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it('renders headline, welcome card, and login input fields', () => {
@@ -35,6 +36,43 @@ describe('LoginPage Component', () => {
     expect(screen.getByPlaceholderText(/Enter your username or email/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter your password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Log In/i })).toBeInTheDocument();
+  });
+
+  it('does NOT render "Create an Account" or "Continue with Google"', () => {
+    render(<LoginPage onLogin={mockOnLogin} />);
+
+    expect(screen.queryByText(/Create an Account/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Continue with Google/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Or continue with/i)).not.toBeInTheDocument();
+  });
+
+  it('renders "Save password" option and persists credentials on login when checked', async () => {
+    render(<LoginPage onLogin={mockOnLogin} />);
+
+    const savePasswordCheckbox = screen.getByLabelText(/Save password/i);
+    expect(savePasswordCheckbox).toBeInTheDocument();
+    expect(savePasswordCheckbox.checked).toBe(false);
+
+    fireEvent.click(savePasswordCheckbox);
+    expect(savePasswordCheckbox.checked).toBe(true);
+
+    const emailInput = screen.getByPlaceholderText(/Enter your username or email/i);
+    const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
+
+    fireEvent.change(emailInput, { target: { value: 'uw61778@umbc.edu' } });
+    fireEvent.change(passwordInput, { target: { value: 'Thakur@531' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Log In/i });
+    fireEvent.submit(submitBtn.closest('form'));
+
+    await waitFor(() => {
+      expect(mockOnLogin).toHaveBeenCalledTimes(1);
+    });
+
+    expect(localStorage.getItem('punchlist_save_creds')).toBe('true');
+    const saved = JSON.parse(localStorage.getItem('punchlist_saved_creds') || '{}');
+    expect(saved.email).toBe('uw61778@umbc.edu');
+    expect(saved.password).toBe('Thakur@531');
   });
 
   it('displays error when submitting with empty email or password', async () => {

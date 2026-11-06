@@ -12,7 +12,10 @@ import {
   User,
   MapPin,
   CheckCircle2,
+  CheckCheck,
   Clock,
+  Layers,
+  Building2,
   AlertCircle,
   XCircle,
   Image as ImageIcon,
@@ -92,7 +95,7 @@ export default function PinDetailModal({
       const commentToSend = customComment || actionComment;
       await api.updatePinStatus(pin.id, newStatus, commentToSend);
       if (newStatus === 'closed') {
-        confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+        // Confetti removed for clean enterprise UI
       }
       setActionComment('');
       await loadPinDetails();
@@ -222,7 +225,7 @@ export default function PinDetailModal({
         <div style={{
           padding: '16px 20px',
           borderBottom: '1.5px solid var(--border-default)',
-          backgroundColor: '#5C3A21',
+          backgroundColor: '#18181B',
           color: '#FFFFFF',
           display: 'flex',
           alignItems: 'center',
@@ -391,19 +394,19 @@ export default function PinDetailModal({
 
                   {pin?.status === 'submitted_for_contractor_review' && (
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: '#D97706', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', padding: 10, borderRadius: 6, textAlign: 'center' }}>
-                      ⏳ Submitted for General Contractor Review. Awaiting GC inspection.
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Clock size={15} /> Submitted for General Contractor Review. Awaiting GC inspection.</span>
                     </div>
                   )}
 
                   {pin?.status === 'submitted_for_admin_review' && (
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5B21B6', backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE', padding: 10, borderRadius: 6, textAlign: 'center' }}>
-                      ✅ GC Approved! Awaiting final sign-off from Facility Admin.
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><CheckCircle2 size={15} /> GC Approved! Awaiting final sign-off from Facility Admin.</span>
                     </div>
                   )}
 
                   {pin?.status === 'closed' && (
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: '#15803D', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', padding: 10, borderRadius: 6, textAlign: 'center' }}>
-                      🎉 Closed & Formally Approved by Facility Admin.
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><CheckCheck size={15} /> Closed & Formally Approved by Facility Admin.</span>
                     </div>
                   )}
                 </div>
@@ -551,14 +554,14 @@ export default function PinDetailModal({
               {/* Architect Compliance Notice */}
               {isArchitect && (
                 <div style={{ fontSize: 12, color: '#1E40AF', padding: '6px 10px', backgroundColor: '#EFF6FF', borderRadius: 6, textAlign: 'center', fontWeight: 600, border: '1px solid #BFDBFE' }}>
-                  📐 Architect — Design Compliance Audit View
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Layers size={14} /> Architect — Design Compliance Audit View</span>
                 </div>
               )}
 
               {/* Owner Read-Only Notice */}
               {isOwner && (
                 <div style={{ fontSize: 12, color: '#065F46', padding: '6px 10px', backgroundColor: '#ECFDF5', borderRadius: 6, textAlign: 'center', fontWeight: 600, border: '1px solid #A7F3D0' }}>
-                  💼 Owner / Client Rep — Read-Only Audit & Inspection View
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Building2 size={14} /> Owner / Client Rep — Read-Only Audit & Inspection View</span>
                 </div>
               )}
             </div>
@@ -586,8 +589,8 @@ export default function PinDetailModal({
                     fontSize: 12,
                     fontWeight: 800,
                     backgroundColor: 'transparent',
-                    color: activeTab === tab.id ? '#5C3A21' : 'var(--text-muted)',
-                    borderBottom: activeTab === tab.id ? '3px solid #5C3A21' : '3px solid transparent',
+                    color: activeTab === tab.id ? '#D97706' : 'var(--text-muted)',
+                    borderBottom: activeTab === tab.id ? '3px solid #D97706' : '3px solid transparent',
                     borderRadius: 0
                   }}
                 >
@@ -1033,8 +1036,8 @@ export default function PinDetailModal({
                             gap: 12,
                             padding: '10px 12px',
                             backgroundColor: '#F8FAFC',
-                            borderLeft: '3px solid #5C3A21',
-                            borderRadius: '0 6px 6px 0'
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px'
                           }}
                         >
                           <div style={{ flex: 1 }}>

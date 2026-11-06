@@ -98,11 +98,11 @@ def get_team_members(current_user: dict = Depends(get_current_user)):
 
         # Determine container group
         container = "crew"
-        if "admin" in role_val or "superintendent" in role_val or "director" in role_val or "manager" in role_val:
+        if role_val in ("admin", "architect", "owner") or "admin" in role_val or "director" in role_val or "manager" in role_val:
             container = "admin"
-        elif "general" in role_val or "gc" in role_val or "apex" in company_val.lower() or ("contractor" in role_val and "sub" not in role_val):
+        elif role_val in ("general_contractor", "field_inspector") or "general" in role_val or "gc" in role_val or "superintendent" in role_val or "apex" in company_val.lower() or ("contractor" in role_val and "sub" not in role_val):
             container = "contractor"
-        elif "sub" in role_val or "electric" in company_val.lower() or "hvac" in company_val.lower() or "plumb" in company_val.lower():
+        elif role_val == "sub_contractor" or "sub" in role_val or "electric" in company_val.lower() or "hvac" in company_val.lower() or "plumb" in company_val.lower():
             container = "sub_contractor"
         else:
             container = "crew"
@@ -164,9 +164,11 @@ async def add_team_member(
     secure single-use invitation token, and initial project assignments.
     """
     caller_role = (current_user.get("role") or "").lower()
+    is_admin = "admin" in caller_role or "executive" in caller_role or "director" in caller_role or caller_role in ("superintendent", "owner")
+    is_gc = caller_role in ("general_contractor", "gc", "general contractor") or ("contractor" in caller_role and "sub" not in caller_role)
 
     # Approval Authority Check
-    if caller_role == "general_contractor":
+    if is_gc and not is_admin:
         # General Contractor can only sponsor subcontractors
         if payload.role not in ("sub_contractor", "crew"):
             raise HTTPException(
@@ -175,7 +177,7 @@ async def add_team_member(
             )
         # GC-sponsored accounts start in pending_approval
         initial_status = "pending_approval"
-    elif caller_role == "admin":
+    elif is_admin:
         initial_status = payload.status or "pending_invitation"
     else:
         raise HTTPException(
@@ -246,20 +248,25 @@ async def add_team_member(
         # Assign requested project memberships
         if payload.project_ids:
             for pid in payload.project_ids:
+                if not pid:
+                    continue
                 mid = str(uuid.uuid4())
-                if settings.use_postgres:
-                    execute_write(
-                        """INSERT INTO project_members (id, project_id, user_id, role, permissions, created_at)
-                           VALUES (:id, :pid, :uid, :role, '["*"]', :now)
-                           ON CONFLICT (project_id, user_id) DO NOTHING""",
-                        {"id": mid, "pid": pid, "uid": new_id, "role": payload.role, "now": now_iso}
-                    )
-                else:
-                    execute_write(
-                        """INSERT OR IGNORE INTO project_members (id, project_id, user_id, role, created_at)
-                           VALUES (:id, :pid, :uid, :role, :now)""",
-                        {"id": mid, "pid": pid, "uid": new_id, "role": payload.role, "now": now_iso}
-                    )
+                try:
+                    if settings.use_postgres:
+                        execute_write(
+                            """INSERT INTO project_members (id, project_id, user_id, role, permissions, created_at)
+                               VALUES (:id, :pid, :uid, :role, '["*"]', :now)
+                               ON CONFLICT (project_id, user_id) DO NOTHING""",
+                            {"id": mid, "pid": str(pid), "uid": new_id, "role": payload.role, "now": now_iso}
+                        )
+                    else:
+                        execute_write(
+                            """INSERT OR IGNORE INTO project_members (id, project_id, user_id, role, created_at)
+                               VALUES (:id, :pid, :uid, :role, :now)""",
+                            {"id": mid, "pid": str(pid), "uid": new_id, "role": payload.role, "now": now_iso}
+                        )
+                except Exception as pm_err:
+                    print(f"Notice: skipped non-critical project assignment {pid}: {pm_err}")
 
     except Exception as err:
         # Safe recovery: cleanup partial user record if insertion fails

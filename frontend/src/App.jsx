@@ -83,7 +83,16 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('punchlist_user');
-      return saved ? JSON.parse(saved) : CURRENT_USER;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const av = parsed.avatar_url || parsed.avatar;
+        if (av) {
+          parsed.avatar = av;
+          parsed.avatar_url = av;
+        }
+        return parsed;
+      }
+      return CURRENT_USER;
     } catch {
       return CURRENT_USER;
     }
@@ -92,9 +101,12 @@ export default function App() {
   // Internal helper: map any user object (Supabase or local) to app state & persist
   const _handleLoginUser = useCallback((userInfo) => {
     if (!userInfo) return;
+    const resolvedAvatar = userInfo.avatar_url || userInfo.avatar || CURRENT_USER.avatar_url || CURRENT_USER.avatar;
     const finalUser = {
       ...CURRENT_USER,
       ...userInfo,
+      avatar: resolvedAvatar,
+      avatar_url: resolvedAvatar,
       name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
       company: userInfo.company || userInfo.organization || CURRENT_USER.company,
     };
@@ -123,10 +135,10 @@ export default function App() {
   // -------------------------------------------------------------
   const [projects, setProjects] = useState(PROJECTS);
   const [activeProject, setActiveProject] = useState(PROJECTS[0]);
-  const [activeBuilding, setActiveBuilding] = useState(PROJECTS[0].buildings[0]);
-  const [activeFloor, setActiveFloor] = useState(PROJECTS[0].buildings[0].floors[3]); // Level 03
+  const [activeBuilding, setActiveBuilding] = useState(() => PROJECTS[0]?.buildings?.[0] || null);
+  const [activeFloor, setActiveFloor] = useState(() => PROJECTS[0]?.buildings?.[0]?.floors?.[0] || null);
   const [sheets, setSheets] = useState(SHEETS);
-  const [activeSheet, setActiveSheet] = useState(SHEETS[0]); // A-301
+  const [activeSheet, setActiveSheet] = useState(() => SHEETS[0] || null);
 
   // Track whether we've done the initial DB project load so we don't
   // overwrite a user's project selection on subsequent renders.
@@ -286,14 +298,15 @@ export default function App() {
     }
   }, [auditLogs]);
 
-  const addAuditLog = useCallback(({ category, action, details, target, actor, role, company, projectId, pinId }) => {
+  const addAuditLog = useCallback(({ category, action, details, target, actor, role, company, projectId, pinId, skipServer = false }) => {
     const cat = category || 'Status';
+    const targetStr = target != null ? String(target) : '—';
     const newLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       category: cat,
       action: action || 'Action Recorded',
       details: details || '',
-      target: target || '—',
+      target: targetStr,
       actor: actor || currentUser?.name || 'Field Inspector',
       actorRole: role || currentUser?.role || 'Field Operations',
       actorCompany: company || currentUser?.company || 'Apex Construction GC',
@@ -304,14 +317,16 @@ export default function App() {
     };
     setAuditLogs(prev => [newLog, ...prev]);
 
+    if (skipServer) return;
+
     // Persist to PostgreSQL audit_logs table
     api.createAuditLog({
       category: cat,
       action: action || 'Action Recorded',
       details: details || '',
-      target: target || '—',
+      target: targetStr,
       project_id: projectId || activeProject?.id,
-      pin_id: pinId,
+      pin_id: pinId != null ? String(pinId) : undefined,
       actor: actor || currentUser?.name || 'Field Inspector',
       role: role || currentUser?.role || 'Inspector',
       company: company || currentUser?.company || 'Apex Construction GC'
@@ -346,7 +361,8 @@ export default function App() {
         action: 'New Project Added',
         details: `Project "${data?.name || 'New Project'}" was registered`,
         target: data?.code || data?.id || 'Project',
-        actor: data?.created_by || 'Admin'
+        actor: data?.created_by || 'Admin',
+        skipServer: true
       });
     };
 
@@ -357,7 +373,8 @@ export default function App() {
         action: 'Blueprint Uploaded',
         details: `Drawing set "${sName}" uploaded to server`,
         target: sName,
-        actor: 'CAD Engineer'
+        actor: 'CAD Engineer',
+        skipServer: true
       });
     };
 
@@ -367,7 +384,8 @@ export default function App() {
         action: 'Punch Assigned',
         details: `Punch item "${data?.title || data?.id}" assigned to ${data?.assignee || data?.trade || 'contractor'}`,
         target: data?.item_number || data?.id || 'Punch',
-        actor: data?.created_by_name || 'Inspector'
+        actor: data?.created_by_name || 'Inspector',
+        skipServer: true
       });
     };
 
@@ -377,7 +395,8 @@ export default function App() {
         action: 'Status Transition',
         details: `Punch item ${data?.id || ''} status moved to "${data?.status || 'Updated'}"`,
         target: data?.item_number || data?.id || 'Punch',
-        actor: 'Field User'
+        actor: 'Field User',
+        skipServer: true
       });
     };
 
@@ -774,7 +793,9 @@ export default function App() {
 
   // Navigate directly to Blueprint sheet & pin
   const handleSelectPunchFromAnywhere = (punch) => {
-    const targetSheet = sheets.find(s => s.id === punch.sheetId || s.number === punch.sheetNumber);
+    const sheetId = punch.sheetId || punch.sheet_id;
+    const sheetNum = punch.sheetNumber || punch.sheet_number;
+    const targetSheet = sheets.find(s => (sheetId && s.id === sheetId) || (sheetNum && s.number === sheetNum));
     if (targetSheet) {
       setActiveSheet(targetSheet);
     }

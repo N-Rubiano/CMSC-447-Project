@@ -59,75 +59,57 @@
 
 .ms-door {
   position: relative;
-  height: calc(250px * var(--ms-k));
+  height: calc(240px * var(--ms-k));
   overflow: hidden;
-  border-radius: calc(18px * var(--ms-k));
-  background:
-    linear-gradient(105deg, rgba(255, 255, 255, var(--ms-door-sheen)) 0%, transparent 36%,
-      transparent 72%, rgba(255, 255, 255, calc(var(--ms-door-sheen) * 0.45)) 100%),
-    repeating-linear-gradient(90deg,
-      rgba(var(--ms-grain-rgb), 0.03) 0 1px, transparent 1px 5px,
-      rgba(var(--ms-grain-rgb), 0.018) 5px 6px, transparent 6px 11px),
-    linear-gradient(180deg, var(--ms-door-hi), var(--ms-door-lo));
-  box-shadow: var(--ms-door-shadow);
+  border-radius: calc(12px * var(--ms-k));
+  background-color: var(--surface-muted);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Raised panels: the bevel is four borders of different shades meeting at
-   mitred corners, lit from the top left. */
+/* Raised panels: calm architectural inset */
 .ms-panel {
   position: absolute;
-  left: calc(34px * var(--ms-k));
-  right: calc(34px * var(--ms-k));
-  height: calc(128px * var(--ms-k));
-  border: calc(10px * var(--ms-k)) solid;
-  border-color: var(--ms-bevel-top) var(--ms-bevel-right) var(--ms-bevel-bottom) var(--ms-bevel-left);
-  border-radius: calc(3px * var(--ms-k));
-  background: linear-gradient(180deg, var(--ms-field-hi), var(--ms-field-lo));
-  box-shadow: 0 0 0 1px var(--ms-groove), 0 0 0 2px var(--ms-groove-light);
+  left: calc(24px * var(--ms-k));
+  right: calc(24px * var(--ms-k));
+  height: calc(120px * var(--ms-k));
+  border: 1px solid var(--border-subtle);
+  border-radius: calc(8px * var(--ms-k));
+  background-color: var(--surface);
   pointer-events: none;
 }
 .ms-panel-top { top: calc(-70px * var(--ms-k)); }
 .ms-panel-bottom { bottom: calc(-70px * var(--ms-k)); }
 
 /* ============================ LETTERBOX ============================= */
-/* The plate is the button. Positioned with left/top rather than a
-   transform, so the component can measure where the slot is from offsets. */
 .ms-plate {
   --ms-plate-halo: 0 0 0 0 transparent;
   position: absolute;
-  left: calc(50% - 162px * var(--ms-k));
-  top: calc(50% - 46px * var(--ms-k));
-  width: calc(324px * var(--ms-k));
-  height: calc(92px * var(--ms-k));
+  left: calc(50% - 160px * var(--ms-k));
+  top: calc(50% - 44px * var(--ms-k));
+  width: calc(320px * var(--ms-k));
+  height: calc(88px * var(--ms-k));
   margin: 0;
   padding: 0;
-  border: 0;
-  border-radius: calc(10px * var(--ms-k));
-  background:
-    linear-gradient(112deg, transparent 20%, rgba(255, 255, 255, var(--ms-metal-glint)) 34%, transparent 48%),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, var(--ms-metal-hi), var(--ms-metal-mid) 58%, var(--ms-metal-lo));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--ms-metal-rim)),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.26),
-    inset 0 0 0 1px var(--ms-metal-edge),
-    0 1px 1px rgba(0, 0, 0, 0.22),
-    0 calc(10px * var(--ms-k)) calc(22px * var(--ms-k)) calc(-8px * var(--ms-k)) rgba(0, 0, 0, var(--ms-plate-shadow)),
-    var(--ms-plate-halo);
+  border: 1px solid var(--border);
+  border-radius: calc(8px * var(--ms-k));
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 320ms var(--ease-out-quart), transform 120ms var(--ease-out-quart);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-.ms-plate:active:not(:disabled) { transform: translateY(1px); }
+.ms-plate:active:not(:disabled) { transform: scale(0.99); }
 .ms-plate:focus-visible {
   outline: 2px solid var(--accent-primary);
-  outline-offset: calc(3px + 3px * var(--ms-k));
+  outline-offset: 2px;
 }
 .is-over .ms-plate {
-  --ms-plate-halo: 0 0 0 calc(6px * var(--ms-k)) var(--ms-halo), 0 0 calc(44px * var(--ms-k)) var(--ms-halo-glow);
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-tint);
 }
 
 .ms-screw {

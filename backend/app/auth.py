@@ -225,6 +225,7 @@ def get_current_user(
             default_user.setdefault("company_id", "cmp-gc-1")
             default_user.setdefault("status", "active")
             default_user.setdefault("must_reset_password", False)
+            default_user["avatar"] = default_user.get("avatar_url")
             enforce_account_status(default_user, request)
             return default_user
         raise HTTPException(
@@ -261,10 +262,12 @@ def get_current_user(
             user.setdefault("company_id", decoded.get("company_id"))
             user.setdefault("status", "active")
             user.setdefault("must_reset_password", False)
+            user["avatar"] = user.get("avatar_url")
         else:
             user = {k: v for k, v in decoded.items() if k != "exp"}
             user.setdefault("status", "active")
             user.setdefault("must_reset_password", False)
+            user["avatar"] = user.get("avatar_url")
 
         enforce_account_status(user, request)
         return user

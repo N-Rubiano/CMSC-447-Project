@@ -94,7 +94,7 @@ function NavButton({ item, active, collapsed, onClick }) {
 
 function Avatar({ user }) {
   const [failed, setFailed] = useState(false);
-  const avatarUrl = user?.avatar || user?.avatar_url;
+  const avatarUrl = user?.avatar_url || user?.avatar;
   useEffect(() => setFailed(false), [avatarUrl]);
 
   if (avatarUrl && !failed) {
@@ -321,12 +321,12 @@ function BuildingFloorSelector({
       <button
         ref={buildingBtnRef}
         type="button"
-        id="umbc-building-btn"
+        id="building-btn"
         className={`sel-btn${selected ? ' has-value' : ''}${open ? ' is-open' : ''}`}
         onClick={() => openAt('building')}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="Select UMBC building"
+        title="Select building"
       >
         <span className="sel-btn__eyebrow">Building</span>
         <span className="sel-btn__value">
@@ -341,18 +341,18 @@ function BuildingFloorSelector({
           <button
             ref={floorBtnRef}
             type="button"
-            id="umbc-floor-btn"
+            id="floor-btn"
             className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
               open && step === 'floor' ? ' is-open' : ''
             }`}
             onClick={() => openAt('floor')}
             aria-haspopup="dialog"
             aria-expanded={open}
-            title={`Select floor in ${selected.name}`}
+            title={`Select level in ${selected.name}`}
           >
-            <span className="sel-btn__eyebrow">Floor</span>
+            <span className="sel-btn__eyebrow">Level</span>
             <span className="sel-btn__value">
-              <span>{selectedFloorId || 'Select floor'}</span>
+              <span>{selectedFloorId || 'Select level'}</span>
               <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
             </span>
           </button>
@@ -363,13 +363,13 @@ function BuildingFloorSelector({
         <div
           className="glass-hud floating-hud sel-panel"
           role="dialog"
-          aria-label="UMBC building and floor selector"
+          aria-label="Building and level navigator"
         >
           <div className="sel-panel__head">
             <div className="sel-panel__title-row">
               <div className="sel-panel__title">
                 <Building2 size={16} color="var(--amber)" aria-hidden="true" />
-                <span>UMBC Campus Building &amp; Floor Selector</span>
+                <span>Building &amp; Level Navigator</span>
               </div>
               <div className="sel-panel__path">
                 {selected ? (
@@ -378,7 +378,7 @@ function BuildingFloorSelector({
                     {selectedFloorId && <em> · {selectedFloorId}</em>}
                   </>
                 ) : (
-                  'Choose a building first'
+                  'Choose a building'
                 )}
               </div>
             </div>
@@ -392,7 +392,7 @@ function BuildingFloorSelector({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKeyDown}
-                placeholder={`Search ${umbcBuildings.length} UMBC buildings (e.g. Engineering, ILSB, Library)…`}
+                placeholder={`Search ${umbcBuildings.length} buildings (e.g. Engineering, Sciences, Library)…`}
                 aria-label="Search buildings"
                 autoFocus
               />
@@ -456,7 +456,7 @@ function BuildingFloorSelector({
               })}
 
               {filtered.length === 0 && (
-                <div className="panel-empty">No UMBC buildings match "{query}"</div>
+                <div className="panel-empty">No buildings match "{query}"</div>
               )}
             </div>
 

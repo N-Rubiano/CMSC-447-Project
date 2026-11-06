@@ -13,7 +13,9 @@ import {
   Image,
   RefreshCw,
   Lock,
-  Sparkles
+  Sparkles,
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { INITIAL_SETTINGS } from '../data/mockData';
 
@@ -77,7 +79,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   const [profileName, setProfileName] = useState(currentUser?.name || 'Satya Thakur');
   const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '+1 (410) 455-1000');
   const [selectedAvatar, setSelectedAvatar] = useState(
-    currentUser?.avatar || currentUser?.avatar_url || PRESET_AVATARS[0].url
+    currentUser?.avatar_url || currentUser?.avatar || PRESET_AVATARS[0].url
   );
   const [customUrlInput, setCustomUrlInput] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -89,8 +91,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
     if (currentUser) {
       if (currentUser.name) setProfileName(currentUser.name);
       if (currentUser.phone) setProfilePhone(currentUser.phone);
-      if (currentUser.avatar || currentUser.avatar_url) {
-        setSelectedAvatar(currentUser.avatar || currentUser.avatar_url);
+      if (currentUser.avatar_url || currentUser.avatar) {
+        setSelectedAvatar(currentUser.avatar_url || currentUser.avatar);
       }
     }
   }, [currentUser]);
@@ -140,7 +142,38 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        setSelectedAvatar(reader.result);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 320;
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              }
+            } else {
+              if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const optimized = canvas.toDataURL('image/jpeg', 0.88);
+            setSelectedAvatar(optimized);
+          } catch {
+            setSelectedAvatar(reader.result);
+          }
+        };
+        img.onerror = () => {
+          setSelectedAvatar(reader.result);
+        };
+        img.src = reader.result;
       }
     };
     reader.readAsDataURL(file);
@@ -346,7 +379,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   fontSize: 13,
                   fontWeight: 600
                 }}>
-                  ⚠ {profileError}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={15} />{profileError}</span>
                 </div>
               )}
 
@@ -433,7 +466,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                     gap: 8,
                     height: 38,
                     fontSize: 13,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     flexShrink: 0
                   }}
                 >
@@ -444,8 +477,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
               {/* Preset Avatars Gallery */}
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
-                  Choose from Curated Construction &amp; Engineering Avatars
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
+                  Role avatars
                 </label>
                 <div style={{
                   display: 'grid',

@@ -54,8 +54,8 @@ def get_project(project_id: str, current_user: dict = Depends(get_current_user))
         """SELECT u.id, u.name, u.email, u.company, u.company_id, u.phone, u.avatar_url,
                   u.role as system_role, pm.role as project_role
            FROM project_members pm
-           JOIN users u ON u.id = pm.user_id
-           WHERE pm.project_id=:pid""",
+           JOIN users u ON CAST(u.id AS TEXT) = CAST(pm.user_id AS TEXT)
+           WHERE CAST(pm.project_id AS TEXT)=:pid""",
         {"pid": project_id},
     )
 
@@ -186,8 +186,8 @@ def get_members(project_id: str, current_user: dict = Depends(get_current_user))
     return execute_query(
         """SELECT u.id, u.name, u.email, u.company, u.company_id, u.role as system_role,
                   pm.role as project_role
-           FROM project_members pm JOIN users u ON u.id=pm.user_id
-           WHERE pm.project_id=:pid""",
+           FROM project_members pm JOIN users u ON CAST(u.id AS TEXT)=CAST(pm.user_id AS TEXT)
+           WHERE CAST(pm.project_id AS TEXT)=:pid""",
         {"pid": project_id},
     )
 

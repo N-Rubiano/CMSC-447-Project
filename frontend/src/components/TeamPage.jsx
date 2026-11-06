@@ -28,6 +28,115 @@ import {
 import { TRADES } from '../data/mockData';
 import { api } from '../services/api';
 
+
+// Canonical Project Roles Matrix
+export const CANONICAL_ROLES = [
+  {
+    key: 'admin',
+    label: 'Facility Administrator',
+    title: 'Project Director, Facility Owner',
+    description: 'Full System Authority: Provisions user accounts, manages sheet uploads, modifies system settings, and is the only role authorized to close or delete punch items.',
+    teamCategory: 'admin',
+    color: '#DC2626',
+    bg: '#FEE2E2',
+    border: '#FCA5A5'
+  },
+  {
+    key: 'general_contractor',
+    label: 'General Contractor',
+    title: 'Project Superintendent, GC Project Manager',
+    description: 'Field Coordination: Allocates items to trade subcontractors, approves or rejects subcontractor remediation submissions, and sponsors subcontractor accounts.',
+    teamCategory: 'contractor',
+    color: '#D97706',
+    bg: '#FEF3C7',
+    border: '#FCD34D'
+  },
+  {
+    key: 'sub_contractor',
+    label: 'Trade Subcontractor',
+    title: 'Mechanical, Electrical, Plumbing, Drywall Foremen',
+    description: 'Strictly Scoped: Can only view pins assigned to their trade/company. Can transition items (Open → In Progress → Contractor Review) and upload proof photos.',
+    teamCategory: 'subcontractor',
+    color: '#2563EB',
+    bg: '#DBEAFE',
+    border: '#93C5FD'
+  },
+  {
+    key: 'architect',
+    label: 'Architect / Engineer',
+    title: 'Design Team AIA, Structural Consultant',
+    description: 'Specification Compliance: Drops specification discrepancy pins, reviews drawing sets, and audits punch progress.',
+    teamCategory: 'admin',
+    color: '#7C3AED',
+    bg: '#EDE9FE',
+    border: '#C4B5FD'
+  },
+  {
+    key: 'owner',
+    label: 'Owner Representative',
+    title: 'Client Executive, Capital Asset Manager',
+    description: 'Executive Visibility: Read-only oversight across project milestones, punch progress gauges, and formal PDF export generation.',
+    teamCategory: 'admin',
+    color: '#059669',
+    bg: '#D1FAE5',
+    border: '#6EE7B7'
+  },
+  {
+    key: 'field_inspector',
+    label: 'Field Inspector',
+    title: 'Municipal Building Inspector, QA/QC Lead',
+    description: 'Inspection Capture: Walks jobsite floors, anchors punch pins with photos and priority tags.',
+    teamCategory: 'contractor',
+    color: '#EA580C',
+    bg: '#FFEDD5',
+    border: '#FDBA74'
+  }
+];
+
+export const ROLE_LABELS = {
+  admin: 'Facility Administrator',
+  general_contractor: 'General Contractor',
+  sub_contractor: 'Trade Subcontractor',
+  architect: 'Architect / Engineer',
+  owner: 'Owner Representative',
+  field_inspector: 'Field Inspector'
+};
+
+export const STANDARD_ORGANIZATIONS = [
+  'UMBC Facility Operations',
+  'Apex Construction General Contracting',
+  'Mechanical Partners Inc (HVAC & Plumbing)',
+  'BrightVolt Electrical Services',
+  'Apex Drywall & Finishes',
+  'Design Team AIA & Structural Consultants',
+  'Municipal Building & Safety Inspection'
+];
+
+export const isRealProject = (p) => {
+  if (!p) return false;
+  const id = String(p.id || '').toLowerCase();
+  const name = String(p.name || '').toLowerCase();
+  if (
+    id.startsWith('proj-demo') ||
+    id === 'b24a830c-17b8-4ef4-801e-ab32d1e21408' ||
+    id === '757c1301-1828-45c6-951f-e9d91ce88e1f' ||
+    id === 'proj-2' || id === 'proj-3' ||
+    name.includes('mission bay') ||
+    name.includes('salesforce transit') ||
+    name.includes('harbor point tower 2') ||
+    name.includes('beacon health')
+  ) {
+    return false;
+  }
+  return true;
+};
+
+export const isOpenProject = (p) => {
+  if (!isRealProject(p)) return false;
+  const s = String(p.status || 'active').toLowerCase().trim();
+  return s === 'active' || s === 'open' || s === 'in_progress' || s === 'ongoing';
+};
+
 let _cachedTeamData = null;
 
 export default function TeamPage({ currentUser, projects = [] }) {
@@ -57,13 +166,18 @@ export default function TeamPage({ currentUser, projects = [] }) {
   const isAdmin = userRole === 'admin' || userRole === 'Project Executive' || userRole === 'executive';
   const isGC = userRole === 'general_contractor' || userRole.includes('Contractor') || userRole.includes('Superintendent');
 
+  // Organizations list (preloaded with standard organizations, merged with DB companies)
+  const [availableCompanies, setAvailableCompanies] = useState(STANDARD_ORGANIZATIONS);
+  const [isCustomOrg, setIsCustomOrg] = useState(false);
+
   // Form State for Adding / Provisioning a Member
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
-    role: '',
-    company: '',
+    role: 'sub_contractor',
+    company: 'Mechanical Partners Inc (HVAC & Plumbing)',
+    customCompany: '',
     trade: 'DW',
     presence: 'on_site',
     projectIds: []
@@ -125,22 +239,48 @@ export default function TeamPage({ currentUser, projects = [] }) {
     }
   ];
 
-  // Open modal with specific target team pre-selected
+  // Open modal with specific target team pre-selected and all open projects assigned by default
   const handleOpenAddModal = (teamKey) => {
     // If GC, restrict to subcontractor
     const effectiveTeam = (isGC && !isAdmin) ? 'subcontractor' : teamKey;
     setTargetTeam(effectiveTeam);
-    const cfg = TEAMS.find(t => t.key === effectiveTeam);
+
+    let defaultRoleKey = 'sub_contractor';
+    if (isGC && !isAdmin) {
+      defaultRoleKey = 'sub_contractor';
+    } else if (effectiveTeam === 'admin') {
+      defaultRoleKey = 'admin';
+    } else if (effectiveTeam === 'contractor') {
+      defaultRoleKey = 'general_contractor';
+    } else if (effectiveTeam === 'subcontractor') {
+      defaultRoleKey = 'sub_contractor';
+    } else {
+      defaultRoleKey = 'field_inspector';
+    }
+
+    let defaultCompany = 'UMBC Facility Operations';
+    if (defaultRoleKey === 'general_contractor') defaultCompany = 'Apex Construction General Contracting';
+    else if (defaultRoleKey === 'sub_contractor') defaultCompany = 'Mechanical Partners Inc (HVAC & Plumbing)';
+    else if (defaultRoleKey === 'architect') defaultCompany = 'Design Team AIA & Structural Consultants';
+    else if (defaultRoleKey === 'owner') defaultCompany = 'UMBC Facility Operations';
+    else if (defaultRoleKey === 'field_inspector') defaultCompany = 'Municipal Building & Safety Inspection';
+
+    // Assigned projects default to all open/active projects
+    const openProjects = projects.filter(isOpenProject);
+    const defaultProjectIds = openProjects.length > 0 ? openProjects.map(p => p.id) : projects.map(p => p.id);
+
     setForm({
       name: '',
       email: '',
-      phone: '+1 (617) 555-',
-      role: cfg?.defaultRole || '',
-      company: effectiveTeam === 'contractor' ? 'Apex Construction GC' : '',
+      phone: '+1 (617) 555-0100',
+      role: defaultRoleKey,
+      company: defaultCompany,
+      customCompany: '',
       trade: 'DW',
       presence: 'on_site',
-      projectIds: projects.length > 0 ? [projects[0].id] : []
+      projectIds: defaultProjectIds
     });
+    setIsCustomOrg(false);
     setIsModalOpen(true);
   };
 
@@ -180,6 +320,12 @@ export default function TeamPage({ currentUser, projects = [] }) {
 
   useEffect(() => {
     refreshTeam();
+    api.getCompanies().then(comps => {
+      if (Array.isArray(comps)) {
+        const names = comps.map(c => c.name).filter(Boolean);
+        setAvailableCompanies(prev => Array.from(new Set([...prev, ...names])));
+      }
+    }).catch(() => {});
   }, []);
 
   // Submit new member provisioning
@@ -187,14 +333,18 @@ export default function TeamPage({ currentUser, projects = [] }) {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim()) return;
 
+    const finalCompany = (isCustomOrg ? form.customCompany.trim() : form.company.trim()) || 'PunchList Pro';
+    const roleObj = CANONICAL_ROLES.find(r => r.key === form.role);
+    const resolvedCategory = roleObj ? roleObj.teamCategory : (targetTeam === 'subcontractor' ? 'sub_contractor' : targetTeam);
+
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || '+1 (617) 555-0100',
-      role: form.role.trim() || 'Team Member',
-      organization: form.company.trim() || (targetTeam === 'contractor' ? 'Apex Construction GC' : 'Field Operations'),
-      teamCategory: targetTeam === 'subcontractor' ? 'sub_contractor' : targetTeam,
-      trade: (targetTeam === 'subcontractor' || targetTeam === 'crew') ? form.trade : undefined,
+      role: form.role,
+      organization: finalCompany,
+      teamCategory: resolvedCategory === 'subcontractor' ? 'sub_contractor' : resolvedCategory,
+      trade: (resolvedCategory === 'subcontractor' || resolvedCategory === 'crew' || form.role === 'sub_contractor') ? form.trade : undefined,
       project_ids: form.projectIds,
       presence: form.presence,
       presenceText: form.presence === 'on_site' ? 'On site' : form.presence === 'away' ? 'Away' : 'Offline'
@@ -207,11 +357,19 @@ export default function TeamPage({ currentUser, projects = [] }) {
       const createdMember = res.user || res;
       const inviteUrl = res.invitation_url || (res.invitation_token ? `${window.location.origin}/#onboard?token=${res.invitation_token}` : null);
 
-      // Prepend to roster state
-      setTeamMembers(prev => ({
-        ...prev,
-        [targetTeam]: [createdMember, ...prev[targetTeam].filter(m => m.id !== createdMember.id)]
-      }));
+      const targetTeamKey = (resolvedCategory === 'sub_contractor') ? 'subcontractor' : (resolvedCategory || 'admin');
+
+      // Prepend to roster state safely
+      setTeamMembers(prev => {
+        const existingList = prev[targetTeamKey] || [];
+        return {
+          ...prev,
+          [targetTeamKey]: [createdMember, ...existingList.filter(m => m.id !== createdMember.id)]
+        };
+      });
+
+      // Refresh team state from DB in background
+      refreshTeam();
 
       // Display credential handoff dialog with link
       if (inviteUrl) {
@@ -492,11 +650,11 @@ export default function TeamPage({ currentUser, projects = [] }) {
         gap: 16
       }}>
         <div>
-          <div className="eyebrow" style={{ color: 'var(--amber)', marginBottom: 4 }}>
-            Project Directory & Provisioning
+          <div className="eyebrow" style={{ marginBottom: 4 }}>
+            Project Directory &amp; Provisioning
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
-            Team Administration & Onboarding
+          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)' }}>
+            Team Administration &amp; Onboarding
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
             Manage authorized project personnel, approve contractor sponsorship requests, and coordinate secure credential onboarding.
@@ -504,11 +662,11 @@ export default function TeamPage({ currentUser, projects = [] }) {
         </div>
 
         {/* Global Search Bar */}
-        <div style={{ position: 'relative', width: 280 }}>
+        <div style={{ position: 'relative', width: 240 }}>
           <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} />
           <input
             type="text"
-            placeholder="Search by name, role, email..."
+            placeholder="Search team"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input-field"
@@ -545,15 +703,15 @@ export default function TeamPage({ currentUser, projects = [] }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   borderRadius: 6,
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  border: isSelected ? '1.5px solid var(--ink)' : '1px solid var(--border)',
+                  border: isSelected ? '1px solid var(--ink)' : '1px solid var(--border)',
                   backgroundColor: isSelected ? 'var(--ink)' : '#FFFFFF',
                   color: isSelected ? '#FFFFFF' : 'var(--text-secondary)',
-                  transition: 'all 120ms ease'
+                  transition: 'background-color 120ms ease, color 120ms ease, border-color 120ms ease'
                 }}
               >
                 <span>{tab.label}</span>
@@ -562,9 +720,10 @@ export default function TeamPage({ currentUser, projects = [] }) {
                     backgroundColor: tab.highlight ? '#EF4444' : '#6B7280',
                     color: '#FFFFFF',
                     padding: '1px 6px',
-                    borderRadius: 10,
+                    borderRadius: 6,
                     fontSize: 11,
-                    fontWeight: 800
+                    fontWeight: 500,
+                    fontVariantNumeric: 'tabular-nums'
                   }}>
                     {tab.count}
                   </span>
@@ -751,7 +910,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                           <td style={{ padding: '12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                               <img
-                                src={member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
+                                src={member.avatar_url || member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
                                 alt={member.name}
                                 style={{
                                   width: 36,
@@ -782,7 +941,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                               fontWeight: 600,
                               border: '1px solid var(--border)'
                             }}>
-                              {member.role}
+                              {ROLE_LABELS[member.role] || member.role}
                             </span>
                           </td>
 
@@ -1148,44 +1307,157 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 </div>
               </div>
 
-              {/* Role & Company */}
+              {/* Role & Company Dropdowns */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* Role / Position Title Dropdown */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Role / Position Title
+                  <label htmlFor="user-role-select" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
+                    Role / Position Title *
                   </label>
-                  <input
-                    type="text"
+                  <select
+                    id="user-role-select"
                     required
-                    placeholder="e.g. Site Superintendent"
                     value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
-                    className="input-field"
-                  />
+                    onChange={(e) => {
+                      const selectedKey = e.target.value;
+                      const roleObj = CANONICAL_ROLES.find(r => r.key === selectedKey);
+                      setForm(f => ({ ...f, role: selectedKey }));
+                      if (roleObj) {
+                        setTargetTeam(roleObj.teamCategory);
+                      }
+                    }}
+                    className="select-field"
+                    style={{ width: '100%', height: 38 }}
+                  >
+                    {(isGC && !isAdmin
+                      ? CANONICAL_ROLES.filter(r => r.key === 'sub_contractor')
+                      : CANONICAL_ROLES
+                    ).map(r => (
+                      <option key={r.key} value={r.key}>
+                        {r.label} — {r.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
+                {/* Company / Organization Dropdown */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Company / Organization
+                  <label htmlFor="user-org-select" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
+                    Company / Organization *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Apex Construction GC"
-                    value={form.company}
-                    onChange={(e) => setForm({ ...form, company: e.target.value })}
-                    className="input-field"
-                  />
+                  <select
+                    id="user-org-select"
+                    value={isCustomOrg ? '__custom__' : form.company}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__custom__') {
+                        setIsCustomOrg(true);
+                      } else {
+                        setIsCustomOrg(false);
+                        setForm(f => ({ ...f, company: val }));
+                      }
+                    }}
+                    className="select-field"
+                    style={{ width: '100%', height: 38 }}
+                  >
+                    {availableCompanies.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__custom__">+ Other / Custom Organization...</option>
+                  </select>
+
+                  {isCustomOrg && (
+                    <div style={{ marginTop: 6 }}>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter organization name..."
+                        value={form.customCompany}
+                        onChange={(e) => setForm(f => ({ ...f, customCompany: e.target.value }))}
+                        className="input-field"
+                        style={{ width: '100%', height: 34, fontSize: 12 }}
+                        autoFocus
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Project Assignment */}
+              {/* Role Scope & Authority Guidance Card */}
+              {(() => {
+                const activeRoleObj = CANONICAL_ROLES.find(r => r.key === form.role);
+                if (!activeRoleObj) return null;
+                return (
+                  <div style={{
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    backgroundColor: activeRoleObj.bg || '#F3F4F6',
+                    border: `1px solid ${activeRoleObj.border || '#E5E7EB'}`,
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                    color: 'var(--ink)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: activeRoleObj.color, marginBottom: 2 }}>
+                      <span>{activeRoleObj.label}</span>
+                      <span style={{ fontWeight: 500, opacity: 0.85 }}>({activeRoleObj.title})</span>
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                      {activeRoleObj.description}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Project Assignment (Defaults to All Open Projects) */}
               {projects.length > 0 && (
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Assigned Project(s)
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+                      Assigned Project(s)
+                    </label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const openIds = projects.filter(isOpenProject).map(p => p.id);
+                          setForm(f => ({ ...f, projectIds: openIds }));
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          fontSize: 11,
+                          color: '#2563EB',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        Select All Open ({projects.filter(isOpenProject).length})
+                      </button>
+                      <span style={{ color: 'var(--border)', fontSize: 11 }}>|</span>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, projectIds: [] }))}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          fontSize: 11,
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    All open projects are selected by default. You can customize assignments below.
+                  </div>
                   <div style={{
-                    maxHeight: 110,
+                    maxHeight: 125,
                     overflowY: 'auto',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
@@ -1194,23 +1466,48 @@ export default function TeamPage({ currentUser, projects = [] }) {
                     flexDirection: 'column',
                     gap: 6
                   }}>
-                    {projects.map(proj => {
+                    {projects.filter(isRealProject).map(proj => {
                       const isChecked = form.projectIds.includes(proj.id);
+                      const isOpen = isOpenProject(proj);
                       return (
-                        <label key={proj.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setForm(f => ({ ...f, projectIds: [...f.projectIds, proj.id] }));
-                              } else {
-                                setForm(f => ({ ...f, projectIds: f.projectIds.filter(id => id !== proj.id) }));
-                              }
-                            }}
-                          />
-                          <span style={{ fontWeight: 600 }}>{proj.name}</span>
-                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>({proj.code || 'Project'})</span>
+                        <label
+                          key={proj.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            padding: '2px 0'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setForm(f => ({ ...f, projectIds: [...f.projectIds, proj.id] }));
+                                } else {
+                                  setForm(f => ({ ...f, projectIds: f.projectIds.filter(id => id !== proj.id) }));
+                                }
+                              }}
+                            />
+                            <span style={{ fontWeight: isChecked ? 600 : 400, color: 'var(--ink)' }}>{proj.name}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>({proj.code || 'Project'})</span>
+                          </div>
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            backgroundColor: isOpen ? '#DCFCE7' : '#F3F4F6',
+                            color: isOpen ? '#15803D' : '#6B7280',
+                            border: `1px solid ${isOpen ? '#86EFAC' : '#E5E7EB'}`
+                          }}>
+                            {isOpen ? 'Open' : (proj.status || 'Archived')}
+                          </span>
                         </label>
                       );
                     })}

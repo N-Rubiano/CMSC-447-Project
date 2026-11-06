@@ -121,7 +121,7 @@ def get_pin(pin_id: str, current_user: dict = Depends(get_current_user)):
     photos = execute_query("SELECT * FROM pin_photos WHERE pin_id=:pid ORDER BY created_at ASC", {"pid": pin_id})
     comments = execute_query(
         """SELECT c.*, u.name as author_name, u.avatar_url as author_avatar, u.company as author_company
-           FROM comments c LEFT JOIN users u ON u.id=c.author_id
+           FROM comments c LEFT JOIN users u ON CAST(u.id AS TEXT)=CAST(c.author_id AS TEXT)
            WHERE c.pin_id=:pid ORDER BY c.created_at ASC""",
         {"pid": pin_id},
     )
@@ -432,7 +432,7 @@ async def add_comment(pin_id: str, body: dict, current_user: dict = Depends(get_
 
     comment = execute_one(
         """SELECT c.*, u.name as author_name, u.avatar_url as author_avatar, u.company as author_company
-           FROM comments c LEFT JOIN users u ON u.id=c.author_id WHERE c.id=:id""",
+           FROM comments c LEFT JOIN users u ON CAST(u.id AS TEXT)=CAST(c.author_id AS TEXT) WHERE c.id=:id""",
         {"id": comment_id},
     )
     await sio.emit("comment:added", {"pinId": pin_id, "comment": comment},

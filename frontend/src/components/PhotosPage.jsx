@@ -112,11 +112,8 @@ export default function PhotosPage({ onSelectPunchById }) {
                 style={{
                   width: '100%',
                   height: '100%',
-                  objectFit: 'cover',
-                  transition: 'transform 250ms ease'
+                  objectFit: 'cover'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               />
 
               {/* Trade Stamp Overlay in Top Corner */}
@@ -166,7 +163,7 @@ export default function PhotosPage({ onSelectPunchById }) {
                   fontFamily: 'var(--font-mono)'
                 }}>
                   <span>Grid {photo.gridLocation} • {photo.room}</span>
-                  <span>{photo.date.split(' ')[0]}</span>
+                  <span>{(photo.date || photo.created_at || '').split(' ')[0] || 'Recent'}</span>
                 </div>
               </div>
             </div>

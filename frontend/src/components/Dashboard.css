@@ -420,9 +420,8 @@
   border-bottom: 1.5px solid var(--border, #DCD5C8);
   padding: 10px 14px;
   font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--text-muted, #71717A);
   user-select: none;
   white-space: nowrap;
@@ -800,3 +799,4 @@
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
 }
+

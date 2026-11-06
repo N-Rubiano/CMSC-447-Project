@@ -89,8 +89,8 @@ export default function OnboardingPage({ token, onComplete, onBackToLogin }) {
       case 'admin': return 'Facility Administrator';
       case 'general_contractor': return 'General Contractor';
       case 'sub_contractor': return 'Trade Subcontractor';
-      case 'architect': return 'Architect';
-      case 'owner': return 'Owner / Client Rep';
+      case 'architect': return 'Architect / Engineer';
+      case 'owner': return 'Owner Representative';
       case 'field_inspector': return 'Field Inspector';
       default: return (role || 'Team Member').replace('_', ' ').toUpperCase();
     }

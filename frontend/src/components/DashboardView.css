@@ -266,20 +266,20 @@
 }
 .kpi-progress__bar {
   height: 100%;
-  background: linear-gradient(90deg, #fbbf24 0%, #d97706 100%);
+  background: #d97706;
   border-radius: 3px;
   transition: width 0.4s ease;
 }
 
-.kpi-card--resolution { border-top: 4px solid #d97706; --kpi: #d97706; --kpi-num: #18181b; }
-.kpi-card--active     { border-top: 4px solid #2563eb; border-color: #bfdbfe; --kpi: #2563eb; --kpi-num: #2563eb; --kpi-sub: #1e40af; }
-.kpi-card--review     { border-top: 4px solid #f59e0b; border-color: #fde68a; --kpi: #b45309; --kpi-num: #d97706; --kpi-sub: #92400e; }
-.kpi-card--critical   { border-top: 4px solid #dc2626; border-color: #fecaca; --kpi: #dc2626; --kpi-num: #dc2626; --kpi-sub: #991b1b; }
+.kpi-card--resolution { border: 1px solid rgba(217, 119, 6, 0.35); --kpi: #d97706; --kpi-num: #18181b; background: #ffffff; }
+.kpi-card--active     { border: 1px solid #bfdbfe; --kpi: #2563eb; --kpi-num: #2563eb; --kpi-sub: #1e40af; background: #ffffff; }
+.kpi-card--review     { border: 1px solid #fde68a; --kpi: #b45309; --kpi-num: #d97706; --kpi-sub: #92400e; background: #ffffff; }
+.kpi-card--critical   { border: 1px solid #fecaca; --kpi: #dc2626; --kpi-num: #dc2626; --kpi-sub: #991b1b; background: #ffffff; }
 
-.kpi-card--sub-total    { border-left: 4px solid #2563eb; border-color: #bfdbfe; --kpi: #64748b; --kpi-num: #0f172a; }
-.kpi-card--sub-progress { border-left: 4px solid #ea580c; border-color: #fed7aa; --kpi: #ea580c; --kpi-num: #ea580c; }
-.kpi-card--sub-review   { border-left: 4px solid #d97706; border-color: #fde68a; --kpi: #d97706; --kpi-num: #d97706; }
-.kpi-card--sub-closed   { border-left: 4px solid #16a34a; border-color: #bbf7d0; --kpi: #15803d; --kpi-num: #15803d; }
+.kpi-card--sub-total    { border: 1px solid #bfdbfe; --kpi: #64748b; --kpi-num: #0f172a; background: #ffffff; }
+.kpi-card--sub-progress { border: 1px solid #fed7aa; --kpi: #ea580c; --kpi-num: #ea580c; background: #ffffff; }
+.kpi-card--sub-review   { border: 1px solid #fde68a; --kpi: #d97706; --kpi-num: #d97706; background: #ffffff; }
+.kpi-card--sub-closed   { border: 1px solid #bbf7d0; --kpi: #15803d; --kpi-num: #15803d; background: #ffffff; }
 
 /* ---------- Review queues ---------- */
 .review-queue-card {

@@ -78,3 +78,12 @@ punchlist_pro_explainer.md
 sdd_assets/
 
 
+
+# ── Agent Skills & Local Harness ─────────────────────────────────────────────
+.agent/
+.agents/
+.gemini/
+.github/hooks/
+scratch/
+unslop-story/
+*.mp4

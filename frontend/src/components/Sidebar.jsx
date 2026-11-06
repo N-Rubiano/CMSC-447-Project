@@ -64,8 +64,8 @@ const ROLE_LABELS = {
   admin: 'Facility Administrator',
   general_contractor: 'General Contractor',
   sub_contractor: 'Trade Subcontractor',
-  architect: 'Architect',
-  owner: 'Owner / Client Rep',
+  architect: 'Architect / Engineer',
+  owner: 'Owner Representative',
   field_inspector: 'Field Inspector',
 };
 
@@ -369,8 +369,8 @@ export default function Sidebar({
         <div className="sidebar-footer">
           <div className="sidebar-user" {...tipProps(`${userName} · ${roleLabel}`)}>
             <div className="sidebar-user-avatar">
-              {currentUser?.avatar_url
-                ? <img src={currentUser.avatar_url} alt={userName} />
+              {(currentUser?.avatar_url || currentUser?.avatar)
+                ? <img src={currentUser.avatar_url || currentUser.avatar} alt={userName} />
                 : <span>{userInitials}</span>}
             </div>
             {!isCollapsed && (

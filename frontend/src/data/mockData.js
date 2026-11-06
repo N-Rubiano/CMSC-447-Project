@@ -18,99 +18,22 @@ export const TRADES = {
 export const PROJECTS = [
   {
     id: 'proj-1',
-    code: 'HPT-2026',
-    name: 'Harbor Point Tower 2',
-    contractor: 'Apex Construction GC',
+    code: 'UMBC-2026',
+    name: 'UMBC Campus & Harbor Point',
+    contractor: 'UMBC Facility Operations',
     timezone: 'America/New_York (EST)',
-    address: '400 Waterfront Way, Suite 1200, Boston, MA 02210',
-    totalPunches: 14,
-    closedPunches: 9,
+    address: '1000 Hilltop Circle, Baltimore, MD 21250',
+    status: 'active',
+    totalPunches: 0,
+    closedPunches: 0,
     buildings: [
       {
-        id: 'bld-1',
-        name: 'Tower A (High-Rise)',
-        code: 'TWR-A',
+        id: 'administration',
+        name: 'Administration Building',
+        code: 'ADM',
         floors: [
-          { id: 'flr-b1', name: 'Level B1 — Mech / Central Plant', code: 'B1', defaultSheet: 'M-301' },
-          { id: 'flr-01', name: 'Level 01 — Main Lobby & Retail', code: '01', defaultSheet: 'A-301' },
-          { id: 'flr-02', name: 'Level 02 — Commercial Suites', code: '02', defaultSheet: 'A-301' },
-          { id: 'flr-03', name: 'Level 03 — Office Floorplate', code: '03', defaultSheet: 'A-301' },
-          { id: 'flr-04', name: 'Level 04 — Executive Penthouse', code: '04', defaultSheet: 'A-302' }
-        ]
-      },
-      {
-        id: 'bld-2',
-        name: 'Podium & Parking Garage',
-        code: 'POD-G',
-        floors: [
-          { id: 'flr-p1', name: 'Parking P1 — Grade Entry', code: 'P1', defaultSheet: 'S-201' },
-          { id: 'flr-p2', name: 'Parking P2 — Lower Deck', code: 'P2', defaultSheet: 'S-201' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'proj-2',
-    code: 'AIC-2026',
-    name: 'Apex Innovation Center',
-    contractor: 'Apex Construction GC',
-    timezone: 'America/New_York (EST)',
-    address: '100 Technology Square, Cambridge, MA 02139',
-    totalPunches: 8,
-    closedPunches: 6,
-    buildings: [
-      {
-        id: 'bld-3',
-        name: 'Research Wing',
-        code: 'RS-W',
-        floors: [
-          { id: 'flr-r1', name: 'Level 01 — Clean Rooms', code: '01', defaultSheet: 'A-301' },
-          { id: 'flr-r2', name: 'Level 02 — Wet Labs', code: '02', defaultSheet: 'M-301' }
-        ]
-      },
-      {
-        id: 'bld-4',
-        name: 'Bio-Lab Core',
-        code: 'BIO-C',
-        floors: [
-          { id: 'flr-b01', name: 'Level 01 — Vivarium & Support', code: '01', defaultSheet: 'S-201' }
-        ]
-      },
-      {
-        id: 'bld-5',
-        name: 'Administration Hub',
-        code: 'ADM-H',
-        floors: [
-          { id: 'flr-a01', name: 'Level 01 — Atrium', code: '01', defaultSheet: 'A-301' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'proj-3',
-    code: 'BHP-2026',
-    name: 'Beacon Health Pavilion',
-    contractor: 'Vance & Associates Builders',
-    timezone: 'America/New_York (EST)',
-    address: '880 Commonwealth Ave, Brookline, MA 02446',
-    totalPunches: 11,
-    closedPunches: 8,
-    buildings: [
-      {
-        id: 'bld-6',
-        name: 'Main Hospital Tower',
-        code: 'HOSP-T',
-        floors: [
-          { id: 'flr-h1', name: 'Level 01 — Emergency & Imaging', code: '01', defaultSheet: 'A-301' },
-          { id: 'flr-h2', name: 'Level 02 — Surgical Suites', code: '02', defaultSheet: 'M-301' }
-        ]
-      },
-      {
-        id: 'bld-7',
-        name: 'Ambulatory Care Facility',
-        code: 'AMB-C',
-        floors: [
-          { id: 'flr-ac1', name: 'Level 01 — Outpatient Clinic', code: '01', defaultSheet: 'A-301' }
+          { id: '1st-floor', name: '1st Floor', code: '01', defaultSheet: 'A-101' },
+          { id: '2nd-floor', name: '2nd Floor', code: '02', defaultSheet: 'A-102' }
         ]
       }
     ]
@@ -137,92 +60,7 @@ export const TEAM_MEMBERS = [
   }
 ];
 
-export const TRADE_PARTNERS = [
-  {
-    id: 'tp-1',
-    name: "Dave O'Connor",
-    email: 'dave@beaconfire.com',
-    phone: '+1 (617) 555-7101',
-    trade: 'FP',
-    company: 'Beacon Fire Protection & MEP',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
-    openCount: 2,
-    presence: 'on_site',
-    presenceText: 'On site'
-  },
-  {
-    id: 'tp-2',
-    name: 'Elena Rostova',
-    email: 'elena@primedrywall.com',
-    phone: '+1 (617) 555-7102',
-    trade: 'DW',
-    company: 'Prime Drywall & Doors',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
-    openCount: 4,
-    presence: 'on_site',
-    presenceText: 'On site'
-  },
-  {
-    id: 'tp-3',
-    name: 'Devon Patel',
-    email: 'devon@voltline.com',
-    phone: '+1 (617) 555-7103',
-    trade: 'EL',
-    company: 'VoltLine Electric Inc.',
-    avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=200&q=80',
-    openCount: 2,
-    presence: 'away',
-    presenceText: 'Away'
-  },
-  {
-    id: 'tp-4',
-    name: 'Tom Gallagher',
-    email: 'tom@commonwealthmep.com',
-    phone: '+1 (617) 555-7104',
-    trade: 'MP',
-    company: 'Commonwealth Mechanical',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
-    openCount: 2,
-    presence: 'on_site',
-    presenceText: 'On site'
-  },
-  {
-    id: 'tp-5',
-    name: 'Carlos Mendez',
-    email: 'carlos@horizonglazing.com',
-    phone: '+1 (617) 555-7105',
-    trade: 'GL',
-    company: 'Horizon Glazing & Facades',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80',
-    openCount: 1,
-    presence: 'away',
-    presenceText: 'Away'
-  },
-  {
-    id: 'tp-6',
-    name: 'Frank Kowalski',
-    email: 'frank@titansteel.com',
-    phone: '+1 (617) 555-7106',
-    trade: 'ST',
-    company: 'Titan Steel Erectors',
-    avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
-    openCount: 2,
-    presence: 'offline',
-    presenceText: 'Offline'
-  },
-  {
-    id: 'tp-7',
-    name: 'Samira Khan',
-    email: 'samira@urbansurface.com',
-    phone: '+1 (617) 555-7107',
-    trade: 'FL',
-    company: 'Urban Surface & Polish',
-    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=200&q=80',
-    openCount: 1,
-    presence: 'on_site',
-    presenceText: 'On site'
-  }
-];
+export const TRADE_PARTNERS = [];
 
 // Field photos start empty — captured photos are linked to punch items created by field users
 export const FIELD_PHOTOS = [];
@@ -233,12 +71,13 @@ export const FIELD_PHOTOS = [];
 export const DOCUMENTS = [];
 
 export const CURRENT_USER = {
-  id: 'usr-admin-1',
+  id: '00000000-0000-0000-0000-000000000001',
   name: 'Satya Thakur',
   email: 'uw61778@umbc.edu',
   role: 'admin',
   company: 'UMBC Facility Operations',
-  avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
+  avatar: 'https://ui-avatars.com/api/?name=Satya+Thakur&background=D97706&color=fff&bold=true',
+  avatar_url: 'https://ui-avatars.com/api/?name=Satya+Thakur&background=D97706&color=fff&bold=true'
 };
 
 export const PRODUCT_STATS = {
@@ -248,11 +87,11 @@ export const PRODUCT_STATS = {
 };
 
 export const INITIAL_SETTINGS = {
-  projectName: 'Harbor Point Tower 2',
-  projectCode: 'HPT-2026',
-  generalContractor: 'Apex Construction GC',
+  projectName: 'UMBC Campus & Harbor Point',
+  projectCode: 'UMBC-2026',
+  generalContractor: 'UMBC Facility Operations',
   timezone: 'America/New_York (EST)',
-  siteAddress: '400 Waterfront Way, Suite 1200, Boston, MA 02210',
+  siteAddress: '1000 Hilltop Circle, Baltimore, MD 21250',
   notifications: {
     assignmentEmails: true,
     dailyDigest: true,
