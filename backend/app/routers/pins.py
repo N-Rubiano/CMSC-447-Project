@@ -29,8 +29,12 @@ from ..sio import sio
 
 router = APIRouter(tags=["pins"])
 
-UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    UPLOADS_DIR = Path("/tmp/uploads")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _initials_from_company(company: str) -> str:
@@ -117,7 +121,7 @@ def get_pin(pin_id: str, current_user: dict = Depends(get_current_user)):
     photos = execute_query("SELECT * FROM pin_photos WHERE pin_id=:pid ORDER BY created_at ASC", {"pid": pin_id})
     comments = execute_query(
         """SELECT c.*, u.name as author_name, u.avatar_url as author_avatar, u.company as author_company
-           FROM comments c LEFT JOIN users u ON u.id=c.author_id
+           FROM comments c LEFT JOIN users u ON CAST(u.id AS TEXT)=CAST(c.author_id AS TEXT)
            WHERE c.pin_id=:pid ORDER BY c.created_at ASC""",
         {"pid": pin_id},
     )
@@ -189,10 +193,22 @@ async def create_pin(body: dict, current_user: dict = Depends(get_current_user))
     # Inline photos
     photos = body.get("photos", [])
     for ph in photos:
+        if not ph:
+            continue
         ph_id = f"pht-{uuid.uuid4().hex[:8]}"
+        if isinstance(ph, dict):
+            ph_url = ph.get("url") or ph.get("src") or ""
+            ph_cap = ph.get("caption", "") or ""
+            ph_type = ph.get("type", "issue") or "issue"
+        else:
+            ph_url = str(ph).strip()
+            ph_cap = ""
+            ph_type = "issue"
+        if not ph_url:
+            continue
         execute_write(
-            "INSERT INTO pin_photos (id,pin_id,url,caption,uploaded_by,created_at) VALUES (:id,:pid,:url,:cap,:by,:now)",
-            dict(id=ph_id, pid=pin_id, url=ph.get("url"), cap=ph.get("caption", ""), by=user.get("name"), now=now),
+            "INSERT INTO pin_photos (id,pin_id,url,type,caption,uploaded_by,created_at) VALUES (:id,:pid,:url,:type,:cap,:by,:now)",
+            dict(id=ph_id, pid=pin_id, url=ph_url, type=ph_type, cap=ph_cap, by=user.get("name"), now=now),
         )
 
     created = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
@@ -416,7 +432,7 @@ async def add_comment(pin_id: str, body: dict, current_user: dict = Depends(get_
 
     comment = execute_one(
         """SELECT c.*, u.name as author_name, u.avatar_url as author_avatar, u.company as author_company
-           FROM comments c LEFT JOIN users u ON u.id=c.author_id WHERE c.id=:id""",
+           FROM comments c LEFT JOIN users u ON CAST(u.id AS TEXT)=CAST(c.author_id AS TEXT) WHERE c.id=:id""",
         {"id": comment_id},
     )
     await sio.emit("comment:added", {"pinId": pin_id, "comment": comment},

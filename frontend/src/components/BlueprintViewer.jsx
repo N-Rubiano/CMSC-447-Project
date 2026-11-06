@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
+import { renderPdfToCanvas } from '../services/pdfRenderer';
 
 export default function BlueprintViewer({
   sheets,
@@ -42,6 +43,33 @@ export default function BlueprintViewer({
   currentUser
 }) {
   const containerRef = useRef(null);
+  const pdfCanvasRef = useRef(null);
+  const [pdfRendered, setPdfRendered] = useState(false);
+
+  const pdfUrl = activeSheet?.pdf_url ||
+    (activeSheet?.file_path ? `/api/sheets/${activeSheet.id}/pdf` : null) ||
+    (typeof activeSheet?.image_url === 'string' && activeSheet.image_url.endsWith('.pdf') ? activeSheet.image_url : null);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!activeSheet || activeSheet.image_url || !pdfUrl) {
+      setPdfRendered(false);
+      return;
+    }
+    const canvas = pdfCanvasRef.current;
+    if (!canvas) return;
+
+    renderPdfToCanvas(pdfUrl, activeSheet.page_index || 0, canvas).then(result => {
+      if (isCurrent && result.success) {
+        setPdfRendered(true);
+      }
+    }).catch(err => {
+      console.warn('PDF canvas render failed:', err);
+      if (isCurrent) setPdfRendered(false);
+    });
+
+    return () => { isCurrent = false; };
+  }, [activeSheet, pdfUrl]);
 
   // Pan & Zoom state
   const [zoom, setZoom] = useState(1);
@@ -64,7 +92,14 @@ export default function BlueprintViewer({
   const [newCommentText, setNewCommentText] = useState('');
 
   // Active sheet pins
-  const currentSheetPins = activeSheet ? punchItems.filter(p => p.sheetId === activeSheet.id) : [];
+  const currentSheetPins = activeSheet
+    ? punchItems.filter(p => (
+        (p.sheetId && p.sheetId === activeSheet.id) ||
+        (p.sheet_id && p.sheet_id === activeSheet.id) ||
+        (p.sheetNumber && p.sheetNumber === activeSheet.number) ||
+        (p.sheet_number && p.sheet_number === activeSheet.sheet_number)
+      ))
+    : [];
   const selectedPin = punchItems.find(p => p.id === selectedPinId);
 
   // Reset zoom & pan to fit sheet on mount or sheet change
@@ -196,10 +231,11 @@ export default function BlueprintViewer({
   // Calculate trades present on active sheet
   const tradesOnSheetMap = {};
   currentSheetPins.forEach(p => {
-    tradesOnSheetMap[p.trade] = (tradesOnSheetMap[p.trade] || 0) + 1;
+    const tradeKey = p.trade || p.discipline || 'AC';
+    tradesOnSheetMap[tradeKey] = (tradesOnSheetMap[tradeKey] || 0) + 1;
   });
   const tradesOnSheetList = Object.keys(tradesOnSheetMap).map(tradeKey => ({
-    ...TRADES[tradeKey],
+    ...(TRADES[tradeKey] || { code: String(tradeKey).slice(0, 2).toUpperCase(), name: String(tradeKey), color: 'var(--amber)' }),
     count: tradesOnSheetMap[tradeKey]
   }));
 
@@ -242,28 +278,28 @@ export default function BlueprintViewer({
           <LayersIcon size={36} strokeWidth={1.7} />
         </div>
 
-        <div className="eyebrow" style={{ color: 'var(--timber)', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>{selectedBuilding?.name || 'UMBC Campus'}</span>
+        <div className="eyebrow" style={{ color: 'var(--text-muted)', fontWeight: 500, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>{selectedBuilding?.name || 'Project Site'}</span>
           {selectedFloor && (
             <>
               <span>·</span>
-              <span style={{ color: 'var(--amber)', fontWeight: 800 }}>{selectedFloor}</span>
+              <span style={{ color: 'var(--amber)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{selectedFloor}</span>
             </>
           )}
         </div>
 
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
-          No blueprint available for this floor yet.
+        <h2 style={{ fontSize: 20, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
+          No blueprint available for this floor yet
         </h2>
 
-        <p style={{ maxWidth: 460, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
+        <p style={{ maxWidth: 460, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
           {selectedBuilding?.name ? (
             <>
               No architectural drawing sheet or CAD floor plan has been attached for <strong>{selectedBuilding.name}</strong> ({selectedFloor || 'Selected Floor'}).
               You can upload an architectural set or image blueprint to start pinning punch items for this floor.
             </>
           ) : (
-            'Select a UMBC Building and Floor from the top navigation bar to view its architectural blueprint.'
+            'Select a Building and Floor from the navigation bar to view its architectural drawing set.'
           )}
         </p>
 
@@ -324,23 +360,37 @@ export default function BlueprintViewer({
         {/* Inner wrapper — provides position:relative context for image + SVG overlay */}
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
 
-        {/* ── Mode A: Uploaded Blueprint Image ─────────────────────── */}
-        {activeSheet?.image_url ? (
+        {/* ── Mode A: Uploaded Blueprint Image or Rendered PDF Canvas ─────────────────────── */}
+        {activeSheet?.image_url || pdfUrl ? (
           <>
-            {/* Uploaded image fills the full canvas */}
-            <img
-              src={activeSheet.image_url}
-              alt={activeSheet.title || activeSheet.name || 'Blueprint'}
-              style={{
-                display: 'block',
-                width: activeSheet?.dimensions?.width || 1400,
-                height: activeSheet?.dimensions?.height || 900,
-                objectFit: 'contain',
-                userSelect: 'none',
-                pointerEvents: 'none'
-              }}
-              draggable={false}
-            />
+            {activeSheet?.image_url ? (
+              <img
+                src={activeSheet.image_url}
+                alt={activeSheet.title || activeSheet.name || 'Blueprint'}
+                style={{
+                  display: 'block',
+                  width: activeSheet?.dimensions?.width || 1400,
+                  height: activeSheet?.dimensions?.height || 900,
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none'
+                }}
+                draggable={false}
+              />
+            ) : (
+              <canvas
+                ref={pdfCanvasRef}
+                style={{
+                  display: 'block',
+                  width: activeSheet?.dimensions?.width || 1400,
+                  height: activeSheet?.dimensions?.height || 900,
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                  backgroundColor: '#FFFFFF'
+                }}
+              />
+            )}
 
             {/* SVG Annotation Overlay — pins, measurement, title block */}
             <svg
@@ -580,11 +630,12 @@ export default function BlueprintViewer({
         {layers.pins && currentSheetPins.map((pin) => {
           const isSelected = selectedPinId === pin.id;
           const isCritical = pin.priority === 'Critical' && pin.status !== 'Resolved';
-          const tr = TRADES[pin.trade] || TRADES.AC;
+          const tradeKey = pin.trade || pin.discipline || 'AC';
+          const tr = TRADES[tradeKey] || TRADES.AC || { code: 'PL', color: 'var(--amber)' };
 
           // Convert percentage coordinates to pixel coordinates within 1400x900 canvas
-          const leftPx = (pin.x_pct / 100) * 1400;
-          const topPx = (pin.y_pct / 100) * 900;
+          const leftPx = (((pin.x_pct ?? pin.xPct ?? 50)) / 100) * 1400;
+          const topPx = (((pin.y_pct ?? pin.yPct ?? 50)) / 100) * 900;
 
           return (
             <div
@@ -595,7 +646,7 @@ export default function BlueprintViewer({
                 e.stopPropagation();
                 onSelectPin(pin);
               }}
-              title={`${pin.id} · [${pin.trade}] ${pin.title}`}
+              title={`${pin.id} · [${tradeKey}] ${pin.title}`}
             >
               {/* Critical Pulsing Halo */}
               {isCritical && <div className="cad-pin-halo" />}
@@ -621,7 +672,7 @@ export default function BlueprintViewer({
                   fontWeight="900"
                   fontFamily="var(--font-mono)"
                 >
-                  {pin.number}
+                  {pin.item_number ?? pin.number ?? (pin.id ? String(pin.id).slice(-3) : '')}
                 </text>
               </svg>
 
@@ -638,7 +689,7 @@ export default function BlueprintViewer({
                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
                 }}
               >
-                {pin.trade}
+                {pin.trade || pin.discipline || tr.code || 'PL'}
               </div>
             </div>
           );
@@ -918,7 +969,7 @@ export default function BlueprintViewer({
               <span className="trade-stamp-badge sm" style={{ backgroundColor: t.color }}>
                 {t.code}
               </span>
-              <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{t.name.split('/')[0]}</span>
+              <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{(t.name || t.code || '').split('/')[0]}</span>
               <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
                 ({t.count})
               </span>
@@ -976,15 +1027,15 @@ export default function BlueprintViewer({
                     <span className="chip-mono" style={{ fontSize: 13, fontWeight: 700 }}>
                       {selectedPin.id}
                     </span>
-                    <span className={`chip chip-priority-${selectedPin.priority.toLowerCase()}`}>
-                      {selectedPin.priority}
+                    <span className={`chip chip-priority-${(selectedPin.priority || 'medium').toLowerCase()}`}>
+                      {selectedPin.priority || 'Medium'}
                     </span>
-                    <span className={`chip chip-status-${selectedPin.status === 'In Progress' ? 'progress' : selectedPin.status === 'In Review' ? 'review' : selectedPin.status.toLowerCase()}`}>
-                      {selectedPin.status}
+                    <span className={`chip chip-status-${selectedPin.status === 'In Progress' ? 'progress' : selectedPin.status === 'In Review' ? 'review' : (selectedPin.status || 'open').toLowerCase()}`}>
+                      {selectedPin.status || 'Open'}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {TRADES[selectedPin.trade]?.name}
+                    {TRADES[selectedPin.trade]?.name || selectedPin.trade}
                   </div>
                 </div>
               </div>
@@ -1001,18 +1052,18 @@ export default function BlueprintViewer({
             {/* Drawer Scrollable Content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
               {/* Title & Description */}
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.35, marginBottom: 12 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, marginBottom: 8 }}>
                 {selectedPin.title}
               </h2>
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>
                 {selectedPin.description}
               </p>
 
-              {/* Meta Grid */}
+              {/* Meta Grid (4px spacing scale, calm hairlines) */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: 14,
+                gap: 12,
                 padding: '16px',
                 borderRadius: 'var(--radius-md)',
                 backgroundColor: 'var(--surface-muted)',
@@ -1020,40 +1071,42 @@ export default function BlueprintViewer({
                 marginBottom: 24
               }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Assignee</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{selectedPin.assignee}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Assignee</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.assignee || selectedPin.assigned_to_name || 'Unassigned'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Company</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{selectedPin.company}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Company</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.company || selectedPin.company_name || '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Location</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{selectedPin.room}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Location</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.room || selectedPin.location || '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Coordinates</div>
-                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--timber)' }}>
-                    X {selectedPin.x_pct}% · Y {selectedPin.y_pct}% ({selectedPin.gridLocation})
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Coordinates</div>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--amber)' }}>
+                    X {selectedPin.x_pct ?? selectedPin.xPct ?? 0}% · Y {selectedPin.y_pct ?? selectedPin.yPct ?? 0}% ({selectedPin.gridLocation || selectedPin.grid_location || '—'})
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Due Date</div>
-                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--ink)' }}>{selectedPin.dueDate}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Due date</div>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{selectedPin.dueDate || selectedPin.due_date || '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Created</div>
-                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{selectedPin.createdAt.split('T')[0]}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Created</div>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
+                    {selectedPin.createdAt ? selectedPin.createdAt.split('T')[0] : selectedPin.created_at ? String(selectedPin.created_at).split('T')[0] : '—'}
+                  </div>
                 </div>
               </div>
 
               {/* Field Photo Thumbnails */}
               {selectedPin.photos && selectedPin.photos.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
-                  <div className="eyebrow" style={{ marginBottom: 8, color: 'var(--timber)' }}>
-                    Field Photos ({selectedPin.photos.length})
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>
+                    Field photos ({selectedPin.photos.length})
                   </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {selectedPin.photos.map((photoUrl, idx) => (
                       <img
                         key={idx}
@@ -1063,22 +1116,22 @@ export default function BlueprintViewer({
                           title: selectedPin.title,
                           punchId: selectedPin.id,
                           trade: selectedPin.trade,
-                          gridLocation: selectedPin.gridLocation,
-                          date: selectedPin.createdAt.split('T')[0],
-                          capturedBy: selectedPin.createdBy,
+                          gridLocation: selectedPin.gridLocation || selectedPin.grid_location || '—',
+                          date: (selectedPin.createdAt || selectedPin.created_at ? String(selectedPin.createdAt || selectedPin.created_at).split('T')[0] : 'Recent'),
+                          capturedBy: selectedPin.createdBy || selectedPin.created_by_name || 'Field Lead',
                           url: photoUrl
                         })}
                         style={{
-                          width: 100,
-                          height: 80,
-                          borderRadius: 8,
+                          width: 96,
+                          height: 72,
+                          borderRadius: 6,
                           objectFit: 'cover',
                           cursor: 'pointer',
-                          border: '1.5px solid var(--border)',
-                          transition: 'transform 120ms ease'
+                          border: '1px solid var(--border)',
+                          transition: 'border-color 120ms ease'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--amber)'}
+                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
                       />
                     ))}
                   </div>

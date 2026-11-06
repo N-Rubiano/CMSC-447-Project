@@ -6,7 +6,7 @@ routers/audit_logs.py — Real-Time Audit Logs Persistent API
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -19,12 +19,12 @@ router = APIRouter(tags=["audit_logs"])
 
 
 class CreateLogPayload(BaseModel):
-    category: str = "Status"
-    action: str
+    category: Optional[str] = "Status"
+    action: Optional[str] = "Action Recorded"
     details: Optional[str] = ""
-    target: Optional[str] = "—"
-    project_id: Optional[str] = None
-    pin_id: Optional[str] = None
+    target: Optional[Union[str, int, float, Any]] = "—"
+    project_id: Optional[Union[str, int]] = None
+    pin_id: Optional[Union[str, int]] = None
     actor: Optional[str] = None
     role: Optional[str] = None
     company: Optional[str] = None
@@ -109,6 +109,11 @@ async def record_audit_log(
     actor_name = payload.actor or current_user.get("name") or "Field Inspector"
     actor_role = payload.role or current_user.get("role") or "Inspector"
     actor_company = payload.company or current_user.get("company") or "Apex Construction GC"
+    target_str = str(payload.target) if payload.target is not None else "—"
+    pin_id_str = str(payload.pin_id) if payload.pin_id is not None else None
+    project_id_str = str(payload.project_id) if payload.project_id is not None else None
+    action_str = payload.action or "Action Recorded"
+    category_str = payload.category or "Status"
 
     sql = """
         INSERT INTO audit_logs (
@@ -121,32 +126,32 @@ async def record_audit_log(
     """
     execute_write(sql, {
         "id": log_id,
-        "pid": payload.project_id,
-        "pin": payload.pin_id,
+        "pid": project_id_str,
+        "pin": pin_id_str,
         "uid": current_user.get("id", "user"),
         "uname": actor_name,
         "urole": actor_role,
         "ucomp": actor_company,
-        "action": payload.action,
-        "target": payload.target or "—",
+        "action": action_str,
+        "target": target_str,
         "details": payload.details or "",
         "now": now
     })
 
     log_entry = {
         "id": log_id,
-        "category": payload.category,
-        "action": payload.action,
+        "category": category_str,
+        "action": action_str,
         "details": payload.details,
-        "target": payload.target or "—",
+        "target": target_str,
         "actor": actor_name,
         "actorRole": actor_role,
         "actorCompany": actor_company,
         "time": "Just now",
         "timestamp": datetime.now().strftime("%I:%M %p"),
         "created_at": now,
-        "color": "#2563EB" if payload.category == "Projects" else "#7C3AED" if payload.category == "Blueprints" else "#D97706" if payload.category == "Assignments" else "#16A34A" if payload.category == "Team" else "#059669",
-        "bg": "#DBEAFE" if payload.category == "Projects" else "#EDE9FE" if payload.category == "Blueprints" else "#FEF3C7" if payload.category == "Assignments" else "#DCFCE7" if payload.category == "Team" else "#D1FAE5"
+        "color": "#2563EB" if category_str == "Projects" else "#7C3AED" if category_str == "Blueprints" else "#D97706" if category_str == "Assignments" else "#16A34A" if category_str == "Team" else "#059669",
+        "bg": "#DBEAFE" if category_str == "Projects" else "#EDE9FE" if category_str == "Blueprints" else "#FEF3C7" if category_str == "Assignments" else "#DCFCE7" if category_str == "Team" else "#D1FAE5"
     }
 
     # Broadcast real-time to all connected users

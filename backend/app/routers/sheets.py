@@ -27,8 +27,12 @@ from ..config import settings as cfg
 
 router = APIRouter(tags=["sheets"])
 
-UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    UPLOADS_DIR = Path("/tmp/uploads")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/tiff", "image/webp"}
 
@@ -65,13 +69,21 @@ def _get_pdf_page_count_and_dims(file_path: str) -> list[tuple[float, float]]:
 def list_sheets(project_id: str, current_user: dict = Depends(get_current_user)):
     if not can_user_access_project(current_user, project_id):
         raise HTTPException(403, "Access forbidden for this project")
-    return execute_query(
+    rows = execute_query(
         """SELECT s.*,
              (SELECT COUNT(*) FROM pins WHERE sheet_id=CAST(s.id AS TEXT)) as pin_count,
              (SELECT COUNT(*) FROM pins WHERE sheet_id=CAST(s.id AS TEXT) AND status IN ('open','assigned')) as open_pin_count
            FROM sheets s WHERE CAST(s.project_id AS TEXT)=:pid ORDER BY s.sheet_number ASC, s.created_at ASC""",
         {"pid": project_id},
     )
+    for r in rows:
+        if r.get("file_path") and not r.get("pdf_url"):
+            r["pdf_url"] = f"/api/sheets/{r['id']}/pdf"
+        if not r.get("image_url") and r.get("file_name"):
+            ext = Path(r["file_name"]).suffix.lower()
+            if ext in {".png", ".jpg", ".jpeg", ".webp", ".tiff"}:
+                r["image_url"] = f"/uploads/{r['file_name']}"
+    return rows
 
 
 @router.get("/api/sheets/{sheet_id}")

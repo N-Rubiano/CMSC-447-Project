@@ -50,12 +50,15 @@ class Settings:
 
     @property
     def use_postgres(self) -> bool:
+        import sys
+        if os.getenv("TESTING", "").lower() in ("1", "true", "yes") or "pytest" in sys.modules:
+            return False
         return bool(self.DATABASE_URL)
 
     @property
     def effective_database_url(self) -> str:
         """Return the full database URL for SQLAlchemy (sync, pg8000 or SQLite)."""
-        if self.DATABASE_URL:
+        if self.use_postgres and self.DATABASE_URL:
             url = self.DATABASE_URL
             if "@localhost:" in url:
                 url = url.replace("@localhost:", "@127.0.0.1:")

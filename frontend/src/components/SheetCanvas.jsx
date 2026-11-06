@@ -10,7 +10,9 @@ import {
   Compass,
   Building2,
   Upload,
-  Trash2
+  Trash2,
+  Check,
+  X
 } from 'lucide-react';
 import { renderPdfToCanvas, drawCadArchitecturalPlan } from '../services/pdfRenderer';
 import { computeSubcontractorInitials } from './CircleStampModal';
@@ -1132,9 +1134,7 @@ export default function SheetCanvas({
                                 setConfirmDeletePinId(null);
                               }}
                               title="Confirm: Delete this stamp"
-                            >
-                              ✓
-                            </button>
+                            ><Check size={12} strokeWidth={2.5} /></button>
                             <button
                               type="button"
                               className="pin-size-btn"
@@ -1144,9 +1144,7 @@ export default function SheetCanvas({
                                 setConfirmDeletePinId(null);
                               }}
                               title="Cancel"
-                            >
-                              ✕
-                            </button>
+                            ><X size={12} strokeWidth={2.5} /></button>
                           </div>
                         ) : (
                           <button

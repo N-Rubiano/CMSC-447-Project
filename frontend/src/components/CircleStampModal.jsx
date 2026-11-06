@@ -304,10 +304,10 @@ export default function CircleStampModal({
                 onChange={(e) => setStatus(e.target.value)}
                 style={{ borderColor: currentColor, color: currentColor, fontWeight: 700 }}
               >
-                <option value="open">🔴 Open (Pending Action)</option>
-                <option value="in_progress">🔵 In Progress (Underway)</option>
-                <option value="in_review">🟠 In Review (Subcontractor Complete)</option>
-                <option value="closed">🟢 Closed (Verified & Signed Off)</option>
+                <option value="open">Open (Pending Action)</option>
+                <option value="in_progress">In Progress (Underway)</option>
+                <option value="in_review">In Review (Subcontractor Complete)</option>
+                <option value="closed">Closed (Verified & Signed Off)</option>
               </select>
             </div>
 
@@ -333,7 +333,7 @@ export default function CircleStampModal({
                     </option>
                   );
                 })}
-                <option value="__custom__">➕ Enter Custom Subcontractor Name...</option>
+                <option value="__custom__">+ Enter Custom Subcontractor Name...</option>
               </select>
 
               {subcontractor === '__custom__' && (

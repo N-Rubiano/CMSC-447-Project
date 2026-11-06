@@ -16,6 +16,7 @@ const TeamPage              = lazy(() => import('./components/TeamPage'));
 const SettingsPage          = lazy(() => import('./components/SettingsPage'));
 const PrivacyPolicy         = lazy(() => import('./components/PrivacyPolicy'));
 const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions'));
+const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
 
 // ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
@@ -62,10 +63,36 @@ export default function App() {
   // -------------------------------------------------------------
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [onboardingToken, setOnboardingToken] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const searchParams = new URLSearchParams(window.location.search);
+      const sToken = searchParams.get('token') || searchParams.get('onboard_token');
+      if (sToken) return sToken;
+      if (window.location.hash) {
+        const hash = window.location.hash.replace(/^#/, '');
+        const qIdx = hash.indexOf('?');
+        if (qIdx !== -1) {
+          const hParams = new URLSearchParams(hash.substring(qIdx));
+          return hParams.get('token') || hParams.get('onboard_token');
+        }
+      }
+    } catch (_) {}
+    return null;
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('punchlist_user');
-      return saved ? JSON.parse(saved) : CURRENT_USER;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const av = parsed.avatar_url || parsed.avatar;
+        if (av) {
+          parsed.avatar = av;
+          parsed.avatar_url = av;
+        }
+        return parsed;
+      }
+      return CURRENT_USER;
     } catch {
       return CURRENT_USER;
     }
@@ -74,26 +101,15 @@ export default function App() {
   // Internal helper: map any user object (Supabase or local) to app state & persist
   const _handleLoginUser = useCallback((userInfo) => {
     if (!userInfo) return;
-    let finalUser = CURRENT_USER;
-    const role = userInfo.role || userInfo.email;
-    if (role === 'executive' || userInfo.email?.includes('sarah.chen')) {
-      finalUser = TEAM_MEMBERS[1];
-    } else if (role === 'foreman' || userInfo.email?.includes('elena')) {
-      finalUser = {
-        id: userInfo.id || 'tp-2',
-        name: userInfo.name || userInfo.email?.split('@')[0] || 'Elena Rostova',
-        email: userInfo.email || 'elena@primedrywall.com',
-        role: userInfo.role || 'Drywall Foreman',
-        company: userInfo.company || 'Prime Drywall & Doors',
-        avatar: userInfo.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80'
-      };
-    } else {
-      finalUser = {
-        ...CURRENT_USER,
-        ...userInfo,
-        name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
-      };
-    }
+    const resolvedAvatar = userInfo.avatar_url || userInfo.avatar || CURRENT_USER.avatar_url || CURRENT_USER.avatar;
+    const finalUser = {
+      ...CURRENT_USER,
+      ...userInfo,
+      avatar: resolvedAvatar,
+      avatar_url: resolvedAvatar,
+      name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
+      company: userInfo.company || userInfo.organization || CURRENT_USER.company,
+    };
     setCurrentUser(finalUser);
     try {
       localStorage.setItem('punchlist_user', JSON.stringify(finalUser));
@@ -119,10 +135,10 @@ export default function App() {
   // -------------------------------------------------------------
   const [projects, setProjects] = useState(PROJECTS);
   const [activeProject, setActiveProject] = useState(PROJECTS[0]);
-  const [activeBuilding, setActiveBuilding] = useState(PROJECTS[0].buildings[0]);
-  const [activeFloor, setActiveFloor] = useState(PROJECTS[0].buildings[0].floors[3]); // Level 03
+  const [activeBuilding, setActiveBuilding] = useState(() => PROJECTS[0]?.buildings?.[0] || null);
+  const [activeFloor, setActiveFloor] = useState(() => PROJECTS[0]?.buildings?.[0]?.floors?.[0] || null);
   const [sheets, setSheets] = useState(SHEETS);
-  const [activeSheet, setActiveSheet] = useState(SHEETS[0]); // A-301
+  const [activeSheet, setActiveSheet] = useState(() => SHEETS[0] || null);
 
   // Track whether we've done the initial DB project load so we don't
   // overwrite a user's project selection on subsequent renders.
@@ -282,14 +298,15 @@ export default function App() {
     }
   }, [auditLogs]);
 
-  const addAuditLog = useCallback(({ category, action, details, target, actor, role, company, projectId, pinId }) => {
+  const addAuditLog = useCallback(({ category, action, details, target, actor, role, company, projectId, pinId, skipServer = false }) => {
     const cat = category || 'Status';
+    const targetStr = target != null ? String(target) : '—';
     const newLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       category: cat,
       action: action || 'Action Recorded',
       details: details || '',
-      target: target || '—',
+      target: targetStr,
       actor: actor || currentUser?.name || 'Field Inspector',
       actorRole: role || currentUser?.role || 'Field Operations',
       actorCompany: company || currentUser?.company || 'Apex Construction GC',
@@ -300,14 +317,16 @@ export default function App() {
     };
     setAuditLogs(prev => [newLog, ...prev]);
 
+    if (skipServer) return;
+
     // Persist to PostgreSQL audit_logs table
     api.createAuditLog({
       category: cat,
       action: action || 'Action Recorded',
       details: details || '',
-      target: target || '—',
+      target: targetStr,
       project_id: projectId || activeProject?.id,
-      pin_id: pinId,
+      pin_id: pinId != null ? String(pinId) : undefined,
       actor: actor || currentUser?.name || 'Field Inspector',
       role: role || currentUser?.role || 'Inspector',
       company: company || currentUser?.company || 'Apex Construction GC'
@@ -342,7 +361,8 @@ export default function App() {
         action: 'New Project Added',
         details: `Project "${data?.name || 'New Project'}" was registered`,
         target: data?.code || data?.id || 'Project',
-        actor: data?.created_by || 'Admin'
+        actor: data?.created_by || 'Admin',
+        skipServer: true
       });
     };
 
@@ -353,7 +373,8 @@ export default function App() {
         action: 'Blueprint Uploaded',
         details: `Drawing set "${sName}" uploaded to server`,
         target: sName,
-        actor: 'CAD Engineer'
+        actor: 'CAD Engineer',
+        skipServer: true
       });
     };
 
@@ -363,7 +384,8 @@ export default function App() {
         action: 'Punch Assigned',
         details: `Punch item "${data?.title || data?.id}" assigned to ${data?.assignee || data?.trade || 'contractor'}`,
         target: data?.item_number || data?.id || 'Punch',
-        actor: data?.created_by_name || 'Inspector'
+        actor: data?.created_by_name || 'Inspector',
+        skipServer: true
       });
     };
 
@@ -373,7 +395,8 @@ export default function App() {
         action: 'Status Transition',
         details: `Punch item ${data?.id || ''} status moved to "${data?.status || 'Updated'}"`,
         target: data?.item_number || data?.id || 'Punch',
-        actor: 'Field User'
+        actor: 'Field User',
+        skipServer: true
       });
     };
 
@@ -534,6 +557,18 @@ export default function App() {
     );
     return () => subscription.unsubscribe();
   }, [_handleLoginUser]);
+
+  // Preload tab chunks in background when authenticated so clicking tabs is instantaneous
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timer = setTimeout(() => {
+      import('./components/DocumentsPage');
+      import('./components/PhotosPage');
+      import('./components/TeamPage');
+      import('./components/SettingsPage');
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
 
   // Cycle sync state on click: synced -> syncing -> offline -> synced
   const handleToggleSyncState = () => {
@@ -758,7 +793,9 @@ export default function App() {
 
   // Navigate directly to Blueprint sheet & pin
   const handleSelectPunchFromAnywhere = (punch) => {
-    const targetSheet = sheets.find(s => s.id === punch.sheetId || s.number === punch.sheetNumber);
+    const sheetId = punch.sheetId || punch.sheet_id;
+    const sheetNum = punch.sheetNumber || punch.sheet_number;
+    const targetSheet = sheets.find(s => (sheetId && s.id === sheetId) || (sheetNum && s.number === sheetNum));
     if (targetSheet) {
       setActiveSheet(targetSheet);
     }
@@ -793,6 +830,30 @@ export default function App() {
   // Show full-screen loader while restoring auth session on mount/refresh
   if (authInitializing) {
     return <PageLoader />;
+  }
+
+  // If visiting with an invitation or credential-handoff token, render onboarding workflow
+  if (onboardingToken) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <OnboardingPage
+          token={onboardingToken}
+          onComplete={(userInfo) => {
+            setOnboardingToken(null);
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (_) {}
+            _handleLoginUser(userInfo);
+          }}
+          onBackToLogin={() => {
+            setOnboardingToken(null);
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (_) {}
+          }}
+        />
+      </Suspense>
+    );
   }
 
   if (!isAuthenticated) {
@@ -909,7 +970,7 @@ export default function App() {
         {/* 4.6 Team View */}
         {activeModule === 'team' && (
           <Suspense fallback={<PageLoader />}>
-            <TeamPage />
+            <TeamPage currentUser={currentUser} projects={projects} />
           </Suspense>
         )}
 
@@ -918,6 +979,14 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <SettingsPage
               project={activeProject}
+              currentUser={currentUser}
+              onUpdateUser={(updated) => {
+                const merged = { ...currentUser, ...updated };
+                setCurrentUser(merged);
+                try {
+                  localStorage.setItem('punchlist_user', JSON.stringify(merged));
+                } catch (_) {}
+              }}
               onSaveProject={(updated) => {
                 setActiveProject({ ...activeProject, ...updated });
                 addAuditLog({

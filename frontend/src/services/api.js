@@ -133,6 +133,19 @@ export const api = {
     return await res.json();
   },
 
+  async updateProfile(payload) {
+    const res = await authFetch(`${BASE_URL}/auth/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to update profile');
+    }
+    return await res.json();
+  },
+
   async logout() {
     removeToken();
     try { await supabaseSignOut(); } catch (_) {}
@@ -634,7 +647,34 @@ export const api = {
     return await res.json();
   },
 
-  // TEAM
+  // ONBOARDING & CREDENTIAL HANDOFF
+  async verifyInvitation(token) {
+    const res = await fetch(`${BASE_URL}/auth/invitation?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Invitation verification failed' }));
+      throw new Error(err.detail || err.error || 'Invalid or expired invitation token');
+    }
+    return await res.json();
+  },
+
+  async completeOnboarding({ token, password }) {
+    const res = await fetch(`${BASE_URL}/auth/complete-onboarding`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to complete onboarding' }));
+      throw new Error(err.detail || err.error || 'Password setup failed');
+    }
+    const data = await res.json();
+    if (data.token) {
+      setToken(data.token);
+    }
+    return data;
+  },
+
+  // TEAM & APPROVAL LIFECYCLE
   async getTeam() {
     const res = await authFetch(`${BASE_URL}/team`);
     if (!res.ok) throw new Error('Failed to fetch team members');
@@ -650,6 +690,76 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to add team member' }));
       throw new Error(err.detail || err.error || 'Failed to add team member');
+    }
+    return await res.json();
+  },
+
+  async approveTeamMember(userId) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}/approve`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to approve account' }));
+      throw new Error(err.detail || err.error || 'Failed to approve account');
+    }
+    return await res.json();
+  },
+
+  async rejectTeamMember(userId, reason) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to reject account' }));
+      throw new Error(err.detail || err.error || 'Failed to reject account');
+    }
+    return await res.json();
+  },
+
+  async suspendTeamMember(userId) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}/suspend`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to suspend account' }));
+      throw new Error(err.detail || err.error || 'Failed to suspend account');
+    }
+    return await res.json();
+  },
+
+  async reactivateTeamMember(userId) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}/reactivate`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to reactivate account' }));
+      throw new Error(err.detail || err.error || 'Failed to reactivate account');
+    }
+    return await res.json();
+  },
+
+  async resendInvitation(userId) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}/resend-invitation`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to resend invitation' }));
+      throw new Error(err.detail || err.error || 'Failed to resend invitation');
+    }
+    return await res.json();
+  },
+
+  async updateTeamMember(userId, payload) {
+    const res = await authFetch(`${BASE_URL}/team/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to update member' }));
+      throw new Error(err.detail || err.error || 'Failed to update member');
     }
     return await res.json();
   },

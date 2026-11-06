@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
     # ── Seed Initial Data ──────────────────────────────────────────
     now = datetime.now(timezone.utc).isoformat()
-    pw_hash = bcrypt.hashpw(b"Demo@2026!", bcrypt.gensalt()).decode()
+    pw_hash = bcrypt.hashpw(b"Thakur@531", bcrypt.gensalt(12)).decode()
 
     # 1. Companies
     companies = [
@@ -380,39 +380,26 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, companies)
 
-    # 2. Users (3 Demo accounts + team members)
+    # 2. Users (Admin account)
     users = [
-        ("usr-demo-admin", "Admin", "admin@punchlistpro.demo", "admin", "PunchList Pro Construction Ops", "cmp-demo-1", "555-0101", "/avatars/admin.jpg", pw_hash, None, "active", "On Site - Level 4", now, now),
-        ("usr-demo-gc", "Contractor", "contractor@punchlistpro.demo", "general_contractor", "Apex Construction General Contracting", "cmp-demo-2", "555-0201", "/avatars/gc.jpg", pw_hash, None, "active", "Supervising Core & Shell", now, now),
-        ("usr-demo-sub", "Sub-Contractor", "sub@punchlistpro.demo", "sub_contractor", "Prime Trade Solutions", "cmp-demo-3", "555-0301", "/avatars/sub.jpg", pw_hash, None, "active", "Running Conduit L2", now, now),
+        ("usr-admin-1", "Satya Thakur", "uw61778@umbc.edu", "admin", "UMBC Facility Operations", "cmp-demo-1", "555-0101", "/avatars/admin.jpg", pw_hash, None, "active", "On Site", now, now),
     ]
     cursor.executemany("""
         INSERT INTO users (id, name, email, role, company, company_id, phone, avatar_url, password_hash, supabase_uid, presence, presence_text, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, users)
 
-    # 3. Projects
+    # 3. Projects (Real single project, no mock or seeded assigned projects)
     projects = [
-        ("proj-demo-1", "Harbor Point Tower 2", "HPT2", "1310 Point Street, Baltimore, MD 21231", "32-story mixed-use commercial and luxury residential tower with 4-level subterranean parking.", "Harbor Point Ventures LLC", "2025-06-01", "2027-04-30", "usr-demo-gc", "cmp-demo-2", "bld-hpt-02", "Tower Two", "active", now, now),
-        ("proj-demo-2", "UMBC Interdisciplinary Life Sciences", "ILSB", "1000 Hilltop Circle, Catonsville, MD 21250", "Four-story academic research facility with wet labs, active learning classrooms, and vivarium.", "University of Maryland, Baltimore County", "2025-01-15", "2026-11-30", "usr-demo-gc", "cmp-demo-2", "bld-ilsb-01", "ILSB Main", "active", now, now)
+        ("proj-1", "UMBC Campus & Harbor Point", "UMBC-2026", "1000 Hilltop Circle, Baltimore, MD 21250", "UMBC campus facilities management and capital improvement projects.", "University of Maryland, Baltimore County", "2025-01-01", "2027-12-31", None, "cmp-demo-1", "administration", "Administration Building", "active", now, now)
     ]
     cursor.executemany("""
         INSERT INTO projects (id, name, code, address, description, client_name, start_date, target_completion, gc_user_id, contractor_company_id, building_id, building_name, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, projects)
 
-    # 4. Project Members
-    members = [
-        ("pm-1", "proj-demo-1", "usr-demo-admin", "admin", "PunchList Pro Construction Ops", now, now),
-        ("pm-2", "proj-demo-1", "usr-demo-gc", "general_contractor", "Apex Construction General Contracting", now, now),
-        ("pm-3", "proj-demo-1", "usr-demo-sub", "sub_contractor", "Prime Trade Solutions", now, now),
-        ("pm-4", "proj-demo-2", "usr-demo-admin", "admin", "PunchList Pro Construction Ops", now, now),
-        ("pm-5", "proj-demo-2", "usr-demo-gc", "general_contractor", "Apex Construction General Contracting", now, now),
-    ]
-    cursor.executemany("""
-        INSERT INTO project_members (id, project_id, user_id, role, company_name, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, members)
+    # 4. Project Members (No mock or seeded assigned project memberships)
+    members = []
 
     # 5. Sheets
     sheets = [

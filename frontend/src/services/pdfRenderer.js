@@ -4,6 +4,31 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.10.38'}/pdf.worker.min.mjs`;
 
 /**
+ * Render a PDF page directly into a high-res base64 DataURL (image/png) for immediate display
+ */
+export async function renderPdfToDataUrl(fileOrUrl, pageIndex = 0, scale = 2.0) {
+  try {
+    const pdfUrl = typeof fileOrUrl === 'string' ? fileOrUrl : URL.createObjectURL(fileOrUrl);
+    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    const pdf = await loadingTask.promise;
+    const pageNum = Math.min(pageIndex + 1, pdf.numPages);
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn('PDF.js render to data URL error:', err);
+    return null;
+  }
+}
+
+/**
  * Render an uploaded PDF page onto a canvas with 4K ultra-high resolution
  */
 export async function renderPdfToCanvas(pdfUrl, pageIndex, canvas, customScale = null) {
