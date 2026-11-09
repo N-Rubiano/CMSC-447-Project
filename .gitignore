@@ -33,7 +33,10 @@ frontend/.env
 
 # SQLite fallback database (generated at runtime)
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
+data/
 backend/data/
 
 # ── ReportLab / upload artefacts ──────────────────────────────────────────────
@@ -75,3 +78,12 @@ punchlist_pro_explainer.md
 sdd_assets/
 
 
+
+# ── Agent Skills & Local Harness ─────────────────────────────────────────────
+.agent/
+.agents/
+.gemini/
+.github/hooks/
+scratch/
+unslop-story/
+*.mp4

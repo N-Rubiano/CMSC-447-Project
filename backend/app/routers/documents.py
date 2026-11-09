@@ -19,8 +19,12 @@ from ..sio import sio
 
 router = APIRouter(tags=["documents"])
 
-UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    UPLOADS_DIR = Path("/tmp/uploads")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _format_file_size(size_bytes: int) -> str:

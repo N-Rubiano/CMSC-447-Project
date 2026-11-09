@@ -22,9 +22,9 @@
   max-width: 620px;
   max-height: 92vh;
   background: #FFFFFF;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   border: 1px solid #E7E5E4;
-  box-shadow: 0 24px 64px rgba(40, 30, 20, 0.28);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -147,7 +147,7 @@
   width: 100%;
   padding: 8.5px 12px;
   border: 1px solid #D6D3D1;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   color: #18181B;
   background: #FFFFFF;
@@ -327,7 +327,7 @@
   gap: 6px;
   height: 38px;
   padding: 0 16px;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -348,7 +348,7 @@
 .circle-btn.primary {
   background: #D97706;
   color: #FFFFFF;
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+  box-shadow: var(--shadow-sm);
 }
 
 .circle-btn.primary:hover:not(:disabled) {

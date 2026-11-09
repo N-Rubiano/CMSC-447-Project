@@ -67,11 +67,11 @@ export default function Navbar({
   const [mobileTab, setMobileTab] = useState('buildings'); // 'buildings' | 'floors'
 
   const ROLE_DISPLAY = {
-    admin: { label: 'Facility Admin', icon: Shield, color: '#DC2626', bg: '#FEE2E2' },
+    admin: { label: 'Facility Administrator', icon: Shield, color: '#DC2626', bg: '#FEE2E2' },
     general_contractor: { label: 'General Contractor', icon: HardHat, color: '#D97706', bg: '#FEF3C7' },
-    sub_contractor: { label: 'Subcontractor', icon: Wrench, color: '#4B5563', bg: '#F3F4F6' },
-    architect: { label: 'Architect', icon: Layers, color: '#2563EB', bg: '#DBEAFE' },
-    owner: { label: 'Owner Rep', icon: Building2, color: '#059669', bg: '#D1FAE5' },
+    sub_contractor: { label: 'Trade Subcontractor', icon: Wrench, color: '#4B5563', bg: '#F3F4F6' },
+    architect: { label: 'Architect / Engineer', icon: Layers, color: '#2563EB', bg: '#DBEAFE' },
+    owner: { label: 'Owner Representative', icon: Building2, color: '#059669', bg: '#D1FAE5' },
     field_inspector: { label: 'Field Inspector', icon: CheckCircle2, color: '#EA580C', bg: '#FFEDD5' }
   };
   const roleInfo = ROLE_DISPLAY[currentUser?.role] || { label: currentUser?.role || 'User', icon: Shield, color: '#4B5563', bg: '#F3F4F6' };
@@ -751,7 +751,7 @@ export default function Navbar({
           >
             <div className={`navbar-status-dot ${isOnline ? 'status-dot-active' : 'status-dot-warning'}`} />
             {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-            <span className="navbar-sync-text">{isOnline ? 'LIVE SYNC' : 'OFFLINE'}</span>
+            <span className="navbar-sync-text">{isOnline ? 'Online' : 'Offline'}</span>
             {pendingSyncCount > 0 && (
               <span className="navbar-sync-counter">
                 {pendingSyncCount}
@@ -762,7 +762,7 @@ export default function Navbar({
           {/* User Profile Avatar & Info */}
           <div className="navbar-user-chip">
             <img
-              src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+              src={currentUser?.avatar_url || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
               alt="User avatar"
               className="navbar-avatar"
             />

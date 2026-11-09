@@ -11,14 +11,14 @@
   --amber-hover: #B45309;
   --amber-light: #FEF3C7;
   --amber-tint: rgba(217, 119, 6, 0.12);
-  --amber-glow: rgba(217, 119, 6, 0.28);
+  --amber-glow: rgba(217, 119, 6, 0.12);
   --timber: #5C3A21;             /* Timber brown — secondary accents, eyebrows */
   --timber-dark: #3E2413;
   --timber-light: #F5EFE7;
   --crimson: #DC2626;            /* Safety crimson — critical priority, danger */
   --crimson-light: #FEE2E2;
   --crimson-border: #FCA5A5;
-  --crimson-glow: rgba(220, 38, 38, 0.35);
+  --crimson-glow: rgba(220, 38, 38, 0.12);
   --ink: #18181B;                /* Deep charcoal — sidebar rail, headings */
   --ink-dark: #09090B;
   --ink-subtle: #27272A;
@@ -71,7 +71,7 @@
   --status-resolved-bg: #DCFCE7;
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Layout Dimensions */
@@ -80,19 +80,21 @@
   --topbar-height: 60px;
   --drawer-width: 480px;
 
-  /* Radii */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-card: 16px;
-  --radius-full: 9999px;
+  /* Standardized Corner Radii System */
+  --radius-xs: 3px;
+  --radius-sm: 4px;              /* Small badges, chips, code spans */
+  --radius-md: 6px;              /* Buttons, inputs, dropdown items, table rows */
+  --radius-lg: 8px;              /* Cards, popovers, menus, containers */
+  --radius-xl: 12px;             /* Modals, slide-over dialogs */
+  --radius-card: 8px;            /* Standardized card radius */
+  --radius-full: 9999px;         /* Avatars, circular indicators */
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(24, 24, 27, 0.05), 0 1px 2px rgba(24, 24, 27, 0.04);
-  --shadow-md: 0 4px 14px rgba(24, 24, 27, 0.08), 0 2px 6px rgba(24, 24, 27, 0.04);
-  --shadow-lg: 0 16px 36px -4px rgba(24, 24, 27, 0.12), 0 6px 16px -2px rgba(24, 24, 27, 0.06);
-  --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
-  --shadow-drawer: -12px 0 40px rgba(24, 24, 27, 0.15);
+  /* Standardized Restrained Shadows (Enterprise grade - No neon glows) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-glass: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-drawer: -4px 0 24px rgba(0, 0, 0, 0.12);
 
   /* Transitions */
   --ease-quick: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -119,6 +121,35 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Impeccable Browser Surface Enhancements */
+::selection {
+  background: rgba(217, 119, 6, 0.2);
+  color: #18181B;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 113, 108, 0.45);
+}
+
 /* Touch Targets: minimum 38px for tablet-first ergonomics */
 button, input, select, textarea, a, .touch-target {
   min-height: 38px;
@@ -128,16 +159,15 @@ button, input, select, textarea, a, .touch-target {
 /* Headings & Eyebrows */
 h1, h2, h3, h4, h5, h6 {
   color: var(--ink);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .eyebrow {
   font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--timber);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
 }
 
 /* Monospace coordinates, IDs, codes, timestamps */
@@ -147,6 +177,7 @@ h1, h2, h3, h4, h5, h6 {
 .id-chip,
 .date-mono {
   font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
@@ -160,29 +191,28 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
   padding: 0 16px;
   border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all var(--ease-quick);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   user-select: none;
   white-space: nowrap;
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .btn-primary {
   background-color: var(--amber);
   color: #FFFFFF;
-  box-shadow: 0 2px 8px var(--amber-glow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary:hover {
   background-color: var(--amber-hover);
-  box-shadow: 0 4px 14px var(--amber-glow);
-  transform: translateY(-1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .btn-ghost {
@@ -208,7 +238,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-crimson {
   background-color: var(--crimson);
   color: #FFFFFF;
-  box-shadow: 0 2px 8px var(--crimson-glow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .btn-crimson:hover {
@@ -227,7 +257,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--ease-quick);
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .btn-icon:hover {
@@ -236,26 +266,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ==========================================================================
-   Chips & Badges
+   Chips & Badges (Nested Radius, Restrained 6px)
    ========================================================================== */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.2;
   white-space: nowrap;
 }
 
 .chip-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: #F1EFE9;
+  background: var(--surface-muted);
   color: var(--ink);
   border: 1px solid var(--border);
 }
@@ -415,50 +446,28 @@ h1, h2, h3, h4, h5, h6 {
 
 .cad-pin-selected-ring {
   position: absolute;
-  top: -6px;
-  left: -6px;
-  right: -6px;
-  bottom: -6px;
-  border: 2px dashed var(--amber);
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 2px solid var(--amber);
   border-radius: 50%;
-  animation: rotateRing 8s linear infinite;
   pointer-events: none;
 }
 
-@keyframes rotateRing {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Pulsing red halo for critical unresolved pins */
+/* High-visibility indicator for critical unresolved pins (Static, no pulse) */
 .cad-pin-halo {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--crimson);
-  opacity: 0.6;
+  border: 2px solid var(--crimson);
+  opacity: 0.7;
   transform: translate(-50%, -50%);
-  animation: pulseHalo 1.8s cubic-bezier(0.24, 0, 0.38, 1) infinite;
   pointer-events: none;
   z-index: -1;
-}
-
-@keyframes pulseHalo {
-  0% {
-    transform: translate(-50%, -50%) scale(0.6);
-    opacity: 0.85;
-  }
-  70% {
-    transform: translate(-50%, -50%) scale(1.7);
-    opacity: 0;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.7);
-    opacity: 0;
-  }
 }
 
 /* Detail Drawer (Slide over 480px from right) */
@@ -741,14 +750,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Self-hosted Geist fonts for MailSlotUpload */
 @font-face {
-  font-family: "Geist";
+  font-family: "PunchList Sans";
   src: url('/fonts/Geist-Variable.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Geist Mono";
+  font-family: "PunchList Mono";
   src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
@@ -838,8 +847,8 @@ h1, h2, h3, h4, h5, h6 {
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
   /* Type (Geist, self-hosted) */
-  --font-sans: "Geist", 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: "Geist Mono", 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: "PunchList Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: "PunchList Mono", 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
   --tr-tight: -0.015em;
   --tr-base: -0.005em;
 }
@@ -902,4 +911,14 @@ h1, h2, h3, h4, h5, h6 {
   --ms-tray: #12100E;
   --ms-tray-edge: rgba(245, 239, 231, 0.06);
   --ms-tray-inset: 0.60;
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

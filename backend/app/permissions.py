@@ -46,8 +46,8 @@ ROLE_LABELS = {
     "admin": "Facility Administrator",
     "general_contractor": "General Contractor",
     "sub_contractor": "Trade Subcontractor",
-    "architect": "Architect",
-    "owner": "Owner / Client Rep",
+    "architect": "Architect / Engineer",
+    "owner": "Owner Representative",
     "field_inspector": "Field Inspector",
 }
 

@@ -8,9 +8,39 @@ export default defineConfig(({ mode }) => ({
     host: true,
     port: 3000,
     proxy: {
-      '/api':       { target: 'http://localhost:4000', changeOrigin: true },
-      '/uploads':   { target: 'http://localhost:4000', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:4000', ws: true },
+      '/api': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            if (err.code === 'ECONNREFUSED' && res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Backend server is starting up. Please retry momentarily.' }));
+            }
+          });
+        }
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            if (err.code === 'ECONNREFUSED' && res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503);
+              res.end();
+            }
+          });
+        }
+      },
+      '/socket.io': {
+        target: 'http://127.0.0.1:4000',
+        ws: true,
+        configure: (proxy) => {
+          proxy.on('error', () => {
+            // Suppress noisy transient WebSocket connect race before backend opens port 4000
+          });
+        }
+      },
     },
   },
 

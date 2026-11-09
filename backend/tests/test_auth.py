@@ -20,3 +20,15 @@ def test_me_subcontractor(client, sub_headers):
     assert res.status_code == 200
     data = res.json()
     assert data.get("role") == "sub_contractor"
+
+def test_update_profile_avatar(client, admin_headers):
+    payload = {
+        "name": "Satya Thakur",
+        "avatar_url": "https://example.com/custom-profile-avatar.jpg",
+        "phone": "+1 (410) 455-1000",
+    }
+    res = client.patch("/api/auth/profile", json=payload, headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "user" in data
+    assert data["user"]["avatar_url"] == "https://example.com/custom-profile-avatar.jpg"

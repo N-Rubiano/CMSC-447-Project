@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
+import { renderPdfToDataUrl } from '../services/pdfRenderer';
 import MailSlotUpload from './MailSlotUpload';
 import '../styles/MailSlotUpload.css';
 import './BlueprintUploadModal.css';
@@ -174,6 +175,16 @@ export default function BlueprintUploadModal({
       try {
         setUploadProgress(30);
         const entry = validFiles[0];
+        let filePreview = entry.preview;
+        const isPdf = entry.file.type === 'application/pdf' || entry.file.name.endsWith('.pdf');
+        if (!filePreview && isPdf) {
+          try {
+            filePreview = await renderPdfToDataUrl(entry.file, 0);
+          } catch (_) {}
+        } else if (!filePreview && entry.file.type.startsWith('image/')) {
+          filePreview = URL.createObjectURL(entry.file);
+        }
+
         const formData = new FormData();
         formData.append('file', entry.file);
         formData.append('version_tag', newVersionLabel.trim() || 'Latest Revision');
@@ -190,10 +201,16 @@ export default function BlueprintUploadModal({
             ...currentSheet,
             version: updatedVersion,
             revision: updatedVersion,
-            image_url: entry?.preview || currentSheet?.image_url,
+            image_url: filePreview || entry?.preview || currentSheet?.image_url,
             changeNotes: changeNotes.trim() || 'Latest revision uploaded'
           };
         }
+
+        // Always guarantee image_url is populated with the uploaded file preview
+        updatedSheet = {
+          ...updatedSheet,
+          image_url: updatedSheet.image_url || filePreview || entry?.preview || currentSheet?.image_url
+        };
 
         setUploadProgress(100);
         setUploadedSheets([updatedSheet]);
@@ -218,6 +235,15 @@ export default function BlueprintUploadModal({
       setUploadProgress(Math.round(i * step + step * 0.3));
 
       const isPdf = entry.file.type === 'application/pdf' || entry.file.name.endsWith('.pdf');
+      let filePreview = entry.preview;
+      if (!filePreview && isPdf) {
+        try {
+          filePreview = await renderPdfToDataUrl(entry.file, 0);
+        } catch (_) {}
+      } else if (!filePreview && entry.file.type.startsWith('image/')) {
+        filePreview = URL.createObjectURL(entry.file);
+      }
+
       const formData = new FormData();
       formData.append(isPdf ? 'pdf' : 'image', entry.file);
       formData.append('discipline', discipline);
@@ -264,11 +290,19 @@ export default function BlueprintUploadModal({
           dimensions: { width: 1400, height: 900 },
           gridCols: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
           gridRows: ['1', '2', '3', '4', '5', '6'],
-          image_url: entry.preview || null,
+          image_url: filePreview || entry.preview || null,
           building_id: buildingId.trim() || null,
           building_name: buildingName.trim() || projectName || 'Tower A',
           floor_level: floorLevel.trim() || 'Level 03'
         }];
+      } else {
+        // Ensure image_url is populated from preview if backend only returned file_path (e.g. PDF drawing set)
+        created = created.map(s => ({
+          ...s,
+          image_url: s.image_url || filePreview || entry.preview || null,
+          number: s.number || s.sheet_number,
+          dimensions: s.dimensions || { width: s.width_pts || 1400, height: s.height_pts || 900 }
+        }));
       }
 
       allSheets.push(...created);

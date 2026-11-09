@@ -6,9 +6,14 @@ import LoginPage from '../components/LoginPage';
 // Mock dynamic import of api
 vi.mock('../services/api', () => ({
   api: {
-    login: vi.fn().mockResolvedValue({
-      user: { id: 'usr-1', email: 'admin@punchlistpro.demo', role: 'admin' },
-      token: 'mock-jwt-token',
+    login: vi.fn().mockImplementation((email, password) => {
+      if (email === 'uw61778@umbc.edu' && password === 'Thakur@531') {
+        return Promise.resolve({
+          user: { id: 'usr-admin-1', email: 'uw61778@umbc.edu', role: 'admin', name: 'Satya Thakur' },
+          token: 'mock-jwt-token',
+        });
+      }
+      return Promise.reject(new Error('Invalid email or password'));
     }),
   },
 }));
@@ -19,46 +24,59 @@ describe('LoginPage Component', () => {
   beforeEach(() => {
     mockOnLogin = vi.fn();
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
-  it('renders headline and welcome card', () => {
+  it('renders headline, welcome card, and login input fields', () => {
     render(<LoginPage onLogin={mockOnLogin} />);
 
     expect(screen.getByText(/Smarter/i)).toBeInTheDocument();
     expect(screen.getByText(/Stronger/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Welcome!/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter your username or email/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter your password/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Log In/i })).toBeInTheDocument();
   });
 
-  it('renders all 6 role demo account quick-select buttons', () => {
+  it('does NOT render "Create an Account" or "Continue with Google"', () => {
     render(<LoginPage onLogin={mockOnLogin} />);
 
-    expect(screen.getByLabelText(/Select demo account: Admin/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Select demo account: Contractor/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Select demo account: Subcontractor/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Select demo account: Architect/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Select demo account: Owner Rep/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Select demo account: Field Inspector/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Create an Account/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Continue with Google/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Or continue with/i)).not.toBeInTheDocument();
   });
 
-  it('updates email and password when selecting a different demo account', () => {
+  it('renders "Save password" option and persists credentials on login when checked', async () => {
     render(<LoginPage onLogin={mockOnLogin} />);
 
-    const subButton = screen.getByLabelText(/Select demo account: Subcontractor/i);
-    fireEvent.click(subButton);
+    const savePasswordCheckbox = screen.getByLabelText(/Save password/i);
+    expect(savePasswordCheckbox).toBeInTheDocument();
+    expect(savePasswordCheckbox.checked).toBe(false);
 
-    const emailInput = screen.getByPlaceholderText(/Enter your username or email/i);
-    expect(emailInput.value).toBe('sub@punchlistpro.demo');
-    expect(subButton).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('displays error when submitting with empty email or password', async () => {
-    render(<LoginPage onLogin={mockOnLogin} />);
+    fireEvent.click(savePasswordCheckbox);
+    expect(savePasswordCheckbox.checked).toBe(true);
 
     const emailInput = screen.getByPlaceholderText(/Enter your username or email/i);
     const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
 
-    fireEvent.change(emailInput, { target: { value: '' } });
-    fireEvent.change(passwordInput, { target: { value: '' } });
+    fireEvent.change(emailInput, { target: { value: 'uw61778@umbc.edu' } });
+    fireEvent.change(passwordInput, { target: { value: 'Thakur@531' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Log In/i });
+    fireEvent.submit(submitBtn.closest('form'));
+
+    await waitFor(() => {
+      expect(mockOnLogin).toHaveBeenCalledTimes(1);
+    });
+
+    expect(localStorage.getItem('punchlist_save_creds')).toBe('true');
+    const saved = JSON.parse(localStorage.getItem('punchlist_saved_creds') || '{}');
+    expect(saved.email).toBe('uw61778@umbc.edu');
+    expect(saved.password).toBe('Thakur@531');
+  });
+
+  it('displays error when submitting with empty email or password', async () => {
+    render(<LoginPage onLogin={mockOnLogin} />);
 
     const submitBtn = screen.getByRole('button', { name: /Log In/i });
     fireEvent.submit(submitBtn.closest('form'));
@@ -67,14 +85,40 @@ describe('LoginPage Component', () => {
     expect(mockOnLogin).not.toHaveBeenCalled();
   });
 
-  it('invokes onLogin callback on valid submission', async () => {
+  it('displays error when credentials are invalid', async () => {
     render(<LoginPage onLogin={mockOnLogin} />);
 
+    const emailInput = screen.getByPlaceholderText(/Enter your username or email/i);
+    const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
+
+    fireEvent.change(emailInput, { target: { value: 'wrong@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'wrongpassword' } });
+
     const submitBtn = screen.getByRole('button', { name: /Log In/i });
-    fireEvent.click(submitBtn);
+    fireEvent.submit(submitBtn.closest('form'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Invalid email or password/i);
+    expect(mockOnLogin).not.toHaveBeenCalled();
+  });
+
+  it('invokes onLogin callback on valid admin submission', async () => {
+    render(<LoginPage onLogin={mockOnLogin} />);
+
+    const emailInput = screen.getByPlaceholderText(/Enter your username or email/i);
+    const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
+
+    fireEvent.change(emailInput, { target: { value: 'uw61778@umbc.edu' } });
+    fireEvent.change(passwordInput, { target: { value: 'Thakur@531' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Log In/i });
+    fireEvent.submit(submitBtn.closest('form'));
 
     await waitFor(() => {
       expect(mockOnLogin).toHaveBeenCalledTimes(1);
+      expect(mockOnLogin).toHaveBeenCalledWith(expect.objectContaining({
+        email: 'uw61778@umbc.edu',
+        role: 'admin',
+      }));
     });
   });
 });

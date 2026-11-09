@@ -18,9 +18,11 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
+let _cachedDocuments = null;
+
 export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBlueprint }) {
-  const [documents, setDocuments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [documents, setDocuments] = useState(() => _cachedDocuments || []);
+  const [isLoading, setIsLoading] = useState(!_cachedDocuments);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [activeFolder, setActiveFolder] = useState('All');
@@ -36,10 +38,12 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
 
   // Load documents from PostgreSQL database
   const loadDocuments = async () => {
-    setIsLoading(true);
+    if (!_cachedDocuments) setIsLoading(true);
     try {
       const data = await api.getDocuments();
-      setDocuments(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      _cachedDocuments = list;
+      setDocuments(list);
     } catch (err) {
       console.warn('Could not load documents from backend database:', err);
     } finally {
@@ -135,79 +139,79 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
       {/* Header & Title */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
         <div>
-          <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
-            Field Documentation & Compliance
+          <div className="eyebrow" style={{ marginBottom: 4 }}>
+            Field Documentation &amp; Compliance
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
-            Project Documents & Sets
+          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)' }}>
+            Project Documents &amp; Sets
           </h1>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="btn btn-primary"
-            style={{ height: 40 }}
+            style={{ height: 38 }}
           >
-            <Upload size={17} strokeWidth={2.4} />
+            <Upload size={16} strokeWidth={2} />
             <span>Upload Document</span>
           </button>
           {onUploadBlueprint && (
             <button
               onClick={onUploadBlueprint}
               className="btn btn-ghost"
-              style={{ height: 40, border: '1px solid var(--border)' }}
+              style={{ height: 38 }}
             >
-              <Layers size={17} color="var(--amber)" />
+              <Layers size={16} color="var(--amber)" />
               <span>Upload Drawing Set</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Small Stat Cards Up Top */}
+      {/* Small Stat Cards Up Top (Calm 4px scale, tabular figures) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: 16
       }}>
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
-            <FileText size={22} />
+        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
+            <FileText size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{totalDocsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Total Documents (DB)</div>
+            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{totalDocsCount}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Total Documents</div>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: 'var(--status-review-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-review)' }}>
-            <Clock size={22} />
+        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--status-review-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-review)' }}>
+            <Clock size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{pendingRFIsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Active RFIs</div>
+            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{pendingRFIsCount}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Active RFIs</div>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: 'var(--status-resolved-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-resolved)' }}>
-            <FileCheck size={22} />
+        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--status-resolved-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-resolved)' }}>
+            <FileCheck size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{approvedSubmittalsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Approved Submittals</div>
+            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{approvedSubmittalsCount}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Approved Submittals</div>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
-            <Layers size={22} />
+        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+            <Layers size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{drawingSetsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Drawing Sets</div>
+            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{drawingSetsCount}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Drawing Sets</div>
           </div>
         </div>
       </div>

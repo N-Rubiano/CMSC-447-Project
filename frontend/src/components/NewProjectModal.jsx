@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Building2, Plus } from 'lucide-react';
+import { X, Building2, Plus, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function NewProjectModal({ users = [], onClose, onProjectCreated }) {
@@ -217,7 +217,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
               fontSize: 13,
               fontWeight: 600
             }}>
-              ⚠ {error}
+              <AlertCircle size={15} style={{ verticalAlign: "-2px", marginRight: 6, display: "inline" }} />{error}
             </div>
           )}
 

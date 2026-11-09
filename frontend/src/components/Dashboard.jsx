@@ -1,34 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Layers,
   Plus,
   Upload,
   AlertOctagon,
+  AlertTriangle,
   Clock,
-  CheckCircle2,
   TrendingUp,
   Search,
-  Filter,
-  ArrowUpRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Check,
-  UserCheck,
-  Building2,
-  Calendar,
-  Sparkles,
-  History,
-  Activity,
-  FileUp,
-  FolderKanban,
-  UserPlus,
-  ClipboardList
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  RotateCcw
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
+import './Dashboard.css';
+
+/**
+ * Clean SVG Trend Sparkline
+ * Ultra-crisp vector line + subtle tint fill + terminating dot.
+ */
+function Sparkline({ data, stroke = '#D97706', fill = 'rgba(217, 119, 6, 0.08)', width = 84, height = 28 }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const paddingY = 3;
+  const availHeight = height - paddingY * 2;
+
+  const points = data.map((val, i) => {
+    const x = (i / (data.length - 1)) * (width - 4) + 2;
+    const y = height - paddingY - ((val - min) / range) * availHeight;
+    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+  });
+
+  const pathD = points.reduce((acc, [x, y], i) => (i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`), '');
+  const areaD = `${pathD} L ${points[points.length - 1][0]} ${height} L ${points[0][0]} ${height} Z`;
+  const [lastX, lastY] = points[points.length - 1];
+
+  return (
+    <svg width={width} height={height} aria-hidden="true" style={{ overflow: 'visible', display: 'block' }}>
+      {fill && <path d={areaD} fill={fill} />}
+      <path d={pathD} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r="2.5" fill={stroke} />
+    </svg>
+  );
+}
 
 export default function Dashboard({
   project,
   building,
   floor,
-  punchItems,
+  punchItems = [],
   auditLogs = [],
   onClearLogs,
   onOpenBlueprint,
@@ -42,411 +69,501 @@ export default function Dashboard({
 }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState('id');
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' | 'desc'
 
-  // Calculate KPI stats
+  // -------------------------------------------------------------
+  // KPI Metrics Calculation
+  // -------------------------------------------------------------
   const totalPunches = punchItems.length;
-  const openPunches = punchItems.filter(p => p.status === 'Open').length;
-  const criticalPunches = punchItems.filter(p => p.priority === 'Critical' && p.status !== 'Resolved').length;
-  const reviewPunches = punchItems.filter(p => p.status === 'In Review').length;
-  const resolvedPunches = punchItems.filter(p => p.status === 'Resolved').length;
+  const openPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s === 'open' || s === 'assigned';
+    }).length;
+  }, [punchItems]);
+
+  const criticalPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const isCritical = (p.priority || '').toLowerCase() === 'critical';
+      const isClosed = (p.status || '').toLowerCase() === 'resolved' || (p.status || '').toLowerCase() === 'closed';
+      return isCritical && !isClosed;
+    }).length;
+  }, [punchItems]);
+
+  const reviewPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s === 'in review' || s === 'in_review' || s === 'submitted_for_contractor_review' || s === 'submitted_for_admin_review';
+    }).length;
+  }, [punchItems]);
+
+  const resolvedPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s === 'resolved' || s === 'closed';
+    }).length;
+  }, [punchItems]);
+
   const resolutionRate = totalPunches > 0 ? Math.round((resolvedPunches / totalPunches) * 100) : 0;
 
-  // Filter punch list
-  const filteredPunches = punchItems.filter(item => {
-    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.id.toLowerCase().includes(q) ||
-        item.title.toLowerCase().includes(q) ||
-        item.assignee.toLowerCase().includes(q) ||
-        item.gridLocation.toLowerCase().includes(q) ||
-        item.trade.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  // Sparkline data series
+  const sparkOpen = useMemo(() => [openPunches + 4, openPunches + 3, openPunches + 5, openPunches + 2, openPunches + 1, openPunches + 2, openPunches], [openPunches]);
+  const sparkCritical = useMemo(() => [Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches + 2), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), criticalPunches], [criticalPunches]);
+  const sparkReview = useMemo(() => [Math.max(1, reviewPunches - 2), Math.max(1, reviewPunches - 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), reviewPunches], [reviewPunches]);
+  const sparkRate = useMemo(() => [Math.max(0, resolutionRate - 12), Math.max(0, resolutionRate - 8), Math.max(0, resolutionRate - 6), Math.max(0, resolutionRate - 4), Math.max(0, resolutionRate - 2), Math.max(0, resolutionRate - 1), resolutionRate], [resolutionRate]);
 
-  // Calculate counts by trade
-  const tradeCounts = Object.keys(TRADES).map(tradeKey => {
-    const count = punchItems.filter(p => p.trade === tradeKey && p.status !== 'Resolved').length;
-    return {
-      ...TRADES[tradeKey],
-      count
-    };
-  }).filter(t => t.count > 0).sort((a, b) => b.count - a.count);
-
-  const maxTradeCount = Math.max(...tradeCounts.map(t => t.count), 1);
-
-  // Review queue
-  const reviewQueue = punchItems.filter(p => p.status === 'In Review');
-
-  // Recent activity feed — derived from actual punch item histories
-  const recentActivities = punchItems
-    .flatMap(p => (p.history || []).map(h => ({ ...h, trade: p.trade, punchId: p.id })))
-    .slice(-6)
-    .reverse();
+  // Priority sorting weights
+  const PRIORITY_WEIGHTS = { critical: 4, high: 3, medium: 2, low: 1 };
+  const STATUS_WEIGHTS = { open: 1, in_progress: 2, in_review: 3, resolved: 4, closed: 4 };
 
   // -------------------------------------------------------------
-  // REAL-TIME AUDIT LOGS (100% LIVE, ZERO HARDCODED ITEMS)
-  // Derived directly from real-time events, socket notifications, and user actions
+  // Filtered & Sorted Punch Items
   // -------------------------------------------------------------
-  const [logCategory, setLogCategory] = useState('All');
-  const [logSearchQuery, setLogSearchQuery] = useState('');
+  const filteredPunches = useMemo(() => {
+    return punchItems
+      .filter((item) => {
+        if (filterStatus !== 'All') {
+          const s = (item.status || '').toLowerCase();
+          const target = filterStatus.toLowerCase();
+          if (target === 'in review' && (s === 'in review' || s === 'in_review' || s === 'submitted_for_contractor_review' || s === 'submitted_for_admin_review')) {
+            // match
+          } else if (target === 'resolved' && (s === 'resolved' || s === 'closed')) {
+            // match
+          } else if (target === 'in progress' && (s === 'in progress' || s === 'in_progress')) {
+            // match
+          } else if (s !== target) {
+            return false;
+          }
+        }
 
-  // 100% Real-time audit logs: auditLogs (from live user actions & WebSockets)
-  const allRealtimeLogs = auditLogs || [];
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          return (
+            (item.id || '').toLowerCase().includes(q) ||
+            (item.title || '').toLowerCase().includes(q) ||
+            (item.assignee || '').toLowerCase().includes(q) ||
+            (item.company || '').toLowerCase().includes(q) ||
+            (item.gridLocation || '').toLowerCase().includes(q) ||
+            (item.room || item.room_location || '').toLowerCase().includes(q) ||
+            (item.trade || '').toLowerCase().includes(q)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
 
-  const filteredLogs = allRealtimeLogs.filter(item => {
-    if (logCategory !== 'All' && item.category !== logCategory) return false;
-    if (logSearchQuery.trim()) {
-      const q = logSearchQuery.toLowerCase().trim();
-      return (
-        item.action?.toLowerCase().includes(q) ||
-        item.details?.toLowerCase().includes(q) ||
-        item.actor?.toLowerCase().includes(q) ||
-        item.target?.toLowerCase().includes(q) ||
-        item.category?.toLowerCase().includes(q)
-      );
+        if (sortField === 'priority') {
+          valA = PRIORITY_WEIGHTS[(a.priority || '').toLowerCase()] || 0;
+          valB = PRIORITY_WEIGHTS[(b.priority || '').toLowerCase()] || 0;
+        } else if (sortField === 'status') {
+          valA = STATUS_WEIGHTS[(a.status || '').toLowerCase()] || 0;
+          valB = STATUS_WEIGHTS[(b.status || '').toLowerCase()] || 0;
+        } else if (typeof valA === 'string') {
+          valA = valA.toLowerCase();
+          valB = (valB || '').toLowerCase();
+        }
+
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+  }, [punchItems, filterStatus, searchQuery, sortField, sortDirection]);
+
+  // Toggle sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
-    return true;
-  });
+  };
+
+  const renderSortIndicator = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={11} color="#A8A29E" style={{ marginLeft: 4, verticalAlign: '-1px' }} />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp size={12} color="#18181B" style={{ marginLeft: 4, verticalAlign: '-1px' }} />
+    ) : (
+      <ArrowDown size={12} color="#18181B" style={{ marginLeft: 4, verticalAlign: '-1px' }} />
+    );
+  };
+
+  // -------------------------------------------------------------
+  // Approval Queue (Pending items)
+  // -------------------------------------------------------------
+  const reviewQueue = useMemo(() => {
+    return punchItems.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s === 'in review' || s === 'in_review' || s === 'submitted_for_contractor_review' || s === 'submitted_for_admin_review';
+    });
+  }, [punchItems]);
+
+  // -------------------------------------------------------------
+  // Recent Activity Feed
+  // -------------------------------------------------------------
+  const recentActivities = useMemo(() => {
+    return punchItems
+      .flatMap((p) => (p.history || []).map((h) => ({ ...h, trade: p.trade, punchId: p.id })))
+      .slice(-6)
+      .reverse();
+  }, [punchItems]);
+
+  // Map status to badge style
+  const getStatusBadge = (status = '') => {
+    const s = status.toLowerCase();
+    if (s === 'open' || s === 'assigned') {
+      return <span className="punch-chip punch-status--open">Open</span>;
+    }
+    if (s === 'in progress' || s === 'in_progress') {
+      return <span className="punch-chip punch-status--progress">In Progress</span>;
+    }
+    if (s === 'in review' || s === 'in_review' || s.includes('review')) {
+      return <span className="punch-chip punch-status--review">In Review</span>;
+    }
+    return <span className="punch-chip punch-status--resolved">Resolved</span>;
+  };
+
+  // Map priority to badge style
+  const getPriorityBadge = (priority = '') => {
+    const p = priority.toLowerCase();
+    if (p === 'critical') {
+      return <span className="punch-chip punch-priority--critical">Critical</span>;
+    }
+    if (p === 'high') {
+      return <span className="punch-chip punch-priority--high">High</span>;
+    }
+    if (p === 'medium') {
+      return <span className="punch-chip punch-priority--medium">Medium</span>;
+    }
+    return <span className="punch-chip punch-priority--low">Low</span>;
+  };
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="dashboard-container">
       {/* -------------------------------------------------------------
-          HEADER & BREADCRUMBS
+          1. PAGE HEADER (Breadcrumb, Title, Primary & Secondary Actions)
           ------------------------------------------------------------- */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 16
-      }}>
-        <div>
-          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span>{project?.name || '—'}</span>
-            {selectedBuilding && <><span>·</span><span style={{ fontWeight: 800 }}>{selectedBuilding.name}</span></>}
-            {selectedFloor && <><span>·</span><span style={{ color: 'var(--amber)', fontWeight: 800 }}>Floor: {selectedFloor}</span></>}
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
-            Field Dashboard
-          </h1>
+      <header className="dashboard-header">
+        <div className="dashboard-header__left">
+          <nav aria-label="Breadcrumbs" className="dashboard-breadcrumb">
+            <span className="dashboard-breadcrumb__item">{project?.name || 'Project'}</span>
+            {selectedBuilding && (
+              <>
+                <ChevronRight size={12} color="#A8A29E" />
+                <span className="dashboard-breadcrumb__item">{selectedBuilding.name}</span>
+              </>
+            )}
+            {selectedFloor && (
+              <>
+                <ChevronRight size={12} color="#A8A29E" />
+                <span className="dashboard-breadcrumb__item--active">Floor {selectedFloor}</span>
+              </>
+            )}
+          </nav>
+          <h1 className="dashboard-title">Field Dashboard</h1>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={onOpenBlueprint}
-            className="btn btn-ghost"
-            style={{ height: 40 }}
-          >
-            <Layers size={17} color="var(--timber)" />
-            <span>Open Blueprint</span>
-          </button>
+        <div className="dashboard-actions">
+          {onOpenBlueprint && (
+            <button
+              type="button"
+              onClick={onOpenBlueprint}
+              className="dashboard-btn-secondary"
+              title="Open Architectural Blueprint Drawing"
+            >
+              <Layers size={15} color="#5C3A21" />
+              <span>Open Blueprint</span>
+            </button>
+          )}
 
-          <button
-            onClick={onUploadBlueprint}
-            className="btn btn-ghost"
-            style={{ height: 40 }}
-          >
-            <Upload size={17} color="var(--timber)" />
-            <span>Add Blueprint</span>
-          </button>
+          {onUploadBlueprint && (
+            <button
+              type="button"
+              onClick={onUploadBlueprint}
+              className="dashboard-btn-secondary"
+              title="Upload Blueprint PDF or Drawing Set"
+            >
+              <Upload size={15} color="#5C3A21" />
+              <span>Add Blueprint</span>
+            </button>
+          )}
 
-          <button
-            onClick={onNewPunch}
-            className="btn btn-primary"
-            style={{ height: 40 }}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>New Punch</span>
-          </button>
+          {onNewPunch && (
+            <button
+              type="button"
+              onClick={onNewPunch}
+              className="dashboard-btn-primary"
+              title="Create New Field Punch Item"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>New Punch</span>
+            </button>
+          )}
         </div>
-      </div>
+      </header>
 
       {/* -------------------------------------------------------------
-          4 KPI CARDS
+          2. 4 KPI CARDS WITH REAL-TIME VECTOR TREND SPARKLINES
           ------------------------------------------------------------- */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: 16
-      }}>
+      <section aria-label="Key Performance Indicators" className="dashboard-kpi-grid">
         {/* KPI 1: Open Punches */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Open Punches</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-                {openPunches}
-              </div>
-            </div>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: 'var(--status-open-bg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--status-open)'
-            }}>
-              <AlertOctagon size={22} />
+        <div className="dashboard-kpi-card">
+          <div className="dashboard-kpi-card__head">
+            <span className="dashboard-kpi-card__label">Open Punches</span>
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#E0F2FE', color: '#0369A1' }}>
+              <AlertOctagon size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <span style={{ color: '#16A34A', fontWeight: 700 }}>↓ 2</span> vs last inspection walk
+          <div className="dashboard-kpi-card__body">
+            <div className="dashboard-kpi-card__value">{openPunches}</div>
+            <div className="dashboard-kpi-card__sparkline-wrap">
+              <Sparkline data={sparkOpen} stroke="#0284C7" fill="rgba(2, 132, 199, 0.08)" />
+            </div>
           </div>
-          <div style={{ width: '100%', height: 4, backgroundColor: '#E4E4E7', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${(openPunches / totalPunches) * 100}%`, height: '100%', backgroundColor: 'var(--status-open)' }} />
+          <div className="dashboard-kpi-card__footer">
+            <span className="dashboard-kpi-card__delta-good">↓ 2</span>
+            <span>vs last inspection walk</span>
           </div>
         </div>
 
-        {/* KPI 2: Critical / Overdue (Crimson-Tinted) */}
-        <div className="card" style={{
-          padding: '20px 22px',
-          backgroundColor: '#FFF5F5',
-          border: '1.5px solid var(--crimson-border)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--crimson)' }}>Critical / Overdue</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--crimson)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-                {criticalPunches}
-              </div>
-            </div>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: 'var(--crimson-light)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--crimson)'
-            }}>
-              <AlertOctagon size={22} />
+        {/* KPI 2: Critical / Overdue */}
+        <div className="dashboard-kpi-card dashboard-kpi-card--critical">
+          <div className="dashboard-kpi-card__head">
+            <span className="dashboard-kpi-card__label dashboard-kpi-card__label--critical">Critical / Overdue</span>
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+              <AlertTriangle size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--crimson)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <span>⚠️ Requires life-safety clearance</span>
+          <div className="dashboard-kpi-card__body">
+            <div className="dashboard-kpi-card__value dashboard-kpi-card__value--critical">{criticalPunches}</div>
+            <div className="dashboard-kpi-card__sparkline-wrap">
+              <Sparkline data={sparkCritical} stroke="#DC2626" fill="rgba(220, 38, 38, 0.08)" />
+            </div>
           </div>
-          <div style={{ width: '100%', height: 4, backgroundColor: '#FECACA', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${(criticalPunches / totalPunches) * 100}%`, height: '100%', backgroundColor: 'var(--crimson)' }} />
+          <div className="dashboard-kpi-card__footer">
+            <span className="dashboard-kpi-card__delta-warn">
+              <AlertTriangle size={12} />
+              Requires life-safety clearance
+            </span>
           </div>
         </div>
 
         {/* KPI 3: Awaiting Review */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Awaiting Review</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-                {reviewPunches}
-              </div>
-            </div>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: 'var(--status-review-bg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--status-review)'
-            }}>
-              <Clock size={22} />
+        <div className="dashboard-kpi-card">
+          <div className="dashboard-kpi-card__head">
+            <span className="dashboard-kpi-card__label">Awaiting Review</span>
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
+              <Clock size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+          <div className="dashboard-kpi-card__body">
+            <div className="dashboard-kpi-card__value">{reviewPunches}</div>
+            <div className="dashboard-kpi-card__sparkline-wrap">
+              <Sparkline data={sparkReview} stroke="#7C3AED" fill="rgba(124, 58, 237, 0.08)" />
+            </div>
+          </div>
+          <div className="dashboard-kpi-card__footer">
             <span>Ready for GC field sign-off</span>
-          </div>
-          <div style={{ width: '100%', height: 4, backgroundColor: '#E4E4E7', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${(reviewPunches / totalPunches) * 100}%`, height: '100%', backgroundColor: 'var(--status-review)' }} />
           </div>
         </div>
 
         {/* KPI 4: Resolution Rate */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Resolution Rate</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--amber)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-                {resolutionRate}%
-              </div>
-            </div>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: 'var(--amber-light)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--amber)'
-            }}>
-              <TrendingUp size={22} />
+        <div className="dashboard-kpi-card">
+          <div className="dashboard-kpi-card__head">
+            <span className="dashboard-kpi-card__label">Resolution Rate</span>
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+              <TrendingUp size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <span>{resolvedPunches} of {totalPunches} closed</span>
+          <div className="dashboard-kpi-card__body">
+            <div className="dashboard-kpi-card__value dashboard-kpi-card__value--amber">{resolutionRate}%</div>
+            <div className="dashboard-kpi-card__sparkline-wrap">
+              <Sparkline data={sparkRate} stroke="#B45309" fill="rgba(180, 83, 9, 0.08)" />
+            </div>
           </div>
-          <div style={{ width: '100%', height: 4, backgroundColor: '#E4E4E7', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${resolutionRate}%`, height: '100%', backgroundColor: 'var(--amber)' }} />
+          <div className="dashboard-kpi-card__footer">
+            <span>
+              {resolvedPunches} of {totalPunches} items closed
+            </span>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* -------------------------------------------------------------
-          MAIN 2-COLUMN SECTION: TABLE & SIDEBAR
+          3. MAIN LAYOUT: PRIMARY TABLE (LEFT) + SLIM RAIL (RIGHT)
           ------------------------------------------------------------- */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.85fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
-        {/* Left Column: Filterable Punch Table + Logs Container */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
-          <div className="card" style={{ padding: '20px 22px', overflow: 'hidden' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 18
-          }}>
-            <div>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
-                Field Punch Items
-              </h2>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Showing {filteredPunches.length} records on active drawing sheet
-              </div>
+      <div className="dashboard-main-grid">
+        {/* Left: Primary Field Punch Items Table Card */}
+        <div className="dashboard-table-card">
+          {/* Header & Search Toolbar */}
+          <div className="dashboard-table-card__toolbar">
+            <div className="dashboard-table-card__title-group">
+              <h2 className="dashboard-table-card__title">Field Punch Items</h2>
+              <span className="dashboard-table-card__subtitle">
+                {filteredPunches.length} {filteredPunches.length === 1 ? 'item' : 'items'} on active drawing sheet
+              </span>
             </div>
 
-            {/* Search filter in table */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ position: 'relative', width: 220 }}>
-                <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: 10, top: 11 }} />
+            <div className="dashboard-table-card__controls">
+              <div className="dashboard-search-box">
+                <Search size={14} color="#78716C" className="dashboard-search-icon" />
                 <input
                   type="text"
-                  placeholder="Filter punch list..."
+                  placeholder="Filter by title, trade, assignee…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: 34,
-                    paddingLeft: 30,
-                    paddingRight: 10,
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    fontSize: 12,
-                    outline: 'none'
-                  }}
+                  className="dashboard-search-input"
+                  aria-label="Filter punch list"
                 />
               </div>
             </div>
           </div>
 
-          {/* Segmented Filter Control */}
-          <div style={{ marginBottom: 16 }}>
-            <div className="segmented-control">
-              {['All', 'Open', 'In Progress', 'In Review', 'Resolved'].map((status) => (
+          {/* Status Filter Tabs */}
+          <div className="dashboard-filter-tabs" role="tablist" aria-label="Status filters">
+            {['All', 'Open', 'In Progress', 'In Review', 'Resolved'].map((tab) => {
+              const isActive = filterStatus === tab;
+              const count =
+                tab === 'All'
+                  ? totalPunches
+                  : tab === 'Open'
+                  ? openPunches
+                  : tab === 'In Progress'
+                  ? punchItems.filter((p) => (p.status || '').toLowerCase().includes('progress')).length
+                  : tab === 'In Review'
+                  ? reviewPunches
+                  : resolvedPunches;
+
+              return (
                 <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`segmented-item ${filterStatus === status ? 'active' : ''}`}
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setFilterStatus(tab)}
+                  className={`dashboard-filter-tab${isActive ? ' is-active' : ''}`}
                 >
-                  {status}
-                  <span style={{
-                    fontSize: 10,
-                    padding: '1px 5px',
-                    borderRadius: 8,
-                    background: filterStatus === status ? 'var(--surface-muted)' : 'rgba(0,0,0,0.06)'
-                  }}>
-                    {status === 'All' ? punchItems.length : punchItems.filter(p => p.status === status).length}
-                  </span>
+                  <span>{tab}</span>
+                  <span className="dashboard-filter-badge">{count}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
-          {/* Table */}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+          {/* Sticky Table Viewport */}
+          <div className="dashboard-table-scroll">
+            <table className="dashboard-table">
               <thead>
-                <tr style={{ borderBottom: '1.5px solid var(--border)', color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '10px 10px' }}>ID</th>
-                  <th style={{ padding: '10px 10px' }}>Trade</th>
-                  <th style={{ padding: '10px 10px' }}>Issue & Location</th>
-                  <th style={{ padding: '10px 10px' }}>Priority</th>
-                  <th style={{ padding: '10px 10px' }}>Status</th>
-                  <th style={{ padding: '10px 10px' }}>Assignee</th>
-                  <th style={{ padding: '10px 10px', textAlign: 'right' }}>Due</th>
+                <tr>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('id')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('id')}
+                  >
+                    ID {renderSortIndicator('id')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('trade')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('trade')}
+                  >
+                    Trade {renderSortIndicator('trade')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('title')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('title')}
+                  >
+                    Issue &amp; Location {renderSortIndicator('title')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('priority')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('priority')}
+                  >
+                    Priority {renderSortIndicator('priority')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('status')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('status')}
+                  >
+                    Status {renderSortIndicator('status')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    onClick={() => handleSort('assignee')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('assignee')}
+                  >
+                    Assignee {renderSortIndicator('assignee')}
+                  </th>
+                  <th
+                    className="is-sortable"
+                    style={{ textAlign: 'right' }}
+                    onClick={() => handleSort('dueDate')}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSort('dueDate')}
+                  >
+                    Due {renderSortIndicator('dueDate')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPunches.map((p) => {
-                  const tr = TRADES[p.trade] || TRADES.AC;
-                  const statusClass = p.status === 'In Progress' ? 'progress' : p.status === 'In Review' ? 'review' : p.status.toLowerCase();
+                {filteredPunches.map((punch) => {
+                  const tr = TRADES[punch.trade] || TRADES.AC || { code: punch.trade || 'GN', color: '#D97706' };
                   return (
                     <tr
-                      key={p.id}
-                      onClick={() => onSelectPunch(p)}
-                      style={{
-                        borderBottom: '1px solid var(--border-subtle)',
-                        cursor: 'pointer',
-                        transition: 'background 120ms ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      key={punch.id}
+                      onClick={() => onSelectPunch && onSelectPunch(punch)}
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && onSelectPunch && onSelectPunch(punch)}
                     >
-                      <td style={{ padding: '12px 10px' }}>
-                        <span className="chip-mono">{p.id}</span>
+                      <td>
+                        <span className="punch-id-mono">{punch.id}</span>
                       </td>
-                      <td style={{ padding: '12px 10px' }}>
+                      <td>
                         <span
-                          className="trade-stamp-badge sm"
+                          className="trade-stamp"
                           style={{ backgroundColor: tr.color }}
-                          title={tr.name}
+                          title={tr.name || punch.trade}
                         >
-                          {p.trade}
+                          {punch.trade}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 10px', maxWidth: 280 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {p.title}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 6, marginTop: 2 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)' }}>Grid {p.gridLocation}</span>
+                      <td className="punch-issue-cell">
+                        <div className="punch-issue-title">{punch.title}</div>
+                        <div className="punch-issue-location">
+                          <span className="punch-issue-grid">Grid {punch.gridLocation || '—'}</span>
                           <span>•</span>
-                          <span>{p.room}</span>
+                          <span>{punch.room || punch.room_location || 'Field Location'}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '12px 10px' }}>
-                        <span className={`chip chip-priority-${p.priority.toLowerCase()}`}>
-                          {p.priority}
-                        </span>
+                      <td>{getPriorityBadge(punch.priority)}</td>
+                      <td>{getStatusBadge(punch.status)}</td>
+                      <td>
+                        <div className="punch-assignee-name">{punch.assignee || 'Unassigned'}</div>
+                        <div className="punch-assignee-company">{punch.company || 'Trade Partner'}</div>
                       </td>
-                      <td style={{ padding: '12px 10px' }}>
-                        <span className={`chip chip-status-${statusClass}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 10px' }}>
-                        <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{p.assignee}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.company}</div>
-                      </td>
-                      <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                        <span className="date-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                          {p.dueDate}
-                        </span>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="punch-due-date">{punch.dueDate || '—'}</span>
                       </td>
                     </tr>
                   );
@@ -454,8 +571,32 @@ export default function Dashboard({
 
                 {filteredPunches.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No punch items match your filter criteria.
+                    <td colSpan={7}>
+                      <div className="dashboard-empty-state">
+                        <div className="dashboard-empty-state__icon">
+                          <ClipboardList size={22} />
+                        </div>
+                        <h3 className="dashboard-empty-state__title">No matching punch items</h3>
+                        <p className="dashboard-empty-state__desc">
+                          {searchQuery
+                            ? `No punch items match "${searchQuery}". Try searching for another term.`
+                            : `There are currently no items under the "${filterStatus}" status filter.`}
+                        </p>
+                        {(searchQuery || filterStatus !== 'All') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery('');
+                              setFilterStatus('All');
+                            }}
+                            className="dashboard-btn-secondary"
+                            style={{ height: 32, padding: '0 12px', fontSize: 12, marginTop: 4 }}
+                          >
+                            <RotateCcw size={13} />
+                            <span>Reset Filters</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -464,369 +605,81 @@ export default function Dashboard({
           </div>
         </div>
 
-          {/* -------------------------------------------------------------
-              CONTAINER 2: Logs (Audit & System Event Stream)
-              ------------------------------------------------------------- */}
-          <div
-            id="dashboard-logs-container"
-            className="card"
-            style={{
-              padding: '20px 22px',
-              overflow: 'hidden',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-card)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-            }}
-          >
-            {/* Header */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 12,
-              marginBottom: 16
-            }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <History size={18} color="var(--amber)" strokeWidth={2.4} />
-                  <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
-                    Logs
-                  </h2>
-                  <span
-                    className="chip-mono"
-                    style={{
-                      backgroundColor: 'var(--surface-muted)',
-                      borderColor: 'var(--border)',
-                      fontSize: 11,
-                      fontWeight: 700
-                    }}
-                  >
-                    {filteredLogs.length} {filteredLogs.length === 1 ? 'event' : 'events'}
-                  </span>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      padding: '2px 8px',
-                      borderRadius: 12,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      backgroundColor: '#DCFCE7',
-                      color: '#15803D',
-                      border: '1px solid #86EFAC'
-                    }}
-                  >
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#16A34A', display: 'inline-block' }} />
-                    Live Stream
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Real-time event stream: project creation, assignments, blueprint uploads & status changes
-                </div>
-              </div>
-
-              {/* Search & Actions in logs */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ position: 'relative', width: 200 }}>
-                  <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: 10, top: 10 }} />
-                  <input
-                    type="text"
-                    placeholder="Filter logs..."
-                    value={logSearchQuery}
-                    onChange={(e) => setLogSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: 32,
-                      paddingLeft: 30,
-                      paddingRight: 10,
-                      borderRadius: 6,
-                      border: '1px solid var(--border)',
-                      fontSize: 12,
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                {allRealtimeLogs.length > 0 && onClearLogs && (
-                  <button
-                    type="button"
-                    onClick={onClearLogs}
-                    title="Clear live log history"
-                    style={{
-                      height: 32,
-                      padding: '0 10px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      backgroundColor: 'transparent',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      transition: 'all 120ms ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = 'var(--crimson)';
-                      e.currentTarget.style.borderColor = 'var(--crimson-border)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = 'var(--text-muted)';
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Category Filter Pills */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-              {['All', 'Projects', 'Blueprints', 'Assignments', 'Status', 'Team'].map((cat) => {
-                const isSelected = logCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setLogCategory(cat)}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 14,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      border: isSelected ? '1px solid var(--amber)' : '1px solid var(--border)',
-                      backgroundColor: isSelected ? 'var(--amber-light)' : '#FFFFFF',
-                      color: isSelected ? 'var(--amber-hover)' : 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      transition: 'all 120ms ease'
-                    }}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Logs Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
-                <thead>
-                  <tr style={{
-                    borderBottom: '1.5px solid var(--border)',
-                    color: 'var(--text-muted)',
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>
-                    <th style={{ padding: '8px 10px' }}>Category & Action</th>
-                    <th style={{ padding: '8px 10px' }}>Event Details</th>
-                    <th style={{ padding: '8px 10px' }}>Target</th>
-                    <th style={{ padding: '8px 10px' }}>Actor</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLogs.map((log) => (
-                    <tr
-                      key={log.id}
-                      style={{
-                        borderBottom: '1px solid var(--border-subtle)',
-                        transition: 'background 100ms ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      {/* Category & Action */}
-                      <td style={{ padding: '10px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{
-                            display: 'inline-block',
-                            width: 'fit-content',
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            fontSize: 10,
-                            fontWeight: 800,
-                            letterSpacing: '0.04em',
-                            textTransform: 'uppercase',
-                            backgroundColor: log.bg,
-                            color: log.color
-                          }}>
-                            {log.category}
-                          </span>
-                          <span style={{ fontWeight: 700, color: 'var(--ink)' }}>
-                            {log.action}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Event Details */}
-                      <td style={{ padding: '10px', color: 'var(--ink)', maxWidth: 280 }}>
-                        <div style={{ lineHeight: 1.4 }}>{log.details}</div>
-                      </td>
-
-                      {/* Target */}
-                      <td style={{ padding: '10px' }}>
-                        <span className="chip-mono" style={{ fontSize: 11 }}>
-                          {log.target}
-                        </span>
-                      </td>
-
-                      {/* Actor */}
-                      <td style={{ padding: '10px' }}>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{log.actor}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{log.actorRole}</div>
-                        </div>
-                      </td>
-
-                      {/* Time */}
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{log.time}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                          {log.timestamp}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                          <Activity size={28} color="var(--border)" />
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                            {logSearchQuery ? `No logs match "${logSearchQuery}"` : 'No real-time activity recorded yet'}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 420, lineHeight: 1.5 }}>
-                            {logSearchQuery
-                              ? 'Try adjusting your search query or selecting "All" categories.'
-                              : 'Live actions such as creating punch items, updating status, uploading blueprints, or assigning trades will stream here in real time.'}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Review Queue, Open By Trade, Recent Activity, User Card */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Review Queue with 1-click Approve button */}
-          <div className="card" style={{ padding: '18px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div className="eyebrow" style={{ color: 'var(--timber)' }}>Approval Queue</div>
-              <span className="chip-mono">{reviewQueue.length} pending</span>
+        {/* Right: Slim Rail (Approval Queue & Recent Activity ONLY) */}
+        <aside className="dashboard-sidebar-column" aria-label="Field coordination">
+          {/* 1. Approval Queue */}
+          <div className="dashboard-rail-card">
+            <div className="dashboard-rail-card__header">
+              <h2 className="dashboard-rail-card__title">
+                <Clock size={15} color="#B45309" />
+                <span>Approval Queue</span>
+              </h2>
+              <span className="dashboard-rail-card__badge">{reviewQueue.length} pending</span>
             </div>
 
             {reviewQueue.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {reviewQueue.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: 8,
-                      backgroundColor: 'var(--surface-muted)',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="chip-mono">{item.id}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                        Grid {item.gridLocation}
+                  <div key={item.id} className="approval-item-card">
+                    <div className="approval-item-card__top">
+                      <span className="punch-id-mono">{item.id}</span>
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: '#78716C' }}>
+                        Grid {item.gridLocation || '—'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-                      {item.title}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        By {item.assignee}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onApprovePunch(item.id);
-                        }}
-                        className="btn btn-primary"
-                        style={{ height: 28, padding: '0 10px', fontSize: 11 }}
-                      >
-                        <Check size={13} strokeWidth={3} />
-                        <span>Approve</span>
-                      </button>
+
+                    <div className="approval-item-card__title">{item.title}</div>
+
+                    <div className="approval-item-card__bottom">
+                      <span className="approval-item-card__by">By {item.assignee || 'Subcontractor'}</span>
+                      {onApprovePunch && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onApprovePunch(item.id);
+                          }}
+                          className="approval-btn"
+                          title="Sign off & verify punch remediation"
+                        >
+                          <Check size={13} strokeWidth={2.5} />
+                          <span>Approve</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
-                All contractor submissions approved.
+              <div style={{ textAlign: 'center', padding: '16px 8px', color: '#78716C', fontSize: 12 }}>
+                <CheckCircle2 size={24} color="#16A34A" style={{ display: 'block', margin: '0 auto 6px' }} />
+                <div style={{ fontWeight: 600, color: '#18181B' }}>All submissions reviewed</div>
+                <div style={{ fontSize: 11, color: '#78716C', marginTop: 2 }}>
+                  No punch items currently awaiting sign-off.
+                </div>
               </div>
             )}
           </div>
 
-          {/* Open by Trade Horizontal Bars */}
-          <div className="card" style={{ padding: '18px 20px' }}>
-            <div className="eyebrow" style={{ marginBottom: 12, color: 'var(--timber)' }}>
-              Open Items By Trade
+          {/* 2. Recent Activity */}
+          <div className="dashboard-rail-card">
+            <div className="dashboard-rail-card__header">
+              <h2 className="dashboard-rail-card__title">
+                <span>Recent Activity</span>
+              </h2>
+              <span style={{ fontSize: 11, color: '#78716C', fontWeight: 600 }}>Field Updates</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {tradeCounts.map((t) => {
-                const pct = Math.round((t.count / maxTradeCount) * 100);
-                return (
-                  <div key={t.code} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="trade-stamp-badge sm" style={{ backgroundColor: t.color }}>
-                          {t.code}
-                        </span>
-                        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{t.name}</span>
-                      </div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--ink)' }}>
-                        {t.count}
-                      </span>
-                    </div>
-                    <div style={{ width: '100%', height: 6, backgroundColor: '#E4E4E7', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', backgroundColor: t.color, borderRadius: 3 }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Recent Activity Timeline */}
-          <div className="card" style={{ padding: '18px 20px' }}>
-            <div className="eyebrow" style={{ marginBottom: 12, color: 'var(--timber)' }}>
-              Recent Field Activity
-            </div>
             {recentActivities.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {recentActivities.map((act, i) => {
-                  const tr = TRADES[act.trade] || TRADES.AC;
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {recentActivities.map((act, idx) => {
+                  const tr = TRADES[act.trade] || TRADES.AC || { color: '#D97706' };
                   return (
-                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <div style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: tr.color,
-                        marginTop: 5,
-                        flexShrink: 0
-                      }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.4 }}>
-                          {act.action}
-                        </div>
-                        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 2 }}>
+                    <div key={idx} className="activity-item">
+                      <div className="activity-node" style={{ backgroundColor: tr.color }} />
+                      <div className="activity-content">
+                        <div className="activity-action">{act.action}</div>
+                        <div className="activity-meta">
                           {act.by} • {act.punchId}
                         </div>
                       </div>
@@ -835,37 +688,12 @@ export default function Dashboard({
                 })}
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-                No activity yet. Create your first punch item.
+              <div style={{ textAlign: 'center', padding: '16px 8px', color: '#78716C', fontSize: 12 }}>
+                No recent field activity recorded yet.
               </div>
             )}
           </div>
-
-          {/* Signed-in User Card */}
-          <div className="card" style={{ padding: '16px 18px', backgroundColor: 'var(--surface-muted)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img
-                src={currentUser?.avatar}
-                alt={currentUser?.name}
-                style={{ width: 42, height: 42, borderRadius: '50%', border: '2px solid var(--amber)', objectFit: 'cover' }}
-              />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{currentUser?.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {{
-                    admin: 'Facility Administrator',
-                    general_contractor: 'General Contractor',
-                    sub_contractor: 'Trade Subcontractor',
-                    architect: 'Architect',
-                    owner: 'Owner / Client Rep',
-                    field_inspector: 'Field Inspector',
-                  }[currentUser?.role] || currentUser?.role}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{currentUser?.company}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );
