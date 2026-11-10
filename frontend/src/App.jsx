@@ -17,6 +17,7 @@ const SettingsPage          = lazy(() => import('./components/SettingsPage'));
 const PrivacyPolicy         = lazy(() => import('./components/PrivacyPolicy'));
 const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions'));
 const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
+const LandingPage           = lazy(() => import('./components/LandingPage'));
 
 // ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
@@ -63,6 +64,7 @@ export default function App() {
   // -------------------------------------------------------------
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [publicView, setPublicView] = useState('landing'); // 'landing' | 'login'
   const [onboardingToken, setOnboardingToken] = useState(() => {
     try {
       if (typeof window === 'undefined') return null;
@@ -119,6 +121,7 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     setIsAuthenticated(false);
+    setPublicView('landing');
     setSelectedPinId(null);
     setCurrentUser(CURRENT_USER);
     try {
@@ -859,11 +862,23 @@ export default function App() {
   if (!isAuthenticated) {
     if (legalPage === 'privacy') return <Suspense fallback={<PageLoader />}><PrivacyPolicy onBack={() => setLegalPage(null)} /></Suspense>;
     if (legalPage === 'terms')   return <Suspense fallback={<PageLoader />}><TermsAndConditions onBack={() => setLegalPage(null)} /></Suspense>;
+    if (publicView === 'login') {
+      return (
+        <LoginPage
+          onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
+          onLegalPage={(page) => setLegalPage(page)}
+          onBackToLanding={() => setPublicView('landing')}
+        />
+      );
+    }
     return (
-      <LoginPage
-        onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
-        onLegalPage={(page) => setLegalPage(page)}
-      />
+      <Suspense fallback={<PageLoader />}>
+        <LandingPage
+          onLaunchWorkspace={() => { _handleLoginUser(CURRENT_USER); }}
+          onOpenLogin={() => setPublicView('login')}
+          onLegalPage={(page) => setLegalPage(page)}
+        />
+      </Suspense>
     );
   }
 
