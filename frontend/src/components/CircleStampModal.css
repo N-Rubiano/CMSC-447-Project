@@ -53,7 +53,7 @@
 
 .circle-stamp-preview-initials {
   color: #FFFFFF;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 15px;
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.04em;
@@ -63,7 +63,7 @@
 .circle-stamp-title {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   color: #18181B;
   letter-spacing: -0.01em;
 }
@@ -135,7 +135,7 @@
 .circle-stamp-pill {
   margin-left: auto;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   font-family: var(--font-mono, monospace);
   padding: 2px 8px;
   border-radius: 6px;

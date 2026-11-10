@@ -81,13 +81,36 @@
   --drawer-width: 480px;
 
   /* Standardized Corner Radii System */
-  --radius-xs: 3px;
+  --radius-0: 0px;
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-24: 24px;
+  --radius-xs: 2px;
   --radius-sm: 4px;              /* Small badges, chips, code spans */
   --radius-md: 6px;              /* Buttons, inputs, dropdown items, table rows */
   --radius-lg: 8px;              /* Cards, popovers, menus, containers */
   --radius-xl: 12px;             /* Modals, slide-over dialogs */
   --radius-card: 8px;            /* Standardized card radius */
   --radius-full: 9999px;         /* Avatars, circular indicators */
+
+  /* Spacing Tokens (figma-designer GAP scope) */
+  --spacing-0: 0px;
+  --spacing-25: 2px;
+  --spacing-50: 4px;
+  --spacing-75: 8px;
+  --spacing-100: 12px;
+  --spacing-200: 16px;
+  --spacing-300: 24px;
+  --spacing-400: 32px;
+  --spacing-500: 40px;
+  --spacing-600: 48px;
+  --spacing-700: 64px;
+  --spacing-800: 80px;
+  --spacing-900: 96px;
 
   /* Standardized Restrained Shadows (Enterprise grade - No neon glows) */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -96,10 +119,13 @@
   --shadow-glass: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-drawer: -4px 0 24px rgba(0, 0, 0, 0.12);
 
-  /* Transitions */
-  --ease-quick: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-smooth: 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-drawer: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Transitions — figma-designer base curve */
+  --ease-base: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-layout: 500ms;
+  --duration-interactive: 300ms;
+  --ease-quick: 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-smooth: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-drawer: 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Base Reset */
@@ -182,87 +208,170 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ==========================================================================
-   Buttons (Hand-Built)
+   Figma Designer Component System — Buttons (5 Types × 5 States)
+   Types: Primary, Secondary, Tertiary, Error, Warning
+   States: Default, Hover, Pressed, Focus, Disabled
    ========================================================================== */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 500;
+  gap: var(--spacing-75, 8px);
+  padding: 8px 16px;
+  min-height: 38px;
+  border-radius: var(--radius-md, 6px);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   user-select: none;
   white-space: nowrap;
+  transition: transform var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              background-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              border-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              box-shadow var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
+/* State: Pressed */
 .btn:active {
-  transform: scale(0.99);
+  transform: scale(0.98);
 }
 
+/* State: Focus (2px visible outside ring at 3:1 contrast) */
+.btn:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--amber, #D97706);
+  outline-offset: 2px;
+}
+
+/* State: Disabled */
+.btn:disabled,
+.btn.is-disabled,
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
+/* Type 1: Primary Button */
 .btn-primary {
-  background-color: var(--amber);
+  background-color: var(--amber, #D97706);
   color: #FFFFFF;
+  border-color: #B45309;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
-
-.btn-primary:hover {
-  background-color: var(--amber-hover);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--amber-hover, #B45309);
+  border-color: #92400E;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.btn-ghost {
+/* Type 2: Secondary Button */
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--ink, #18181B);
+  border: 1px solid var(--border, #DCD5C8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--surface-hover, #F2EFE9);
+  border-color: #B5AEA0;
+}
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Type 3: Tertiary / Ghost Button */
+.btn-ghost,
+.btn-tertiary {
   background-color: transparent;
-  color: var(--ink);
-  border: 1px solid var(--border);
+  color: var(--text-secondary, #3F3F46);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover:not(:disabled),
+.btn-tertiary:hover:not(:disabled) {
+  background-color: var(--surface-hover, #F2EFE9);
+  color: var(--ink, #18181B);
+}
+.btn-ghost:active:not(:disabled),
+.btn-tertiary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.btn-ghost:hover {
-  background-color: var(--surface-hover);
-  border-color: var(--border-focus);
+/* Type 4: Error Button */
+.btn-error,
+.btn-crimson {
+  background-color: var(--crimson, #DC2626);
+  color: #FFFFFF;
+  border-color: #B91C1C;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.btn-error:hover:not(:disabled),
+.btn-crimson:hover:not(:disabled) {
+  background-color: #B91C1C;
+  transform: translateY(-1px);
+}
+.btn-error:active:not(:disabled),
+.btn-crimson:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Type 5: Warning Button */
+.btn-warning {
+  background-color: #D97706;
+  color: #FFFFFF;
+  border-color: #B45309;
+}
+.btn-warning:hover:not(:disabled) {
+  background-color: #B45309;
+}
+.btn-warning:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-dark {
-  background-color: var(--ink);
+  background-color: var(--ink, #18181B);
   color: #FFFFFF;
+  border-color: #09090B;
 }
 
-.btn-dark:hover {
-  background-color: var(--ink-subtle);
-}
-
-.btn-crimson {
-  background-color: var(--crimson);
-  color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.btn-crimson:hover {
-  background-color: #B91C1C;
+.btn-dark:hover:not(:disabled) {
+  background-color: var(--ink-subtle, #27272A);
 }
 
 .btn-icon {
   width: 38px;
   height: 38px;
+  min-height: 38px;
   padding: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 6px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #3F3F46);
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-.btn-icon:hover {
-  background-color: var(--surface-hover);
-  color: var(--ink);
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--surface-hover, #F2EFE9);
+  color: var(--ink, #18181B);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 /* ==========================================================================
@@ -351,7 +460,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   color: #FFFFFF;
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -506,49 +615,77 @@ h1, h2, h3, h4, h5, h6 {
   to { opacity: 1; }
 }
 
-/* Form inputs & controls */
+/* Form inputs & controls (figma-designer 5-state system) */
 .input-field {
   width: 100%;
   height: 42px;
+  min-height: 38px;
   padding: 0 14px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border, #DCD5C8);
   background: #FFFFFF;
   font-size: 14px;
-  color: var(--text-main);
+  font-weight: 500;
+  color: var(--text-main, #18181B);
   outline: none;
-  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+  transition: border-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              box-shadow var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.input-field:hover {
+  border-color: #B5AEA0;
 }
 
 .input-field::placeholder,
 .textarea-field::placeholder {
-  color: #6B7280;
-  opacity: 1; /* Override Firefox default reduced opacity */
+  color: #71717A;
+  opacity: 1;
 }
 
 .input-field:focus {
-  border-color: var(--amber);
-  box-shadow: 0 0 0 3px var(--amber-tint);
+  border-color: var(--amber, #D97706);
+  outline: 2px solid var(--amber, #D97706);
+  outline-offset: 2px;
+}
+
+.input-field.is-error,
+.input-field[aria-invalid="true"] {
+  border-color: var(--crimson, #DC2626) !important;
+  outline-color: var(--crimson, #DC2626) !important;
+}
+
+.input-field:disabled {
+  background-color: var(--surface-muted, #F7F5F0);
+  color: var(--text-muted, #71717A);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .textarea-field {
   width: 100%;
   padding: 12px 14px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border, #DCD5C8);
   background: #FFFFFF;
   font-size: 14px;
-  color: var(--text-main);
+  font-weight: 500;
+  color: var(--text-main, #18181B);
   outline: none;
   font-family: var(--font-sans);
   resize: vertical;
   min-height: 84px;
-  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+  transition: border-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              box-shadow var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.textarea-field:hover {
+  border-color: #B5AEA0;
 }
 
 .textarea-field:focus {
-  border-color: var(--amber);
-  box-shadow: 0 0 0 3px var(--amber-tint);
+  border-color: var(--amber, #D97706);
+  outline: 2px solid var(--amber, #D97706);
+  outline-offset: 2px;
 }
 
 .select-field {
@@ -663,14 +800,14 @@ h1, h2, h3, h4, h5, h6 {
 
 .modal-card {
   background: #FFFFFF;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-12, 12px);
   box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border, #DCD5C8);
   width: 100%;
   max-width: 580px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: modalScale 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalScale 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes modalScale {

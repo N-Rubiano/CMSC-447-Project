@@ -52,7 +52,7 @@
 
 .dashboard-title {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.025em;
   color: var(--ink, #18181B);
   line-height: 1.2;
@@ -79,13 +79,19 @@
   background-color: #FFFFFF;
   border: 1px solid var(--border, #DCD5C8);
   cursor: pointer;
-  transition: all 120ms ease;
+  transition: background-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              border-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              transform var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
   white-space: nowrap;
 }
 
 .dashboard-btn-secondary:hover {
   background-color: var(--surface-hover, #F2EFE9);
   border-color: #C4BAA8;
+}
+
+.dashboard-btn-secondary:active {
+  transform: scale(0.98);
 }
 
 .dashboard-btn-secondary:focus-visible {
@@ -107,7 +113,10 @@
   background-color: #B45309; /* AA compliant contrast on white text */
   border: 1px solid #92400E;
   cursor: pointer;
-  transition: all 120ms ease;
+  transition: background-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              border-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              box-shadow var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              transform var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   white-space: nowrap;
 }
@@ -116,6 +125,10 @@
   background-color: #92400E;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
+}
+
+.dashboard-btn-primary:active {
+  transform: scale(0.98);
 }
 
 .dashboard-btn-primary:focus-visible {
@@ -196,7 +209,7 @@
 
 .dashboard-kpi-card__value {
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink, #18181B);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
@@ -483,7 +496,7 @@
   border-radius: 4px;
   font-family: var(--font-mono, monospace);
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #FFFFFF;
   letter-spacing: -0.02em;
 }

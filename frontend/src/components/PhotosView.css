@@ -21,7 +21,7 @@
 
 .photos-view-title h1 {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--brand-brown, #451A03);
   margin: 0 0 4px 0;
   display: flex;
@@ -84,7 +84,7 @@
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   color: #FFFFFF;
   background: rgba(0, 0, 0, 0.7);

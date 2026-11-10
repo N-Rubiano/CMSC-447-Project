@@ -50,7 +50,7 @@ export default function OngoingProjectsView({
               <div style={{ padding: 8, borderRadius: 8, backgroundColor: '#FEF3C7', color: '#D97706' }}>
                 <FolderKanban size={22} />
               </div>
-              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text-main, #18181B)' }}>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--text-main, #18181B)' }}>
                 Ongoing Projects
               </h1>
             </div>
@@ -201,7 +201,7 @@ export default function OngoingProjectsView({
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                       <span style={{
                         fontSize: 11,
-                        fontWeight: 800,
+                        fontWeight: 700,
                         backgroundColor: '#FEF3C7',
                         color: '#92400E',
                         padding: '3px 8px',
@@ -218,7 +218,7 @@ export default function OngoingProjectsView({
                           alignItems: 'center',
                           gap: 4,
                           fontSize: 11,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           backgroundColor: '#D97706',
                           color: '#FFFFFF',
                           padding: '3px 10px',
@@ -243,7 +243,7 @@ export default function OngoingProjectsView({
                     <h3 style={{
                       margin: '0 0 8px 0',
                       fontSize: 16,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       color: 'var(--text-main, #18181B)',
                       lineHeight: 1.3
                     }}>

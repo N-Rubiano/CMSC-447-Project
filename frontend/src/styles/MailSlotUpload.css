@@ -562,7 +562,7 @@
   fill: currentColor;
   font-family: var(--font-sans);
   font-size: 21px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 2.4px;
 }
 .ms-ink-word-sm { font-size: 16.5px; letter-spacing: 1.6px; }

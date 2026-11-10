@@ -86,7 +86,7 @@ export default function ExportModal({
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 900, color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 700, color: 'var(--text-main)' }}>
             <Download size={18} color="#5C3A21" /> Export Project Deliverables
           </div>
           <button onClick={onClose} className="btn-ghost" style={{ padding: 6, color: '#18181B' }}>
@@ -98,7 +98,7 @@ export default function ExportModal({
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Format Selector */}
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
               Select Deliverable Format
             </label>
 
@@ -131,7 +131,7 @@ export default function ExportModal({
                   <Layers size={18} color="#FEF3C7" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
                     Annotated Drawing Set (PDF)
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
@@ -169,7 +169,7 @@ export default function ExportModal({
                   <FileText size={18} color="#FFFFFF" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
                     Formal Punch List Summary Report (PDF)
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
@@ -207,7 +207,7 @@ export default function ExportModal({
                   <FileSpreadsheet size={18} color="#FFFFFF" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
                     Spreadsheet Data Export (CSV)
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
@@ -222,7 +222,7 @@ export default function ExportModal({
           {/* Sheet Selection Scope (For Annotated PDF) */}
           {exportType === 'annotated-pdf' && (
             <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
                 Sheet Scope
               </label>
               <select
@@ -272,7 +272,7 @@ export default function ExportModal({
             onClick={handleTriggerExport}
             disabled={isExporting}
             className="btn-brown"
-            style={{ width: '100%', padding: '12px 18px', fontSize: 14, fontWeight: 800, marginTop: 6, opacity: isExporting ? 0.7 : 1, cursor: isExporting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            style={{ width: '100%', padding: '12px 18px', fontSize: 14, fontWeight: 700, marginTop: 6, opacity: isExporting ? 0.7 : 1, cursor: isExporting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
             {isExporting
               ? <><Loader2 size={16} color="#FEF3C7" style={{ animation: 'spin 1s linear infinite' }} /> Generating Export…</>

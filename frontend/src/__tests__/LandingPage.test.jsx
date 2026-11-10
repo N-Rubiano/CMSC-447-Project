@@ -83,3 +83,4 @@ describe('LandingPage Component', () => {
     ).toBeInTheDocument();
   });
 });
+
