@@ -87,6 +87,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   const [profileError, setProfileError] = useState('');
   const fileInputRef = useRef(null);
 
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setProfileName(currentUser.name);
@@ -94,15 +96,18 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
       if (currentUser.avatar_url || currentUser.avatar) {
         setSelectedAvatar(currentUser.avatar_url || currentUser.avatar);
       }
+      if (currentUser.role?.toLowerCase() !== 'admin' && activeTab === 'permissions') {
+        setActiveTab('profile');
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, activeTab]);
 
   const tabs = [
     { id: 'profile', label: 'My Profile & Avatar', icon: User },
     { id: 'project', label: 'Project Info', icon: Building2 },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'offline', label: 'Offline & Sync', icon: Wifi },
-    { id: 'permissions', label: 'Role Permissions', icon: ShieldCheck },
+    ...(isAdmin ? [{ id: 'permissions', label: 'Role Permissions', icon: ShieldCheck }] : []),
     { id: 'defaults', label: 'Field Defaults', icon: Sliders }
   ];
 
@@ -951,8 +956,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
             </div>
           )}
 
-          {/* TAB 4: Role Permissions Matrix */}
-          {activeTab === 'permissions' && (
+          {/* TAB 4: Role Permissions Matrix (Only visible if user is logged in as admin) */}
+          {isAdmin && activeTab === 'permissions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
