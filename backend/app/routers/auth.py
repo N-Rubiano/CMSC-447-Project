@@ -9,10 +9,14 @@ routers/auth.py — Authentication, Onboarding, and Lifecycle Management:
 """
 import uuid
 import secrets
+import re
+import base64
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from ..auth import (
@@ -217,10 +221,60 @@ def me(current_user: dict = Depends(get_current_user)):
         except Exception:
             company = None
 
-    safe = {k: v for k, v in user.items() if k != "password_hash"}
-    safe["company_type"] = company.get("type") if company else user.get("role")
-    safe["avatar"] = safe.get("avatar_url")
+    # Handle avatar URL to avoid leaking massive base64 payloads in auth/session endpoint
+    avatar_url = user.get("avatar_url") or ""
+    if avatar_url.startswith("data:image/"):
+        uid = str(user.get("id") or "default")
+        avatar_url = f"/api/auth/avatar?uid={uid}"
+
+    safe = {
+        "id": str(user.get("id")),
+        "email": user.get("email"),
+        "name": user.get("name") or (user.get("email", "").split("@")[0] if user.get("email") else "User"),
+        "role": user.get("role", "admin"),
+        "company": user.get("company"),
+        "company_id": user.get("company_id"),
+        "company_type": company.get("type") if company else user.get("role"),
+        "phone": user.get("phone"),
+        "presence": user.get("presence", "active"),
+        "presence_text": user.get("presence_text"),
+        "status": user.get("status", "active"),
+        "avatar_url": avatar_url,
+        "avatar": avatar_url,
+    }
     return safe
+
+
+# ---------------------------------------------------------------------------
+# GET /api/auth/avatar (lazy cached avatar endpoint)
+# ---------------------------------------------------------------------------
+
+@router.get("/avatar")
+def get_avatar(uid: Optional[str] = Query(None)):
+    if not uid:
+        raise HTTPException(400, "User ID required")
+
+    avatar_dir = Path(__file__).parent.parent.parent / "uploads" / "avatars"
+    for ext in ("jpg", "jpeg", "png", "webp"):
+        p = avatar_dir / f"{uid}.{ext}"
+        if p.exists():
+            return FileResponse(str(p), headers={"Cache-Control": "public, max-age=86400"})
+
+    user = execute_one("SELECT avatar_url FROM users WHERE id=:id", {"id": uid})
+    if user and user.get("avatar_url"):
+        url = user["avatar_url"]
+        if url.startswith("data:image/"):
+            match = re.match(r"data:image/([a-zA-Z0-9]+);base64,(.+)", url)
+            if match:
+                media_type = f"image/{match.group(1)}"
+                data = base64.b64decode(match.group(2))
+                return Response(content=data, media_type=media_type, headers={"Cache-Control": "public, max-age=86400"})
+        elif url.startswith("/uploads/"):
+            file_path = Path(__file__).parent.parent.parent / url.lstrip("/")
+            if file_path.exists():
+                return FileResponse(str(file_path), headers={"Cache-Control": "public, max-age=86400"})
+
+    raise HTTPException(404, "Avatar not found")
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +292,23 @@ def update_profile(body: ProfileUpdatePayload, current_user: dict = Depends(get_
     if body.name is not None and body.name.strip():
         updates["name"] = body.name.strip()
     if body.avatar_url is not None:
-        updates["avatar_url"] = body.avatar_url.strip()
+        raw_avatar = body.avatar_url.strip()
+        if raw_avatar.startswith("data:image/"):
+            match = re.match(r"data:image/([a-zA-Z0-9]+);base64,(.+)", raw_avatar)
+            if match:
+                ext = match.group(1).lower()
+                if ext == "jpeg":
+                    ext = "jpg"
+                try:
+                    data = base64.b64decode(match.group(2))
+                    avatar_dir = Path(__file__).parent.parent.parent / "uploads" / "avatars"
+                    avatar_dir.mkdir(parents=True, exist_ok=True)
+                    target_fname = f"{user_id or uuid.uuid4()}.{ext}"
+                    (avatar_dir / target_fname).write_bytes(data)
+                    raw_avatar = f"/uploads/avatars/{target_fname}"
+                except Exception as ex:
+                    print(f"Failed to persist avatar file: {ex}")
+        updates["avatar_url"] = raw_avatar
     if body.phone is not None:
         updates["phone"] = body.phone.strip()
 

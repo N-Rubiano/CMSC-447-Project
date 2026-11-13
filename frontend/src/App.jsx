@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 
 // ── Critical path: load these synchronously (needed for first paint) ────────
-import LoginPage from './components/LoginPage';
 import { api, getSocket } from './services/api';
 import { supabase } from './services/supabase';
 
 // ── Lazy-loaded pages: each becomes its own JS chunk ───────────────────────
 // Chunks only download when the user first visits that section.
+const LoginPage             = lazy(() => import('./components/LoginPage'));
 const AppShell              = lazy(() => import('./components/AppShell'));
 const Dashboard             = lazy(() => import('./components/Dashboard'));
 const BlueprintViewer       = lazy(() => import('./components/BlueprintViewer'));
@@ -864,11 +864,13 @@ export default function App() {
     if (legalPage === 'terms')   return <Suspense fallback={<PageLoader />}><TermsAndConditions onBack={() => setLegalPage(null)} /></Suspense>;
     if (publicView === 'login') {
       return (
-        <LoginPage
-          onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
-          onLegalPage={(page) => setLegalPage(page)}
-          onBackToLanding={() => setPublicView('landing')}
-        />
+        <Suspense fallback={<PageLoader />}>
+          <LoginPage
+            onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
+            onLegalPage={(page) => setLegalPage(page)}
+            onBackToLanding={() => setPublicView('landing')}
+          />
+        </Suspense>
       );
     }
     return (

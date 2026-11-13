@@ -242,7 +242,7 @@
 }
 
 .dashboard-kpi-card__delta-good {
-  color: #16A34A;
+  color: var(--success, #15803D);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

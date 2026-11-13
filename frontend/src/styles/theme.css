@@ -38,7 +38,12 @@
   --text-secondary: #3F3F46;
   --text-muted: #52525B;
   --text-light: #71717A;
+  --text-on-dark-muted: #A1A1AA; /* Accessible contrast on dark ink (6.9:1 on #18181B) */
   --text-inverse: #FFFFFF;
+
+  /* Semantic Status Colors */
+  --success: #15803D;            /* Accessible delta/positive indicator (4.61:1 on #FFFFFF) */
+  --success-light: #DCFCE7;
 
   /* Trade Colors (Distinct stamps, pins, bars, and tags) */
   --trade-mp: #0284C7; /* Mechanical/Plumbing */
