@@ -12,7 +12,7 @@ import {
 import './LoginPage.css';
 
 // api is imported lazily inside handleSubmit so it doesn't block first paint
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, onLegalPage, onBackToLanding }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [savePassword, setSavePassword] = useState(() => {
@@ -127,6 +127,28 @@ export default function LoginPage({ onLogin }) {
       <main id="main-content" role="main" aria-label="Sign In" className="login-main-panel">
         <div className="login-card">
           <div className="login-card-header">
+            {onBackToLanding && (
+              <button
+                type="button"
+                onClick={onBackToLanding}
+                style={{
+                  alignSelf: 'flex-start',
+                  marginBottom: '12px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#71717A',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                ← Back to Overview
+              </button>
+            )}
             <h2 className="login-card-title">
               Welcome!
             </h2>

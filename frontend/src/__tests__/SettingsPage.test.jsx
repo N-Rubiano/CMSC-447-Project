@@ -120,5 +120,40 @@ describe('SettingsPage Component — Avatar & Profile', () => {
     expect(screen.getByText(/Project Profile/i)).toBeInTheDocument();
     expect(screen.getByText(/Project Name/i)).toBeInTheDocument();
   });
+
+  it('shows Role Permissions tab and RBAC matrix when logged in as admin', () => {
+    render(
+      <SettingsPage
+        currentUser={mockCurrentUser} // role: 'admin'
+        onUpdateUser={mockOnUpdateUser}
+        onSaveProject={mockOnSaveProject}
+      />
+    );
+
+    const permissionsTabBtn = screen.getByRole('button', { name: /Role Permissions/i });
+    expect(permissionsTabBtn).toBeInTheDocument();
+
+    fireEvent.click(permissionsTabBtn);
+    expect(screen.getByText(/Role-Based Access Control \(RBAC\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Project Role/i)).toBeInTheDocument();
+  });
+
+  it('hides Role Permissions tab and RBAC matrix when logged in as non-admin', () => {
+    const nonAdminUser = {
+      ...mockCurrentUser,
+      role: 'sub_contractor'
+    };
+
+    render(
+      <SettingsPage
+        currentUser={nonAdminUser}
+        onUpdateUser={mockOnUpdateUser}
+        onSaveProject={mockOnSaveProject}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Role Permissions/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Role-Based Access Control \(RBAC\)/i)).not.toBeInTheDocument();
+  });
 });
 

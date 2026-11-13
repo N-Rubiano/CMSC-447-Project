@@ -103,7 +103,7 @@ export default function Toolbar({
           }}>
             <CurrentIcon size={14} />
           </div>
-          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-main)' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-main)' }}>
             {currentToolObj.label.split('(')[0].trim()}
           </span>
           <ChevronDown size={14} color="var(--text-muted)" />
@@ -209,7 +209,7 @@ export default function Toolbar({
           title="Export Annotated PDF or Punch List"
         >
           <Download size={14} color="#D97706" />
-          <span className="toolbar-export-text" style={{ fontSize: 11, fontWeight: 800 }}>Export</span>
+          <span className="toolbar-export-text" style={{ fontSize: 11, fontWeight: 700 }}>Export</span>
         </button>
 
         {/* Minimize Button */}

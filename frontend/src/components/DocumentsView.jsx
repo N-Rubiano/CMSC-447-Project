@@ -127,7 +127,7 @@ export default function DocumentsView({
           <button
             onClick={onOpenUpload}
             className="btn-primary"
-            style={{ padding: '8px 16px', fontSize: 13, fontWeight: 800, backgroundColor: '#5C3A21', gap: 6 }}
+            style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, backgroundColor: '#5C3A21', gap: 6 }}
           >
             <Upload size={14} /> Upload Project Document
           </button>
@@ -206,7 +206,7 @@ export default function DocumentsView({
                         <span style={{
                           fontFamily: 'var(--font-mono)',
                           fontSize: 11,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           backgroundColor: '#F5EFE7',
                           padding: '1px 5px',
                           borderRadius: 4,
@@ -234,7 +234,7 @@ export default function DocumentsView({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           textTransform: 'uppercase',
                           color: '#78350F',
                           backgroundColor: '#FEF3C7',
@@ -245,7 +245,7 @@ export default function DocumentsView({
                         </span>
                         <span style={{
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           textTransform: 'uppercase',
                           color: issue.status === 'closed' ? '#15803D' : '#DC2626',
                           backgroundColor: issue.status === 'closed' ? '#DCFCE7' : '#FEE2E2',
@@ -299,7 +299,7 @@ export default function DocumentsView({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{
                       fontFamily: 'var(--font-mono)',
-                      fontWeight: 900,
+                      fontWeight: 700,
                       fontSize: 14,
                       color: '#5C3A21'
                     }}>
@@ -307,7 +307,7 @@ export default function DocumentsView({
                     </span>
                     <span style={{
                       fontSize: 10,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       backgroundColor: '#F5EFE7',
                       color: '#78350F',
                       padding: '2px 6px',
@@ -318,7 +318,7 @@ export default function DocumentsView({
                     </span>
                   </div>
 
-                  <div style={{ fontWeight: 800, fontSize: 14, color: '#1C1917', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', marginBottom: 6 }}>
                     {sheet.name}
                   </div>
 

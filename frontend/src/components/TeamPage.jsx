@@ -815,7 +815,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink)' }}>
+                      <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
                         {team.title}
                       </h2>
                       <span
@@ -1200,7 +1200,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
-                <h3 style={{ fontSize: 19, fontWeight: 800, color: 'var(--ink)' }}>
+                <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}>
                   Provision User Account
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -1581,7 +1581,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 <CheckCircle2 size={24} />
               </div>
               <div>
-                <h3 style={{ fontSize: 19, fontWeight: 800, color: 'var(--ink)' }}>
+                <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}>
                   Account Provisioned & Ready
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -1683,7 +1683,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertTriangle size={20} color="#DC2626" />
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
                   Reject Account Authorization
                 </h3>
               </div>

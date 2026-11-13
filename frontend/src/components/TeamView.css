@@ -21,7 +21,7 @@
 
 .team-view-title h1 {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--brand-brown, #451A03);
   margin: 0 0 4px 0;
   display: flex;
@@ -62,7 +62,7 @@
 
 .team-section-header h2 {
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   color: #1C1917;
   margin: 0;
   display: flex;
@@ -98,7 +98,7 @@
 }
 
 .team-entry-name {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13.5px;
   color: #1C1917;
   display: flex;
@@ -128,7 +128,7 @@
   border: 1px solid #FCD34D;
   border-radius: 6px;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -147,7 +147,7 @@
   border: 1px solid #FCA5A5;
   border-radius: 6px;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -171,7 +171,7 @@
   color: #B45309;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -189,7 +189,7 @@
 .team-modal-field label {
   display: block;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #5C3A21;
   text-transform: uppercase;
   letter-spacing: 0.04em;

@@ -191,7 +191,7 @@ export default function PhotosView({
           border: '1.5px dashed #E7E5E4'
         }}>
           <ImageIcon size={38} color="#A8A29E" style={{ margin: '0 auto 12px auto' }} />
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#1C1917', marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1C1917', marginBottom: 4 }}>
             No photos found
           </div>
           <div style={{ fontSize: 13, color: '#78716C', maxWidth: 400, margin: '0 auto' }}>

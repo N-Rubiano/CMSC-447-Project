@@ -43,7 +43,7 @@
 .settings-nav-item--active {
   background: #FEF3C7;
   color: #92400E;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .settings-content-area {
@@ -70,7 +70,7 @@
 
 .settings-section-header h2 {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--brand-brown, #451A03);
   margin: 0 0 4px 0;
   display: flex;
@@ -97,7 +97,7 @@
 
 .settings-field label {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   color: #1C1917;
   text-transform: uppercase;
   letter-spacing: 0.04em;

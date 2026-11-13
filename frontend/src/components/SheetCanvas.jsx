@@ -845,7 +845,7 @@ export default function SheetCanvas({
             <Building2 size={28} color="#D97706" />
           </div>
 
-          <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main, #18181B)', margin: '0 0 10px' }}>
+          <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-main, #18181B)', margin: '0 0 10px' }}>
             No blueprint available for this floor yet.
           </h3>
 
@@ -860,11 +860,11 @@ export default function SheetCanvas({
             fontSize: 12,
             marginBottom: 16
           }}>
-            <span style={{ color: '#5C3A21', fontWeight: 800 }}>
+            <span style={{ color: '#5C3A21', fontWeight: 700 }}>
               Building: {selectedBuildingName || selectedBuildingId}
             </span>
             <span style={{ color: '#DCD5C8' }}>•</span>
-            <span style={{ color: '#D97706', fontWeight: 800 }}>
+            <span style={{ color: '#D97706', fontWeight: 700 }}>
               Floor: {selectedFloorId || 'Not Selected'}
             </span>
           </div>
@@ -939,7 +939,7 @@ export default function SheetCanvas({
           alignItems: 'center',
           gap: 8,
           fontSize: 11.5,
-          fontWeight: 800,
+          fontWeight: 700,
           boxShadow: '0 2px 8px rgba(40, 30, 20, 0.08)',
           pointerEvents: 'none'
         }}>
@@ -1123,11 +1123,11 @@ export default function SheetCanvas({
                         <div className="pin-size-divider" />
                         {confirmDeletePinId === pin.id ? (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ fontSize: 9, color: '#F87171', fontWeight: 800 }}>Del?</span>
+                            <span style={{ fontSize: 9, color: '#F87171', fontWeight: 700 }}>Del?</span>
                             <button
                               type="button"
                               className="pin-size-btn"
-                              style={{ color: '#EF4444', fontWeight: 900, background: 'rgba(239, 68, 68, 0.25)' }}
+                              style={{ color: '#EF4444', fontWeight: 700, background: 'rgba(239, 68, 68, 0.25)' }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeletePin(pin.id, true);
@@ -1176,10 +1176,10 @@ export default function SheetCanvas({
               {!isDraggingThis && (isSelected || hoveredPin?.id === pin.id) && (
                 <div className="pin-tag" style={{ borderLeft: `3px solid ${statusBg}`, top: 4, left: diameter + 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 800, fontSize: 12, color: '#18181B' }}>{pin.title}</span>
+                    <span style={{ fontWeight: 700, fontSize: 12, color: '#18181B' }}>{pin.title}</span>
                     <span style={{
                       fontSize: 9.5,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       padding: '1px 5px',
                       borderRadius: 3,
                       backgroundColor: statusBg,
@@ -1197,13 +1197,13 @@ export default function SheetCanvas({
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 4, paddingTop: 4, borderTop: '1px solid #F3F4F6' }}>
-                    <span style={{ fontSize: 9, color: '#9CA3AF', fontStyle: 'italic' }}>
+                    <span style={{ fontSize: 9, color: '#9CA3AF', fontStyle: 'normal' }}>
                       Drag corner to resize • Del to remove
                     </span>
                     {onDeletePin && (
                       confirmDeletePinId === pin.id ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 9.5, color: '#DC2626', fontWeight: 800 }}>Confirm?</span>
+                          <span style={{ fontSize: 9.5, color: '#DC2626', fontWeight: 700 }}>Confirm?</span>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1217,7 +1217,7 @@ export default function SheetCanvas({
                               color: '#FFFFFF',
                               borderRadius: 3,
                               fontSize: 9,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               padding: '1px 6px',
                               cursor: 'pointer'
                             }}
@@ -1280,7 +1280,7 @@ export default function SheetCanvas({
 
       {/* Real-Time Precision Coordinate HUD (Bottom Center) */}
       <div className="coordinate-hud">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#5C3A21', fontWeight: 800 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#5C3A21', fontWeight: 700 }}>
           <Crosshair size={13} color="#D97706" />
           <span>GRID: {cursorCoords.grid}</span>
         </div>
@@ -1309,7 +1309,7 @@ export default function SheetCanvas({
         >
           <ZoomOut size={15} />
         </button>
-        <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: 'var(--font-mono)', minWidth: 42, textAlign: 'center', color: '#5C3A21' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, fontFamily: 'var(--font-mono)', minWidth: 42, textAlign: 'center', color: '#5C3A21' }}>
           {Math.round(t.scale * 100)}%
         </span>
         <button

@@ -1,17 +1,29 @@
 import { io } from 'socket.io-client';
 import Dexie from 'dexie';
-import { supabase, signInWithPassword, signOut as supabaseSignOut } from './supabase';
+import { supabase, signInWithPassword, signOut as supabaseSignOut, isSupabaseConfigured } from './supabase';
 
 // -------------------------------------------------------------
-// IndexedDB for Offline-First Field Work
+// IndexedDB for Offline-First Field Work (Lazily initialized)
 // -------------------------------------------------------------
-export const localDb = new Dexie('PunchListOfflineDB');
-localDb.version(1).stores({
-  projects: 'id, name, status',
-  sheets: 'id, project_id, sheet_number',
-  pins: 'id, sheet_id, project_id, status, item_number',
-  markups: 'id, sheet_id',
-  syncQueue: '++id, entity, type, data, timestamp'
+let _localDbInstance = null;
+function getLocalDb() {
+  if (!_localDbInstance) {
+    _localDbInstance = new Dexie('PunchListOfflineDB');
+    _localDbInstance.version(1).stores({
+      projects: 'id, name, status',
+      sheets: 'id, project_id, sheet_number',
+      pins: 'id, sheet_id, project_id, status, item_number',
+      markups: 'id, sheet_id',
+      syncQueue: '++id, entity, type, data, timestamp'
+    });
+  }
+  return _localDbInstance;
+}
+
+export const localDb = new Proxy({}, {
+  get(_, prop) {
+    return getLocalDb()[prop];
+  }
 });
 
 // Socket.io singleton
@@ -74,6 +86,8 @@ async function authFetch(url, options = {}) {
 // -------------------------------------------------------------
 const BASE_URL = '/api';
 
+let _meInFlightPromise = null;
+
 export const api = {
   // AUTH
   /**
@@ -82,29 +96,31 @@ export const api = {
    * If Supabase credentials fail, gracefully falls back to local backend auth.
    */
   async login(email, password) {
-    try {
-      const { session, user: supaUser, error } = await signInWithPassword(email, password);
+    if (isSupabaseConfigured) {
+      try {
+        const { session, user: supaUser, error } = await signInWithPassword(email, password);
 
-      if (session && !error) {
-        // Exchange the Supabase token for our local user profile (role, company, etc.)
-        const res = await fetch(`${BASE_URL}/auth/supabase-callback`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
+        if (session && !error) {
+          // Exchange the Supabase token for our local user profile (role, company, etc.)
+          const res = await fetch(`${BASE_URL}/auth/supabase-callback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
 
-        if (!res.ok) {
-          console.warn('Could not fetch local user profile from backend, using Supabase claims.');
-          return { token: session.access_token, user: supaUser };
+          if (!res.ok) {
+            console.warn('Could not fetch local user profile from backend, using Supabase claims.');
+            return { token: session.access_token, user: supaUser };
+          }
+
+          const userProfile = await res.json();
+          return { token: session.access_token, user: userProfile };
         }
-
-        const userProfile = await res.json();
-        return { token: session.access_token, user: userProfile };
+      } catch (supaErr) {
+        console.warn('Supabase sign-in skipped or failed, trying backend login:', supaErr);
       }
-    } catch (supaErr) {
-      console.warn('Supabase sign-in skipped or failed, trying backend login:', supaErr);
     }
 
     // Fallback: local backend authentication (e.g. seeded demo accounts)
@@ -128,9 +144,17 @@ export const api = {
   },
 
   async getMe() {
-    const res = await authFetch(`${BASE_URL}/auth/me`);
-    if (!res.ok) throw new Error('Not authenticated');
-    return await res.json();
+    if (_meInFlightPromise) {
+      return _meInFlightPromise;
+    }
+    _meInFlightPromise = (async () => {
+      const res = await authFetch(`${BASE_URL}/auth/me`);
+      if (!res.ok) throw new Error('Not authenticated');
+      return await res.json();
+    })().finally(() => {
+      _meInFlightPromise = null;
+    });
+    return _meInFlightPromise;
   },
 
   async updateProfile(payload) {

@@ -187,7 +187,7 @@ export default function Navbar({
                   {/* Dropdown Header with Search and Clear action */}
                   <div className="navbar-building-dropdown-header">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         UMBC Campus Buildings ({umbcBuildings.length})
                       </span>
                       {(selectedBuildingId || selectedFloorId) && (
@@ -288,7 +288,7 @@ export default function Navbar({
                         <div>
                           <div className="navbar-floor-pane-header">
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                              <div style={{ fontSize: 11.5, fontWeight: 800, color: '#5C3A21', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#5C3A21', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {activeBuildingObj.name}
                               </div>
                               <button
@@ -300,7 +300,7 @@ export default function Navbar({
                                 style={{
                                   padding: '3px 8px',
                                   fontSize: 10,
-                                  fontWeight: 800,
+                                  fontWeight: 700,
                                   backgroundColor: '#D97706',
                                   border: '1px solid #B45309',
                                   color: '#FFFFFF',
@@ -441,7 +441,7 @@ export default function Navbar({
                                             border: '1px solid #FCD34D',
                                             color: '#92400E',
                                             fontSize: 9.5,
-                                            fontWeight: 800,
+                                            fontWeight: 700,
                                             cursor: 'pointer'
                                           }}
                                           title={`Upload a blueprint drawing for ${fl}`}
@@ -478,7 +478,7 @@ export default function Navbar({
                                       width: '100%',
                                       justifyContent: 'flex-start',
                                       color: '#B45309',
-                                      fontWeight: 800,
+                                      fontWeight: 700,
                                       fontSize: 11,
                                       gap: 6,
                                       padding: '6px 8px',
@@ -530,7 +530,7 @@ export default function Navbar({
                 {showSheetDropdown && (
                   <div className="navbar-dropdown-card" style={{ width: 340 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Plan Sheets ({sheets.length})
                       </span>
                       <button
@@ -565,14 +565,14 @@ export default function Navbar({
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = s.id === activeSheet?.id ? 'var(--bg-surface-2)' : 'transparent'}
                         >
                           <div>
-                            <div style={{ fontWeight: 800, fontSize: 11.5, fontFamily: 'var(--font-mono)' }}>{s.sheet_number}</div>
+                            <div style={{ fontWeight: 700, fontSize: 11.5, fontFamily: 'var(--font-mono)' }}>{s.sheet_number}</div>
                             <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
                           </div>
                           <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 9, background: '#F4F4F5', color: '#52525B', border: '1px solid #E4E4E7', padding: '1px 5px', borderRadius: 4, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                               {s.version || 'Rev 1'}
                             </span>
-                            <span style={{ fontSize: 9.5, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5', padding: '1px 5px', borderRadius: 10, fontWeight: 800 }}>
+                            <span style={{ fontSize: 9.5, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5', padding: '1px 5px', borderRadius: 10, fontWeight: 700 }}>
                               {s.open_pin_count || 0}
                             </span>
                           </div>
@@ -587,7 +587,7 @@ export default function Navbar({
                             setShowSheetDropdown(false);
                           }}
                           className="btn-ghost"
-                          style={{ width: '100%', justifyContent: 'flex-start', color: '#B45309', fontWeight: 800, fontSize: 11.5, gap: 6 }}
+                          style={{ width: '100%', justifyContent: 'flex-start', color: '#B45309', fontWeight: 700, fontSize: 11.5, gap: 6 }}
                         >
                           <RefreshCw size={13} color="#D97706" /> Upload Latest Revision for {activeSheet.sheet_number}
                         </button>
@@ -598,7 +598,7 @@ export default function Navbar({
                           setShowSheetDropdown(false);
                         }}
                         className="btn-ghost"
-                        style={{ width: '100%', justifyContent: 'flex-start', color: '#92400E', fontWeight: 800, fontSize: 11.5, gap: 6 }}
+                        style={{ width: '100%', justifyContent: 'flex-start', color: '#92400E', fontWeight: 700, fontSize: 11.5, gap: 6 }}
                       >
                         <Building2 size={13} color="#D97706" /> Upload Building Blueprint
                       </button>
@@ -773,7 +773,7 @@ export default function Navbar({
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{
                   fontSize: 9,
-                  fontWeight: 800,
+                  fontWeight: 700,
                   color: roleInfo.color,
                   backgroundColor: roleInfo.bg,
                   padding: '1px 5px',
@@ -871,7 +871,7 @@ export default function Navbar({
               border: '1px solid #C7D2FE',
               color: '#4338CA',
               fontSize: 10.5,
-              fontWeight: 800,
+              fontWeight: 700,
               fontFamily: 'var(--font-mono)',
               cursor: 'pointer',
               flexShrink: 0
