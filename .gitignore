@@ -58,6 +58,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# Generated UIDD & temporary capture assets
+*.pdf
+user-interface-design-document.html
+walkthrough_table.html
+screenshots/
+
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*

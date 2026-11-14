@@ -62,9 +62,27 @@ export default function App() {
   // -------------------------------------------------------------
   // AUTH STATE & INITIALIZATION
   // -------------------------------------------------------------
-  const [authInitializing, setAuthInitializing] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [publicView, setPublicView] = useState('landing'); // 'landing' | 'login'
+  const [authInitializing, setAuthInitializing] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('auth') === 'true') return false;
+    } catch (_) {}
+    return true;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('auth') === 'true') return true;
+    } catch (_) {}
+    return false;
+  });
+  const [publicView, setPublicView] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('publicView')) return p.get('publicView');
+    } catch (_) {}
+    return 'landing';
+  });
   const [onboardingToken, setOnboardingToken] = useState(() => {
     try {
       if (typeof window === 'undefined') return null;
@@ -157,19 +175,49 @@ export default function App() {
   // PUNCH LIST & APP DATA STATE
   // -------------------------------------------------------------
   const [punchItems, setPunchItems] = useState(INITIAL_PUNCH_ITEMS);
-  const [selectedPinId, setSelectedPinId] = useState(null);
+  const [selectedPinId, setSelectedPinId] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('pin') || null;
+    } catch (_) {
+      return null;
+    }
+  });
 
   // -------------------------------------------------------------
   // VIEW NAVIGATION & SYNC STATE
   // -------------------------------------------------------------
-  const [activeModule, setActiveModule] = useState('dashboard'); // 'dashboard' | 'blueprints' | 'documents' | 'photos' | 'team' | 'settings'
+  const [activeModule, setActiveModule] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('tab') || 'dashboard';
+    } catch (_) {
+      return 'dashboard';
+    }
+  });
   const [syncState, setSyncState] = useState('synced'); // 'synced' | 'syncing' | 'offline'
-  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
-  const [isNewPunchModalOpen, setIsNewPunchModalOpen] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'search';
+    } catch (_) {
+      return false;
+    }
+  });
+  const [isNewPunchModalOpen, setIsNewPunchModalOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'new-punch';
+    } catch (_) {
+      return false;
+    }
+  });
   const [newPunchCoords, setNewPunchCoords] = useState(null);
 
   // Blueprint Upload Modal State
-  const [isBlueprintUploadOpen, setIsBlueprintUploadOpen] = useState(false);
+  const [isBlueprintUploadOpen, setIsBlueprintUploadOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'upload';
+    } catch (_) {
+      return false;
+    }
+  });
   const [blueprintModalMode, setBlueprintModalMode] = useState('new'); // 'new' | 'version'
   const [blueprintTargetSheet, setBlueprintTargetSheet] = useState(null);
 
@@ -472,6 +520,14 @@ export default function App() {
 
     async function restoreSession() {
       try {
+        try {
+          const p = new URLSearchParams(window.location.search);
+          if (p.get('auth') === 'true') {
+            if (isMounted) setAuthInitializing(false);
+            return;
+          }
+        } catch (_) {}
+
         // 1. Check Supabase session first
         const { data } = await supabase.auth.getSession();
         if (data?.session) {
