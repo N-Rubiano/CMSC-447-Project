@@ -39,7 +39,7 @@ export default function TermsAndConditions({ onBack }) {
         )}
         <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:8 }}>
           <Scale size={28} color="var(--amber)"/>
-          <h1 style={{ fontSize:28,fontWeight:800,color:"var(--ink)",margin:0 }}>Terms &amp; Conditions</h1>
+          <h1 style={{ fontSize:28,fontWeight: 700,color:"var(--ink)",margin:0 }}>Terms &amp; Conditions</h1>
         </div>
         <p style={{ color:"var(--text-secondary)",fontSize:14,marginBottom:36 }}>Effective: October 1, 2026 · Last updated: October 1, 2026</p>
         <p style={{ color:"var(--text-secondary)",lineHeight:1.7,marginBottom:32 }}>

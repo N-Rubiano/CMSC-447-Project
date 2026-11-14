@@ -198,7 +198,7 @@ export default function TeamView({
                   <div className="team-entry-name">
                     <span>{c.name}</span>
                     {c.type === 'admin' && (
-                      <span style={{ fontSize: 9.5, padding: '1px 5px', borderRadius: 4, backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5', fontWeight: 800 }}>
+                      <span style={{ fontSize: 9.5, padding: '1px 5px', borderRadius: 4, backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5', fontWeight: 700 }}>
                         PRIMARY GC / ADMIN
                       </span>
                     )}
@@ -262,7 +262,7 @@ export default function TeamView({
                     <div className="team-entry-name">
                       <span>{sub.name}</span>
                       {sub.trade && (
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', fontWeight: 800 }}>
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', fontWeight: 700 }}>
                           {sub.trade.toUpperCase()}
                         </span>
                       )}
@@ -313,7 +313,7 @@ export default function TeamView({
         <div className="modal-backdrop">
           <div className="modal-card" style={{ maxWidth: 480, width: '92%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1.5px solid var(--border-default)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 16, color: '#1C1917' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16, color: '#1C1917' }}>
                 {modalType === 'contractor' ? <Building2 size={20} color="#5C3A21" /> : <HardHat size={20} color="#D97706" />}
                 <span>
                   {editingCompany ? `Edit ${editingCompany.name}` : `Add New ${modalType === 'contractor' ? 'Contractor' : 'Subcontractor'}`}
@@ -415,7 +415,7 @@ export default function TeamView({
                 <button
                   type="submit"
                   className="btn-primary"
-                  style={{ padding: '8px 18px', fontWeight: 800, backgroundColor: '#5C3A21' }}
+                  style={{ padding: '8px 18px', fontWeight: 700, backgroundColor: '#5C3A21' }}
                 >
                   <Save size={14} /> {editingCompany ? 'Save Changes' : 'Create Organization'}
                 </button>

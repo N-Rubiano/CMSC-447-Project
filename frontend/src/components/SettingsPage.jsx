@@ -87,6 +87,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   const [profileError, setProfileError] = useState('');
   const fileInputRef = useRef(null);
 
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setProfileName(currentUser.name);
@@ -94,15 +96,18 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
       if (currentUser.avatar_url || currentUser.avatar) {
         setSelectedAvatar(currentUser.avatar_url || currentUser.avatar);
       }
+      if (currentUser.role?.toLowerCase() !== 'admin' && activeTab === 'permissions') {
+        setActiveTab('profile');
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, activeTab]);
 
   const tabs = [
     { id: 'profile', label: 'My Profile & Avatar', icon: User },
     { id: 'project', label: 'Project Info', icon: Building2 },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'offline', label: 'Offline & Sync', icon: Wifi },
-    { id: 'permissions', label: 'Role Permissions', icon: ShieldCheck },
+    ...(isAdmin ? [{ id: 'permissions', label: 'Role Permissions', icon: ShieldCheck }] : []),
     { id: 'defaults', label: 'Field Defaults', icon: Sliders }
   ];
 
@@ -248,7 +253,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
           <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
             System Preferences
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>
             Settings &amp; Preferences
           </h1>
         </div>
@@ -424,14 +429,14 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink)' }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
                       {profileName || 'Your Name'}
                     </div>
                     <span style={{
                       padding: '2px 8px',
                       borderRadius: 4,
                       fontSize: 11,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       backgroundColor: 'var(--amber-muted, #FEF3C7)',
                       color: 'var(--amber, #D97706)',
                       letterSpacing: '0.04em'
@@ -883,13 +888,13 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
               }}>
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10, color: 'var(--text-muted)' }}>Offline Blueprint Cache</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', marginTop: 2 }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
                     {settings.offlineSync.cachedSheetsCount} Sheets Cached
                   </div>
                 </div>
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10, color: 'var(--text-muted)' }}>Pending Sync Queue</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', marginTop: 2 }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
                     {settings.offlineSync.queuedChangesCount} Mutations Queued
                   </div>
                 </div>
@@ -951,8 +956,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
             </div>
           )}
 
-          {/* TAB 4: Role Permissions Matrix */}
-          {activeTab === 'permissions' && (
+          {/* TAB 4: Role Permissions Matrix (Only visible if user is logged in as admin) */}
+          {isAdmin && activeTab === 'permissions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>

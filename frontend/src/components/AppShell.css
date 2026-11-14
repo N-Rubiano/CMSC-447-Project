@@ -73,7 +73,7 @@
 
 .rail__name {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -92,7 +92,7 @@
 .rail__group-label {
   font-size: 11px;
   font-weight: 500;
-  color: #71717a;
+  color: var(--text-on-dark-muted, #A1A1AA);
   letter-spacing: 0.01em;
   padding: 0 12px 6px;
 }
@@ -160,10 +160,13 @@
   color: #a1a1aa;
   font-weight: 500;
   font-size: 14px;
-  transition: all var(--ease-quick);
+  transition: background-color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              color var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1)),
+              transform var(--duration-interactive, 300ms) var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .nav-btn[data-collapsed] { padding: 10px 0; justify-content: center; }
 .nav-btn:hover { background-color: rgba(255, 255, 255, 0.05); color: #fff; }
+.nav-btn:active { transform: scale(0.98); }
 .nav-btn.is-active {
   background: rgba(217, 119, 6, 0.16);
   color: #fff;
@@ -387,7 +390,7 @@
   gap: 10px;
 }
 .sel-panel__title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.sel-panel__title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--ink); }
+.sel-panel__title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink); }
 .sel-panel__path {
   font-size: 11px;
   font-family: var(--font-mono);
@@ -484,7 +487,7 @@
 .floors-head { padding: 4px 8px 8px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 8px; }
 .floors-head__row {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
   margin-top: 2px;
   display: flex;

@@ -140,7 +140,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
               <Users size={20} color="#FFFFFF" />
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.3px' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px' }}>
                 Project Team & Hierarchy
               </div>
               <div style={{ fontSize: 11.5, color: '#FEF3C7', opacity: 0.9 }}>
@@ -195,7 +195,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Shield size={16} color="#D97706" />
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Admin Control: Primary General Contractor
                 </span>
               </div>
@@ -258,7 +258,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <UserPlus size={16} color="#5C3A21" />
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#5C3A21', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#5C3A21', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Assign Subcontractor to Project
                 </span>
               </div>
@@ -314,7 +314,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
           <div>
             <div style={{
               fontSize: 12.5,
-              fontWeight: 800,
+              fontWeight: 700,
               color: '#5C3A21',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
@@ -366,13 +366,13 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
                         />
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#18181B' }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#18181B' }}>
                               {member.name}
                             </span>
                             {isPrimaryGc && (
                               <span style={{
                                 fontSize: 10,
-                                fontWeight: 800,
+                                fontWeight: 700,
                                 color: '#D97706',
                                 backgroundColor: '#FEF3C7',
                                 padding: '1px 6px',
@@ -392,7 +392,7 @@ export default function ProjectTeamModal({ project, currentUser, allUsers, onClo
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           color: roleConfig.color,
                           backgroundColor: roleConfig.bg,
                           padding: '3px 8px',

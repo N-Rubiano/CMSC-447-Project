@@ -218,8 +218,8 @@ export default function PinDetailModal({
         boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.25)',
         display: 'flex',
         flexDirection: 'column',
-        borderLeft: '1.5px solid var(--border-default)',
-        animation: 'slideLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+        borderLeft: '1px solid var(--border, #DCD5C8)',
+        animation: 'slideLeft 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
       }}>
         {/* Drawer Top Header */}
         <div style={{
@@ -249,7 +249,7 @@ export default function PinDetailModal({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 800,
+                fontWeight: 700,
                 fontSize: 12.5,
                 fontFamily: 'var(--font-mono, monospace)',
                 color: '#FFFFFF',
@@ -263,7 +263,7 @@ export default function PinDetailModal({
 
             <div style={{
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 700,
               fontFamily: 'var(--font-mono)',
               backgroundColor: '#FEF3C7',
               color: '#92400E',
@@ -274,7 +274,7 @@ export default function PinDetailModal({
               PL-#{pin?.item_number || '...'}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', color: '#FEF3C7' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em', color: '#FEF3C7' }}>
                 PUNCH ITEM WORKFLOW
               </div>
               <div style={{ fontSize: 11, color: '#FDE68A' }}>
@@ -287,7 +287,7 @@ export default function PinDetailModal({
             {canDelete && (
               confirmDelete ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239, 68, 68, 0.2)', padding: '2px 6px', borderRadius: 4, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
-                  <span style={{ fontSize: 11, color: '#FCA5A5', fontWeight: 800 }}>Delete item?</span>
+                  <span style={{ fontSize: 11, color: '#FCA5A5', fontWeight: 700 }}>Delete item?</span>
                   <button
                     onClick={() => {
                       onDeletePin(pin.id, true);
@@ -300,7 +300,7 @@ export default function PinDetailModal({
                       borderRadius: 3,
                       padding: '2px 8px',
                       fontSize: 10.5,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       cursor: 'pointer'
                     }}
                   >
@@ -356,7 +356,7 @@ export default function PinDetailModal({
               borderBottom: '1.5px solid var(--border-default)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Current Status
                 </span>
                 <span className={`badge-status ${pin?.status}`}>
@@ -371,7 +371,7 @@ export default function PinDetailModal({
                     <button
                       onClick={() => handleStatusWorkflowTransition('in_progress', 'Subcontractor commenced on-site work')}
                       className="btn-primary"
-                      style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 800, backgroundColor: '#2563EB', borderColor: '#1D4ED8' }}
+                      style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 700, backgroundColor: '#2563EB', borderColor: '#1D4ED8' }}
                     >
                       <ArrowRight size={15} /> Start Work (Mark In Progress)
                     </button>
@@ -382,7 +382,7 @@ export default function PinDetailModal({
                       <button
                         onClick={() => handleStatusWorkflowTransition('submitted_for_contractor_review', 'Work completed by subcontractor; submitted for GC review')}
                         className="btn-primary"
-                        style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 800, backgroundColor: '#D97706', borderColor: '#B45309' }}
+                        style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 700, backgroundColor: '#D97706', borderColor: '#B45309' }}
                       >
                         <Check size={15} /> Submit Work for Contractor Review
                       </button>
@@ -424,14 +424,14 @@ export default function PinDetailModal({
                         <button
                           onClick={() => handleStatusWorkflowTransition('submitted_for_admin_review', 'GC Approved: Forwarding to Admin for final close-out')}
                           className="btn-primary"
-                          style={{ padding: '9px', fontSize: 12, fontWeight: 800, backgroundColor: '#15803D', borderColor: '#166534' }}
+                          style={{ padding: '9px', fontSize: 12, fontWeight: 700, backgroundColor: '#15803D', borderColor: '#166534' }}
                         >
                           <Check size={14} /> Approve → Admin
                         </button>
                         <button
                           onClick={() => handleStatusWorkflowTransition('in_progress', 'GC Rejected: Re-work required by subcontractor')}
                           className="btn-secondary"
-                          style={{ padding: '9px', fontSize: 12, fontWeight: 800, color: '#DC2626', borderColor: '#FCA5A5' }}
+                          style={{ padding: '9px', fontSize: 12, fontWeight: 700, color: '#DC2626', borderColor: '#FCA5A5' }}
                         >
                           <RotateCcw size={14} /> Reject Back
                         </button>
@@ -475,14 +475,14 @@ export default function PinDetailModal({
                         <button
                           onClick={() => handleStatusWorkflowTransition('closed', 'Facility Admin approved and closed punch item')}
                           className="btn-primary"
-                          style={{ padding: '10px', fontSize: 12.5, fontWeight: 900, backgroundColor: '#15803D', borderColor: '#166534' }}
+                          style={{ padding: '10px', fontSize: 12.5, fontWeight: 700, backgroundColor: '#15803D', borderColor: '#166534' }}
                         >
                           <Check size={15} /> Approve & Close
                         </button>
                         <button
                           onClick={() => handleStatusWorkflowTransition('in_progress', 'Admin rejected work: deficiencies remain')}
                           className="btn-secondary"
-                          style={{ padding: '10px', fontSize: 12.5, fontWeight: 800, color: '#DC2626', borderColor: '#FCA5A5' }}
+                          style={{ padding: '10px', fontSize: 12.5, fontWeight: 700, color: '#DC2626', borderColor: '#FCA5A5' }}
                         >
                           <RotateCcw size={15} /> Reject
                         </button>
@@ -494,7 +494,7 @@ export default function PinDetailModal({
                         <button
                           onClick={() => handleStatusWorkflowTransition('closed', 'Admin direct close')}
                           className="btn-primary"
-                          style={{ flex: 1, padding: '8px', fontSize: 12, fontWeight: 800, backgroundColor: '#15803D' }}
+                          style={{ flex: 1, padding: '8px', fontSize: 12, fontWeight: 700, backgroundColor: '#15803D' }}
                         >
                           <Check size={14} /> Close Item
                         </button>
@@ -528,7 +528,7 @@ export default function PinDetailModal({
                     <button
                       onClick={() => handleStatusWorkflowTransition('submitted_for_contractor_review', 'Field Inspector submitted for contractor review')}
                       className="btn-primary"
-                      style={{ width: '100%', padding: '8px', fontSize: 12, fontWeight: 800, backgroundColor: '#EA580C', borderColor: '#C2410C' }}
+                      style={{ width: '100%', padding: '8px', fontSize: 12, fontWeight: 700, backgroundColor: '#EA580C', borderColor: '#C2410C' }}
                     >
                       <Check size={14} /> Submit for GC Review
                     </button>
@@ -587,7 +587,7 @@ export default function PinDetailModal({
                     flex: 1,
                     padding: '11px 4px',
                     fontSize: 12,
-                    fontWeight: 800,
+                    fontWeight: 700,
                     backgroundColor: 'transparent',
                     color: activeTab === tab.id ? '#D97706' : 'var(--text-muted)',
                     borderBottom: activeTab === tab.id ? '3px solid #D97706' : '3px solid transparent',
@@ -613,19 +613,19 @@ export default function PinDetailModal({
                     borderRadius: 8,
                     padding: '12px 14px'
                   }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.04em' }}>
                       Organizational Assignment Hierarchy
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ color: '#64748B', fontWeight: 600 }}>Created By:</span>
-                        <span style={{ fontWeight: 800, color: '#0F172A' }}>{pin?.created_by_name || 'Admin'}</span>
+                        <span style={{ fontWeight: 700, color: '#0F172A' }}>{pin?.created_by_name || 'Admin'}</span>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ color: '#64748B', fontWeight: 600 }}>General Contractor:</span>
-                        <span style={{ fontWeight: 800, color: '#0F172A' }}>{pin?.assigned_contractor_name || 'Apex Construction GC'}</span>
+                        <span style={{ fontWeight: 700, color: '#0F172A' }}>{pin?.assigned_contractor_name || 'Apex Construction GC'}</span>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -649,7 +649,7 @@ export default function PinDetailModal({
                             ))}
                           </select>
                         ) : (
-                          <span style={{ fontWeight: 800, color: '#D97706' }}>
+                          <span style={{ fontWeight: 700, color: '#D97706' }}>
                             {pin?.assigned_subcontractor_name || pin?.assigned_to_company || 'Unassigned'}
                           </span>
                         )}
@@ -659,7 +659,7 @@ export default function PinDetailModal({
 
                   {/* Title */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                       Issue Title
                     </label>
                     <input
@@ -685,7 +685,7 @@ export default function PinDetailModal({
 
                   {/* Description */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                       Field Description & Spec Reference
                     </label>
                     <textarea
@@ -714,7 +714,7 @@ export default function PinDetailModal({
                   {/* Grid: Trade & Priority */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                         Trade / Discipline
                       </label>
                       <select
@@ -740,7 +740,7 @@ export default function PinDetailModal({
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                         Priority Level
                       </label>
                       <select
@@ -769,7 +769,7 @@ export default function PinDetailModal({
 
                   {/* Root Cause */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                       Root Cause
                     </label>
                     <select
@@ -802,7 +802,7 @@ export default function PinDetailModal({
                   {/* Location & Due Date */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                         Room / Location
                       </label>
                       <input
@@ -825,7 +825,7 @@ export default function PinDetailModal({
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
                         Target Due Date
                       </label>
                       <input
@@ -854,7 +854,7 @@ export default function PinDetailModal({
               {activeTab === 'photos' && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
                       Attachments & Proof of Work ({pin?.photos?.length || 0})
                     </span>
                     <button
@@ -916,7 +916,7 @@ export default function PinDetailModal({
                           </div>
 
                           <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: ph.type === 'work_completed' ? '#15803D' : '#DC2626', textTransform: 'uppercase' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: ph.type === 'work_completed' ? '#15803D' : '#DC2626', textTransform: 'uppercase' }}>
                               {ph.type === 'work_completed' ? 'Resolution Photo' : 'Issue Photo'}
                             </div>
                             <div style={{ fontSize: 11, color: '#1E293B', fontWeight: 600, marginTop: 2 }}>
@@ -973,7 +973,7 @@ export default function PinDetailModal({
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
                               {c.author_name} <span style={{ fontSize: 10, fontWeight: 600, color: '#64748B' }}>({c.author_company})</span>
                             </span>
                             <span style={{ fontSize: 10, color: '#94A3B8' }}>
@@ -1022,7 +1022,7 @@ export default function PinDetailModal({
               {/* TAB 4: AUDIT LOG TIMELINE */}
               {activeTab === 'history' && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 14, letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 14, letterSpacing: '0.04em' }}>
                     Chronological Accountability Audit Trail
                   </div>
 
@@ -1042,7 +1042,7 @@ export default function PinDetailModal({
                         >
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <span style={{ fontSize: 11, fontWeight: 800, color: '#5C3A21' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#5C3A21' }}>
                                 {log.action.replace(/_/g, ' ')}
                               </span>
                               <span style={{ fontSize: 10, color: '#94A3B8' }}>

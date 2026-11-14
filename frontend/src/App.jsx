@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 
 // ── Critical path: load these synchronously (needed for first paint) ────────
-import LoginPage from './components/LoginPage';
 import { api, getSocket } from './services/api';
 import { supabase } from './services/supabase';
 
 // ── Lazy-loaded pages: each becomes its own JS chunk ───────────────────────
 // Chunks only download when the user first visits that section.
+const LoginPage             = lazy(() => import('./components/LoginPage'));
 const AppShell              = lazy(() => import('./components/AppShell'));
 const Dashboard             = lazy(() => import('./components/Dashboard'));
 const BlueprintViewer       = lazy(() => import('./components/BlueprintViewer'));
@@ -17,6 +17,7 @@ const SettingsPage          = lazy(() => import('./components/SettingsPage'));
 const PrivacyPolicy         = lazy(() => import('./components/PrivacyPolicy'));
 const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions'));
 const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
+const LandingPage           = lazy(() => import('./components/LandingPage'));
 
 // ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
@@ -63,6 +64,7 @@ export default function App() {
   // -------------------------------------------------------------
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [publicView, setPublicView] = useState('landing'); // 'landing' | 'login'
   const [onboardingToken, setOnboardingToken] = useState(() => {
     try {
       if (typeof window === 'undefined') return null;
@@ -119,6 +121,7 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     setIsAuthenticated(false);
+    setPublicView('landing');
     setSelectedPinId(null);
     setCurrentUser(CURRENT_USER);
     try {
@@ -859,11 +862,25 @@ export default function App() {
   if (!isAuthenticated) {
     if (legalPage === 'privacy') return <Suspense fallback={<PageLoader />}><PrivacyPolicy onBack={() => setLegalPage(null)} /></Suspense>;
     if (legalPage === 'terms')   return <Suspense fallback={<PageLoader />}><TermsAndConditions onBack={() => setLegalPage(null)} /></Suspense>;
+    if (publicView === 'login') {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <LoginPage
+            onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
+            onLegalPage={(page) => setLegalPage(page)}
+            onBackToLanding={() => setPublicView('landing')}
+          />
+        </Suspense>
+      );
+    }
     return (
-      <LoginPage
-        onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
-        onLegalPage={(page) => setLegalPage(page)}
-      />
+      <Suspense fallback={<PageLoader />}>
+        <LandingPage
+          onLaunchWorkspace={() => { _handleLoginUser(CURRENT_USER); }}
+          onOpenLogin={() => setPublicView('login')}
+          onLegalPage={(page) => setLegalPage(page)}
+        />
+      </Suspense>
     );
   }
 
