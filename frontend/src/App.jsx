@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 
 // ── Critical path: load these synchronously (needed for first paint) ────────
-import LoginPage from './components/LoginPage';
 import { api, getSocket } from './services/api';
 import { supabase } from './services/supabase';
 
 // ── Lazy-loaded pages: each becomes its own JS chunk ───────────────────────
 // Chunks only download when the user first visits that section.
+const LoginPage             = lazy(() => import('./components/LoginPage'));
 const AppShell              = lazy(() => import('./components/AppShell'));
 const Dashboard             = lazy(() => import('./components/Dashboard'));
 const BlueprintViewer       = lazy(() => import('./components/BlueprintViewer'));
@@ -17,6 +17,7 @@ const SettingsPage          = lazy(() => import('./components/SettingsPage'));
 const PrivacyPolicy         = lazy(() => import('./components/PrivacyPolicy'));
 const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions'));
 const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
+const LandingPage           = lazy(() => import('./components/LandingPage'));
 
 // ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
@@ -61,8 +62,27 @@ export default function App() {
   // -------------------------------------------------------------
   // AUTH STATE & INITIALIZATION
   // -------------------------------------------------------------
-  const [authInitializing, setAuthInitializing] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authInitializing, setAuthInitializing] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('auth') === 'true') return false;
+    } catch (_) {}
+    return true;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('auth') === 'true') return true;
+    } catch (_) {}
+    return false;
+  });
+  const [publicView, setPublicView] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('publicView')) return p.get('publicView');
+    } catch (_) {}
+    return 'landing';
+  });
   const [onboardingToken, setOnboardingToken] = useState(() => {
     try {
       if (typeof window === 'undefined') return null;
@@ -119,6 +139,7 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     setIsAuthenticated(false);
+    setPublicView('landing');
     setSelectedPinId(null);
     setCurrentUser(CURRENT_USER);
     try {
@@ -154,19 +175,49 @@ export default function App() {
   // PUNCH LIST & APP DATA STATE
   // -------------------------------------------------------------
   const [punchItems, setPunchItems] = useState(INITIAL_PUNCH_ITEMS);
-  const [selectedPinId, setSelectedPinId] = useState(null);
+  const [selectedPinId, setSelectedPinId] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('pin') || null;
+    } catch (_) {
+      return null;
+    }
+  });
 
   // -------------------------------------------------------------
   // VIEW NAVIGATION & SYNC STATE
   // -------------------------------------------------------------
-  const [activeModule, setActiveModule] = useState('dashboard'); // 'dashboard' | 'blueprints' | 'documents' | 'photos' | 'team' | 'settings'
+  const [activeModule, setActiveModule] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('tab') || 'dashboard';
+    } catch (_) {
+      return 'dashboard';
+    }
+  });
   const [syncState, setSyncState] = useState('synced'); // 'synced' | 'syncing' | 'offline'
-  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
-  const [isNewPunchModalOpen, setIsNewPunchModalOpen] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'search';
+    } catch (_) {
+      return false;
+    }
+  });
+  const [isNewPunchModalOpen, setIsNewPunchModalOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'new-punch';
+    } catch (_) {
+      return false;
+    }
+  });
   const [newPunchCoords, setNewPunchCoords] = useState(null);
 
   // Blueprint Upload Modal State
-  const [isBlueprintUploadOpen, setIsBlueprintUploadOpen] = useState(false);
+  const [isBlueprintUploadOpen, setIsBlueprintUploadOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'upload';
+    } catch (_) {
+      return false;
+    }
+  });
   const [blueprintModalMode, setBlueprintModalMode] = useState('new'); // 'new' | 'version'
   const [blueprintTargetSheet, setBlueprintTargetSheet] = useState(null);
 
@@ -469,6 +520,14 @@ export default function App() {
 
     async function restoreSession() {
       try {
+        try {
+          const p = new URLSearchParams(window.location.search);
+          if (p.get('auth') === 'true') {
+            if (isMounted) setAuthInitializing(false);
+            return;
+          }
+        } catch (_) {}
+
         // 1. Check Supabase session first
         const { data } = await supabase.auth.getSession();
         if (data?.session) {
@@ -859,11 +918,25 @@ export default function App() {
   if (!isAuthenticated) {
     if (legalPage === 'privacy') return <Suspense fallback={<PageLoader />}><PrivacyPolicy onBack={() => setLegalPage(null)} /></Suspense>;
     if (legalPage === 'terms')   return <Suspense fallback={<PageLoader />}><TermsAndConditions onBack={() => setLegalPage(null)} /></Suspense>;
+    if (publicView === 'login') {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <LoginPage
+            onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
+            onLegalPage={(page) => setLegalPage(page)}
+            onBackToLanding={() => setPublicView('landing')}
+          />
+        </Suspense>
+      );
+    }
     return (
-      <LoginPage
-        onLogin={(userInfo) => { _handleLoginUser(userInfo); }}
-        onLegalPage={(page) => setLegalPage(page)}
-      />
+      <Suspense fallback={<PageLoader />}>
+        <LandingPage
+          onLaunchWorkspace={() => { _handleLoginUser(CURRENT_USER); }}
+          onOpenLogin={() => setPublicView('login')}
+          onLegalPage={(page) => setLegalPage(page)}
+        />
+      </Suspense>
     );
   }
 

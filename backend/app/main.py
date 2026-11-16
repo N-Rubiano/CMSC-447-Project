@@ -114,6 +114,12 @@ def spa_fallback(full_path: str):
     # Don't intercept /api or /uploads routes
     if full_path.startswith("api/") or full_path.startswith("uploads/") or full_path.startswith("socket.io"):
         return JSONResponse({"error": "Not found"}, status_code=404)
+    # Serve static assets if present in dist (e.g. robots.txt, manifest.json)
+    if full_path:
+        target = FRONTEND_DIST / full_path
+        if target.is_file():
+            media_type = "text/plain" if full_path == "robots.txt" else None
+            return FileResponse(str(target), media_type=media_type)
     index = FRONTEND_DIST / "index.html"
     if index.exists():
         return FileResponse(str(index))

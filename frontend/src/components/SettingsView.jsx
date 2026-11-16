@@ -80,7 +80,7 @@ export default function SettingsView({
     <div className="settings-view-container">
       {/* Left Navigation Rail for Settings */}
       <div className="settings-sidebar">
-        <div style={{ padding: '0 8px 12px 8px', fontSize: 11, fontWeight: 800, color: '#5C3A21', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ padding: '0 8px 12px 8px', fontSize: 11, fontWeight: 700, color: '#5C3A21', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Configuration Sections
         </div>
         {navItems.map(({ id, label, icon: Icon }) => (
@@ -288,17 +288,17 @@ export default function SettingsView({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ padding: 14, backgroundColor: '#FAF8F5', borderRadius: 8, border: '1px solid #E7E5E4' }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: '#DC2626', marginBottom: 4 }}>Facility Administrator</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#DC2626', marginBottom: 4 }}>Facility Administrator</div>
                   <div style={{ fontSize: 12, color: '#78716C' }}>Full project authority: create projects, upload blueprint drawing sets, manage team & contractors, close or delete punch items.</div>
                 </div>
 
                 <div style={{ padding: 14, backgroundColor: '#FAF8F5', borderRadius: 8, border: '1px solid #E7E5E4' }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: '#D97706', marginBottom: 4 }}>General Contractor (GC)</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#D97706', marginBottom: 4 }}>General Contractor (GC)</div>
                   <div style={{ fontSize: 12, color: '#78716C' }}>Supervisory management: assign work to subcontractors, approve work submissions, inspect stamped circles, review field reports.</div>
                 </div>
 
                 <div style={{ padding: 14, backgroundColor: '#FAF8F5', borderRadius: 8, border: '1px solid #E7E5E4' }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: '#2563EB', marginBottom: 4 }}>Trade Subcontractor</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#2563EB', marginBottom: 4 }}>Trade Subcontractor</div>
                   <div style={{ fontSize: 12, color: '#78716C' }}>Task execution: view assigned items, post completion photos, update item status to "In Progress" or submit for GC review.</div>
                 </div>
               </div>
@@ -443,7 +443,7 @@ export default function SettingsView({
             <button
               type="submit"
               className="btn-primary"
-              style={{ padding: '10px 24px', fontSize: 13.5, fontWeight: 800, backgroundColor: '#5C3A21', gap: 6 }}
+              style={{ padding: '10px 24px', fontSize: 13.5, fontWeight: 700, backgroundColor: '#5C3A21', gap: 6 }}
             >
               <Save size={15} /> Save Changes
             </button>

@@ -157,7 +157,7 @@ export default function OnboardingPage({ token, onComplete, onBackToLogin }) {
           {!loading && success && (
             <div style={{ textAlign: 'center', padding: '30px 10px' }}>
               <CheckCircle2 size={52} color="#16A34A" style={{ margin: '0 auto 16px' }} />
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#18181B', marginBottom: 8 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#18181B', marginBottom: 8 }}>
                 Password Established!
               </h2>
               <p style={{ fontSize: 13, color: '#52525B', margin: 0 }}>

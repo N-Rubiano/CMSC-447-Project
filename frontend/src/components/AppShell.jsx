@@ -660,7 +660,6 @@ export default function AppShell({
               type="button"
               className="search-pill"
               onClick={onOpenQuickSearch}
-              aria-label="Search"
             >
               <Search size={15} color="var(--text-secondary)" aria-hidden="true" />
               <span className="search-pill__label">Search field…</span>

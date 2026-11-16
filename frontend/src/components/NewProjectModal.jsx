@@ -52,7 +52,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 900, color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 700, color: 'var(--text-main)' }}>
             <Building2 size={18} color="#5C3A21" /> Create New Construction Project
           </div>
           <button onClick={onClose} className="btn-ghost" style={{ padding: 6, color: '#18181B' }}>
@@ -62,7 +62,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
 
         <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
               Project Name *
             </label>
             <input
@@ -86,7 +86,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
               Assigned General Contractor (GC) *
             </label>
             <select
@@ -115,7 +115,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
                 Project Code
               </label>
               <input
@@ -139,7 +139,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
                 Target Completion
               </label>
               <input
@@ -162,7 +162,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
               Site Address
             </label>
             <input
@@ -185,7 +185,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
               Client / Developer
             </label>
             <input
@@ -225,7 +225,7 @@ export default function NewProjectModal({ users = [], onClose, onProjectCreated 
             <button type="button" onClick={onClose} className="btn-secondary" style={{ fontWeight: 700 }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving || !name.trim()} className="btn-brown" style={{ fontWeight: 800 }}>
+            <button type="submit" disabled={saving || !name.trim()} className="btn-brown" style={{ fontWeight: 700 }}>
               <Plus size={15} color="#FEF3C7" /> Create Project
             </button>
           </div>

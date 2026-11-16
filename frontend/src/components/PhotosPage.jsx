@@ -49,7 +49,7 @@ export default function PhotosPage({ onSelectPunchById }) {
           <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
             Visual Audit Trail
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>
             Geotagged Field Photos
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
@@ -359,7 +359,7 @@ export default function PhotosPage({ onSelectPunchById }) {
                   </div>
                 </div>
 
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', marginBottom: 12 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>
                   {activePhoto.title}
                 </h3>
 

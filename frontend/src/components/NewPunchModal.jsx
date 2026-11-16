@@ -69,7 +69,7 @@ export default function NewPunchModal({
               <MapPin size={18} />
             </div>
             <div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>New Punch Item</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>New Punch Item</h3>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Sheet {activeSheet?.number || 'A-301'} • Grid {initialCoords?.gridLocation || 'D-3'} (X {initialCoords?.x_pct || 48.0}% · Y {initialCoords?.y_pct || 48.0}%)
               </div>

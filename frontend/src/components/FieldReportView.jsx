@@ -176,7 +176,7 @@ export default function FieldReportView({
     return (
       <span style={{
         fontSize: '10px',
-        fontWeight: 800,
+        fontWeight: 700,
         padding: '2px 6px',
         borderRadius: '4px',
         backgroundColor: config.bg,
@@ -231,7 +231,7 @@ export default function FieldReportView({
             {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#1C1917', marginBottom: 2 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1917', marginBottom: 2 }}>
               Post Field Note or Comment
             </div>
             <div style={{ fontSize: 11.5, color: '#78716C' }}>
@@ -278,7 +278,7 @@ export default function FieldReportView({
             style={{
               padding: '8px 18px',
               fontSize: 12.5,
-              fontWeight: 800,
+              fontWeight: 700,
               backgroundColor: '#5C3A21',
               opacity: submitting || !newCommentText.trim() ? 0.6 : 1
             }}
@@ -345,7 +345,7 @@ export default function FieldReportView({
           border: '1.5px dashed #E7E5E4'
         }}>
           <MessageSquare size={36} color="#A8A29E" style={{ margin: '0 auto 12px auto' }} />
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#1C1917', marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1C1917', marginBottom: 4 }}>
             No field comments found
           </div>
           <div style={{ fontSize: 13, color: '#78716C', maxWidth: 400, margin: '0 auto' }}>
@@ -422,7 +422,7 @@ export default function FieldReportView({
 
                 {/* Context Badge Bar (Associated Project / Location / Sheet / Issue) */}
                 <div className="field-report-context-bar">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#5C3A21', fontWeight: 800 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#5C3A21', fontWeight: 700 }}>
                     <MapPin size={12} color="#D97706" />
                     {comment.location}
                   </span>

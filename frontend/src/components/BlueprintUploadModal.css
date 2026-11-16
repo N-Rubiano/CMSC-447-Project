@@ -75,7 +75,7 @@
 
 .bp-title {
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   color: #FAFAFA;
   margin: 0;
   letter-spacing: -0.01em;
@@ -207,7 +207,7 @@
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
@@ -406,7 +406,7 @@
 
 .bp-success-title {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   color: #18181B;
   margin: 0;
 }
@@ -463,7 +463,7 @@
 
 .bp-form-title {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   color: #5C3A21;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -479,7 +479,7 @@
 
 .bp-label {
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #5C3A21;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -550,7 +550,7 @@
   font-size: 10.5px;
   color: #A8A29E;
   margin: 0;
-  font-style: italic;
+  font-style: normal;
 }
 
 /* ── Upload summary ── */
@@ -702,7 +702,7 @@
 
 .bp-csc-val {
   color: #18181B;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .bp-badge-rev {

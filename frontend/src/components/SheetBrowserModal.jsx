@@ -84,7 +84,7 @@ export default function SheetBrowserModal({
         {/* Header */}
         <div className="sheet-browser-header">
           <div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <FileText size={18} color="#5C3A21" /> Drawing Set Sheets Browser
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 500 }}>
@@ -107,7 +107,7 @@ export default function SheetBrowserModal({
                   border: '1.5px solid #FCD34D',
                   backgroundColor: '#FEF3C7',
                   color: '#92400E',
-                  fontWeight: 800,
+                  fontWeight: 700,
                   fontSize: 12,
                   cursor: 'pointer'
                 }}
@@ -173,7 +173,7 @@ export default function SheetBrowserModal({
                 style={{
                   padding: '5px 12px',
                   fontSize: 11,
-                  fontWeight: 800,
+                  fontWeight: 700,
                   textTransform: 'uppercase',
                   borderRadius: 'var(--radius-full)',
                   backgroundColor: selectedDiscipline === d ? '#5C3A21' : 'var(--bg-surface-2)',
@@ -257,7 +257,7 @@ export default function SheetBrowserModal({
                               <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: '#5C3A21', fontWeight: 700 }}>GRID 1-4</span>
                               <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: '#78716C', fontWeight: 600 }}>{s.version || 'Rev 1'}</span>
                             </div>
-                            <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#D97706' }}>
+                            <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#D97706' }}>
                               {s.sheet_number}
                             </div>
                             <div style={{ fontSize: 8.5, color: '#78716C', textAlign: 'right', fontWeight: 600 }}>
@@ -268,13 +268,13 @@ export default function SheetBrowserModal({
 
                         {/* Sheet Details */}
                         <div style={{ padding: 12, backgroundColor: '#FFFFFF' }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)', marginBottom: 6 }}>
                             {s.name}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                             <span style={{
                               fontSize: 10,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               textTransform: 'uppercase',
                               padding: '2px 7px',
                               borderRadius: 4,
@@ -285,7 +285,7 @@ export default function SheetBrowserModal({
                             </span>
                             <span style={{
                               fontSize: 11,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               color: s.open_pin_count > 0 ? '#DC2626' : '#15803D'
                             }}>
                               {s.pin_count || 0} Pins ({s.open_pin_count || 0} Open)
@@ -328,7 +328,7 @@ export default function SheetBrowserModal({
                 /* List View */
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, backgroundColor: '#FFFFFF', borderRadius: 8, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1.5px solid var(--border-default)', backgroundColor: 'var(--bg-surface-2)', textAlign: 'left', color: 'var(--brand-brown)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+                    <tr style={{ borderBottom: '1.5px solid var(--border-default)', backgroundColor: 'var(--bg-surface-2)', textAlign: 'left', color: 'var(--brand-brown)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
                       <th style={{ padding: '10px 14px' }}>Sheet #</th>
                       <th style={{ padding: '10px 14px' }}>Title</th>
                       <th style={{ padding: '10px 14px' }}>Discipline</th>
@@ -348,7 +348,7 @@ export default function SheetBrowserModal({
                           backgroundColor: s.id === activeSheetId ? 'var(--bg-surface-2)' : 'transparent'
                         }}
                       >
-                        <td style={{ padding: '12px 14px', fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#D97706' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#D97706' }}>
                           {s.sheet_number}
                         </td>
                         <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-main)' }}>
@@ -360,7 +360,7 @@ export default function SheetBrowserModal({
                         <td style={{ padding: '12px 14px', fontSize: 12, color: '#4338CA', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                           {s.version || 'Rev 1'}
                         </td>
-                        <td style={{ padding: '12px 14px', fontWeight: 800, color: s.open_pin_count > 0 ? '#DC2626' : '#15803D' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: s.open_pin_count > 0 ? '#DC2626' : '#15803D' }}>
                           {s.pin_count || 0} ({s.open_pin_count || 0} Open)
                         </td>
                         <td style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -408,7 +408,7 @@ export default function SheetBrowserModal({
 
           {/* Right Sidebar: Upload Drawing Set PDF */}
           <div className={`sheet-browser-upload-panel ${mobileTab === 'browse' ? 'mobile-hidden' : ''}`}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--brand-brown)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand-brown)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Upload size={16} color="#5C3A21" /> Ingest PDF Plan Set
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45, fontWeight: 500 }}>
@@ -429,7 +429,7 @@ export default function SheetBrowserModal({
                   backgroundColor: '#D97706',
                   borderColor: '#B45309',
                   color: '#FFFFFF',
-                  fontWeight: 800,
+                  fontWeight: 700,
                   fontSize: 12,
                   display: 'flex',
                   alignItems: 'center',
@@ -473,7 +473,7 @@ export default function SheetBrowserModal({
 
               {/* Discipline dropdown */}
               <div>
-                <label style={{ display: 'block', fontSize: 10.5, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 4 }}>
                   Discipline
                 </label>
                 <select
@@ -501,7 +501,7 @@ export default function SheetBrowserModal({
 
               {/* Sheet Prefix */}
               <div>
-                <label style={{ display: 'block', fontSize: 10.5, fontWeight: 800, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 4 }}>
                   Sheet Number Prefix
                 </label>
                 <input
@@ -540,7 +540,7 @@ export default function SheetBrowserModal({
                 type="submit"
                 disabled={!uploadFile || isUploading}
                 className="btn-brown"
-                style={{ width: '100%', padding: '10px 14px', fontSize: 12.5, fontWeight: 800, marginTop: 4, opacity: (!uploadFile || isUploading) ? 0.6 : 1 }}
+                style={{ width: '100%', padding: '10px 14px', fontSize: 12.5, fontWeight: 700, marginTop: 4, opacity: (!uploadFile || isUploading) ? 0.6 : 1 }}
               >
                 <Upload size={14} color="#FEF3C7" /> Ingest & Split Pages
               </button>
