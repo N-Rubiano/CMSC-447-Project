@@ -21,6 +21,36 @@ import {
 import { TRADES } from '../data/mockData';
 import './Dashboard.css';
 
+const DISCIPLINE_TO_TRADE = {
+  architectural: 'AC',
+  mechanical: 'MP',
+  plumbing: 'MP',
+  electrical: 'EL',
+  fire: 'FP',
+  'fire protection': 'FP',
+  structural: 'ST',
+  glazing: 'GL',
+  drywall: 'DW',
+  flooring: 'FL',
+};
+
+function resolveTradeInfo(punch) {
+  const raw = (punch?.trade || punch?.stamp_initials || '').toString().trim().toUpperCase();
+  if (raw && TRADES[raw]) return TRADES[raw];
+  const disc = (punch?.discipline || '').toString().trim().toLowerCase();
+  const mappedCode = DISCIPLINE_TO_TRADE[disc];
+  if (mappedCode && TRADES[mappedCode]) return TRADES[mappedCode];
+  if (raw) return { code: raw.slice(0, 2), name: raw, color: '#4F46E5' };
+  return TRADES.AC || { code: 'AC', name: 'Architectural', color: '#4F46E5' };
+}
+
+function formatPunchId(punch) {
+  if (punch?.item_number != null) return `#${punch.item_number}`;
+  const id = String(punch?.id || '');
+  if (id.startsWith('pin-')) return `#${id.slice(4, 10).toUpperCase()}`;
+  return id || '—';
+}
+
 export default function Dashboard({
   project,
   building,
@@ -126,12 +156,13 @@ export default function Dashboard({
           const q = searchQuery.toLowerCase();
           return (
             (item.id || '').toLowerCase().includes(q) ||
+            (item.item_number != null ? `#${item.item_number}` : '').toLowerCase().includes(q) ||
             (item.title || '').toLowerCase().includes(q) ||
             (item.assignee || '').toLowerCase().includes(q) ||
-            (item.company || '').toLowerCase().includes(q) ||
+            (item.company || item.assigned_to_company || '').toLowerCase().includes(q) ||
             (item.gridLocation || '').toLowerCase().includes(q) ||
             (item.room || item.room_location || '').toLowerCase().includes(q) ||
-            (item.trade || '').toLowerCase().includes(q)
+            (item.trade || item.stamp_initials || item.discipline || '').toLowerCase().includes(q)
           );
         }
         return true;
@@ -192,11 +223,26 @@ export default function Dashboard({
   // Recent Activity Feed
   // -------------------------------------------------------------
   const recentActivities = useMemo(() => {
+    if (Array.isArray(auditLogs) && auditLogs.length > 0) {
+      return auditLogs.slice(0, 6).map((log) => ({
+        action: log.action || log.details || 'Field update recorded',
+        by: log.actor || log.actor_name || 'Field User',
+        meta: log.time || log.timestamp || log.target || '',
+        color: log.color || '#D97706',
+      }));
+    }
     return punchItems
-      .flatMap((p) => (p.history || []).map((h) => ({ ...h, trade: p.trade, punchId: p.id })))
+      .flatMap((p) =>
+        (p.history || []).map((h) => ({
+          action: h.action,
+          by: h.by || 'Field User',
+          meta: formatPunchId(p),
+          color: resolveTradeInfo(p).color,
+        }))
+      )
       .slice(-6)
       .reverse();
-  }, [punchItems]);
+  }, [auditLogs, punchItems]);
 
   // Map status to badge style
   const getStatusBadge = (status = '') => {
@@ -592,7 +638,10 @@ export default function Dashboard({
               </thead>
               <tbody>
                 {filteredPunches.map((punch) => {
-                  const tr = TRADES[punch.trade] || TRADES.AC || { code: punch.trade || 'GN', color: '#D97706' };
+                  const tr = resolveTradeInfo(punch);
+                  const roomLabel = punch.room || punch.room_location || 'Field Location';
+                  const companyLabel = punch.company || punch.assigned_to_company || 'Trade Partner';
+                  const dueLabel = punch.dueDate || punch.due_date || '—';
                   return (
                     <tr
                       key={punch.id}
@@ -601,33 +650,37 @@ export default function Dashboard({
                       onKeyDown={(e) => e.key === 'Enter' && onSelectPunch && onSelectPunch(punch)}
                     >
                       <td>
-                        <span className="punch-id-mono">{punch.id}</span>
+                        <span className="punch-id-mono">{formatPunchId(punch)}</span>
                       </td>
                       <td>
                         <span
                           className="trade-stamp"
                           style={{ backgroundColor: tr.color }}
-                          title={tr.name || punch.trade}
+                          title={tr.name || tr.code}
                         >
-                          {punch.trade}
+                          {tr.code}
                         </span>
                       </td>
                       <td className="punch-issue-cell">
                         <div className="punch-issue-title">{punch.title}</div>
                         <div className="punch-issue-location">
-                          <span className="punch-issue-grid">Grid {punch.gridLocation || '—'}</span>
-                          <span>•</span>
-                          <span>{punch.room || punch.room_location || 'Field Location'}</span>
+                          {punch.gridLocation && (
+                            <>
+                              <span className="punch-issue-grid">Grid {punch.gridLocation}</span>
+                              <span>•</span>
+                            </>
+                          )}
+                          <span>{roomLabel}</span>
                         </div>
                       </td>
                       <td>{getPriorityBadge(punch.priority)}</td>
                       <td>{getStatusBadge(punch.status)}</td>
                       <td>
                         <div className="punch-assignee-name">{punch.assignee || 'Unassigned'}</div>
-                        <div className="punch-assignee-company">{punch.company || 'Trade Partner'}</div>
+                        <div className="punch-assignee-company">{companyLabel}</div>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span className="punch-due-date">{punch.dueDate || '—'}</span>
+                        <span className="punch-due-date">{dueLabel}</span>
                       </td>
                     </tr>
                   );
@@ -686,10 +739,12 @@ export default function Dashboard({
                 {reviewQueue.map((item) => (
                   <div key={item.id} className="approval-item-card">
                     <div className="approval-item-card__top">
-                      <span className="punch-id-mono">{item.id}</span>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: '#78716C' }}>
-                        Grid {item.gridLocation || '—'}
-                      </span>
+                      <span className="punch-id-mono">{formatPunchId(item)}</span>
+                      {(item.gridLocation || item.room_location) && (
+                        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: '#78716C' }}>
+                          {item.gridLocation ? `Grid ${item.gridLocation}` : item.room_location}
+                        </span>
+                      )}
                     </div>
 
                     <div className="approval-item-card__title">{item.title}</div>
@@ -736,20 +791,17 @@ export default function Dashboard({
 
             {recentActivities.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentActivities.map((act, idx) => {
-                  const tr = TRADES[act.trade] || TRADES.AC || { color: '#D97706' };
-                  return (
-                    <div key={idx} className="activity-item">
-                      <div className="activity-node" style={{ backgroundColor: tr.color }} />
-                      <div className="activity-content">
-                        <div className="activity-action">{act.action}</div>
-                        <div className="activity-meta">
-                          {act.by} • {act.punchId}
-                        </div>
+                {recentActivities.map((act, idx) => (
+                  <div key={idx} className="activity-item">
+                    <div className="activity-node" style={{ backgroundColor: act.color || '#D97706' }} />
+                    <div className="activity-content">
+                      <div className="activity-action">{act.action}</div>
+                      <div className="activity-meta">
+                        {act.by}{act.meta ? ` • ${act.meta}` : ''}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '16px 8px', color: '#78716C', fontSize: 12 }}>
