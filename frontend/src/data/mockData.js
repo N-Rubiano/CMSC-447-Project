@@ -19,7 +19,7 @@ export const PROJECTS = [
   {
     id: 'proj-1',
     code: 'UMBC-2026',
-    name: 'UMBC Campus & Harbor Point',
+    name: 'UMBC Campus',
     contractor: 'UMBC Facility Operations',
     timezone: 'America/New_York (EST)',
     address: '1000 Hilltop Circle, Baltimore, MD 21250',
@@ -87,7 +87,7 @@ export const PRODUCT_STATS = {
 };
 
 export const INITIAL_SETTINGS = {
-  projectName: 'UMBC Campus & Harbor Point',
+  projectName: 'UMBC Campus',
   projectCode: 'UMBC-2026',
   generalContractor: 'UMBC Facility Operations',
   timezone: 'America/New_York (EST)',
