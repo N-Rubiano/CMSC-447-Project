@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, MapPin, HardHat, AlertOctagon, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, MapPin } from 'lucide-react';
 import { TRADES, TRADE_PARTNERS } from '../data/mockData';
+import { api } from '../services/api';
 
 export default function NewPunchModal({
   isOpen,
@@ -13,44 +14,112 @@ export default function NewPunchModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('High');
-  const [room, setRoom] = useState('CORRIDOR 3-W');
-  const [assigneeIndex, setAssigneeIndex] = useState(0);
+  const [room, setRoom] = useState('');
+  const [partners, setPartners] = useState(TRADE_PARTNERS);
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+
+    async function loadContractors() {
+      const [compRes, teamRes] = await Promise.allSettled([
+        api.getCompanies(),
+        api.getTeam(),
+      ]);
+
+      if (!active) return;
+
+      const list = [];
+      const seen = new Set();
+
+      if (teamRes.status === 'fulfilled' && Array.isArray(teamRes.value)) {
+        for (const u of teamRes.value) {
+          if (!u?.id || u.status === 'rejected' || u.status === 'suspended') continue;
+          const role = (u.role || '').toLowerCase();
+          if (role === 'owner') continue;
+          const key = `usr:${u.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push({
+            id: key,
+            userId: u.id,
+            companyId: u.company_id || null,
+            name: u.name || u.email,
+            company: u.company || 'Field Partner',
+            trade: u.trade || (role === 'sub_contractor' ? 'Trade Subcontractor' : role.replace('_', ' ')),
+          });
+        }
+      }
+
+      if (compRes.status === 'fulfilled' && Array.isArray(compRes.value)) {
+        for (const c of compRes.value) {
+          if (!c?.id) continue;
+          const key = `cmp:${c.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push({
+            id: key,
+            userId: null,
+            companyId: c.id,
+            name: c.contact_person || c.name,
+            company: c.name,
+            trade: c.trade || c.type || 'Subcontractor',
+          });
+        }
+      }
+
+      if (list.length > 0) {
+        setPartners(list);
+        setSelectedPartnerId((prev) => prev || list[0].id);
+      }
+    }
+
+    loadContractors();
+    return () => { active = false; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const currentPartner = TRADE_PARTNERS[assigneeIndex] || TRADE_PARTNERS[0];
+  const currentPartner = partners.find((p) => p.id === selectedPartnerId) || null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const tr = TRADES[trade] || TRADES.AC;
+    const resolvedRoom = room.trim() || activeSheet?.floor_level || 'Site';
+    const assigneeName = currentPartner?.name || 'Unassigned';
+    const assigneeCompany = currentPartner?.company || '';
+
     const newPunch = {
       id: `PL-${Math.floor(1000 + Math.random() * 9000)}`,
       sheetId: activeSheet?.id || 'sheet-A301',
-      sheetNumber: activeSheet?.number || 'A-301',
+      sheetNumber: activeSheet?.number || activeSheet?.sheet_number || 'A-101',
       title: title.trim(),
-      description: description.trim() || 'Visual defect flagged during superintendent punch walk.',
+      description: description.trim() || 'Visual defect flagged during field punch walk.',
       trade,
+      discipline: (tr?.name || 'Architectural').toLowerCase(),
+      stamp_initials: trade,
       priority,
       status: 'Open',
-      x_pct: initialCoords?.x_pct || 48.0,
-      y_pct: initialCoords?.y_pct || 48.0,
+      x_pct: initialCoords?.x_pct ?? 48.0,
+      y_pct: initialCoords?.y_pct ?? 48.0,
       gridLocation: initialCoords?.gridLocation || 'D-3',
-      room: room.trim() || 'LEVEL 03',
-      assignee: currentPartner.name,
-      assigneeRole: 'Foreman',
-      company: currentPartner.company,
-      dueDate: '2026-09-28',
-      createdAt: '2026-09-18T12:00:00Z',
-      createdBy: 'Marcus Vance (Superintendent)',
-      photos: [
-        'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?auto=format&fit=crop&w=1000&q=80'
-      ],
-      comments: [
-        { id: 'c-init', author: 'Marcus Vance', role: 'Superintendent', text: 'Created from field punch walk.', time: '2026-09-18 12:00' }
-      ],
+      room: resolvedRoom,
+      room_location: resolvedRoom,
+      assignee: assigneeName,
+      assigned_to_user_id: currentPartner?.userId || null,
+      assigned_subcontractor_id: currentPartner?.companyId || null,
+      assigned_to_company: assigneeCompany,
+      assigneeRole: 'Trade Subcontractor',
+      company: assigneeCompany,
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      photos: [],
+      comments: [],
       history: [
-        { action: 'Pin dropped on sheet', by: 'Marcus Vance', time: '2026-09-18 12:00' }
+        { action: 'Pin dropped on sheet', by: 'Field Inspector', time: 'Just now' }
       ]
     };
 
@@ -58,7 +127,13 @@ export default function NewPunchModal({
     onClose();
     setTitle('');
     setDescription('');
+    setRoom('');
   };
+
+  const sheetContextLabel = [
+    activeSheet?.building_name,
+    activeSheet?.floor_level,
+  ].filter(Boolean).join(' · ') || `Sheet ${activeSheet?.number || activeSheet?.sheet_number || 'Active'}`;
 
   return (
     <div
@@ -80,7 +155,7 @@ export default function NewPunchModal({
             <div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>New Punch Item</h3>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                Sheet {activeSheet?.number || 'A-301'} • Grid {initialCoords?.gridLocation || 'D-3'} (X {initialCoords?.x_pct || 48.0}% · Y {initialCoords?.y_pct || 48.0}%)
+                {sheetContextLabel} • Grid {initialCoords?.gridLocation || 'D-3'} (X {initialCoords?.x_pct ?? 48.0}% · Y {initialCoords?.y_pct ?? 48.0}%)
               </div>
             </div>
           </div>
@@ -145,8 +220,11 @@ export default function NewPunchModal({
           {/* Priority & Location */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Priority</label>
+              <label htmlFor="new-punch-priority" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Priority
+              </label>
               <select
+                id="new-punch-priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="select-field"
@@ -159,10 +237,13 @@ export default function NewPunchModal({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Room / Location</label>
+              <label htmlFor="new-punch-room" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Room / Location
+              </label>
               <input
+                id="new-punch-room"
                 type="text"
-                placeholder="e.g. CONF ROOM 304"
+                placeholder="eg: CORRIDOR 3-W"
                 value={room}
                 onChange={(e) => setRoom(e.target.value)}
                 className="input-field"
@@ -172,15 +253,19 @@ export default function NewPunchModal({
 
           {/* Subcontractor Foreman Assignee */}
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Assign Trade Subcontractor</label>
+            <label htmlFor="new-punch-assignee" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+              Assign Trade Subcontractor
+            </label>
             <select
-              value={assigneeIndex}
-              onChange={(e) => setAssigneeIndex(Number(e.target.value))}
+              id="new-punch-assignee"
+              value={selectedPartnerId}
+              onChange={(e) => setSelectedPartnerId(e.target.value)}
               className="select-field"
             >
-              {TRADE_PARTNERS.map((tp, idx) => (
-                <option key={tp.id} value={idx}>
-                  {tp.name} — {tp.company} [{tp.trade}]
+              <option value="">Unassigned (Assign Later)</option>
+              {partners.map((tp) => (
+                <option key={tp.id} value={tp.id}>
+                  {tp.name}{tp.company && tp.company !== tp.name ? ` — ${tp.company}` : ''} [{tp.trade}]
                 </option>
               ))}
             </select>
@@ -188,8 +273,11 @@ export default function NewPunchModal({
 
           {/* Description */}
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Description & Instructions</label>
+            <label htmlFor="new-punch-description" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+              Description &amp; Instructions
+            </label>
             <textarea
+              id="new-punch-description"
               placeholder="Describe observation, required remedial work, and specs..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -204,7 +292,7 @@ export default function NewPunchModal({
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              Drop Pin & Assign
+              Drop Pin &amp; Assign
             </button>
           </div>
         </form>
