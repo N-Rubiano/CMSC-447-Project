@@ -388,7 +388,7 @@ function BuildingFloorSelector({
               <input
                 ref={searchRef}
                 type="text"
-                className="input-field"
+                className="sel-search__input"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKeyDown}
@@ -396,6 +396,16 @@ function BuildingFloorSelector({
                 aria-label="Search buildings"
                 autoFocus
               />
+              {query && (
+                <button
+                  type="button"
+                  className="sel-search__clear"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear building search"
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             <div className="mobile-step-tabs" style={{ display: 'flex', gap: 6 }}>
@@ -491,14 +501,10 @@ function BuildingFloorSelector({
                             aria-pressed={isFloorSelected}
                           >
                             <span className="f-row__label">
-                              <Layers
-                                size={14}
-                                color={isFloorSelected ? '#FFFFFF' : 'var(--amber)'}
-                                aria-hidden="true"
-                              />
+                              <span className="f-row__dot" aria-hidden="true" />
                               <span>{floor}</span>
                             </span>
-                            {isFloorSelected && <CheckCircle2 size={15} color="#FFFFFF" aria-hidden="true" />}
+                            {isFloorSelected && <CheckCircle2 size={14} color="#FFFFFF" aria-hidden="true" />}
                           </button>
                         );
                       })}
