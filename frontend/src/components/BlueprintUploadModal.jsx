@@ -499,7 +499,10 @@ export default function BlueprintUploadModal({
 
                     {/* Target Sheet dropdown */}
                     <div className="bp-field">
-                      <label htmlFor="bp-target-sheet">Select Blueprint to Update *</label>
+                      <label htmlFor="bp-target-sheet">
+                        Select Blueprint to Update
+                        <span className="required-asterisk" aria-hidden="true">*</span>
+                      </label>
                       <select
                         id="bp-target-sheet"
                         value={selectedSheetId}
@@ -541,7 +544,10 @@ export default function BlueprintUploadModal({
 
                     {/* Next Revision Label */}
                     <div className="bp-field">
-                      <label htmlFor="bp-new-version">New Revision Label *</label>
+                      <label htmlFor="bp-new-version">
+                        New Revision Label
+                        <span className="required-asterisk" aria-hidden="true">*</span>
+                      </label>
                       <input
                         id="bp-new-version"
                         type="text"

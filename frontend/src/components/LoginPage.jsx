@@ -162,6 +162,7 @@ export default function LoginPage({ onLogin, onLegalPage, onBackToLanding }) {
             <div className="login-field-group">
               <label htmlFor="login-email" className="login-label">
                 Username / Email
+                <span className="required-asterisk" aria-hidden="true">*</span>
               </label>
               <div className="login-input-wrap">
                 <Mail size={16} className="login-input-icon" aria-hidden="true" />
@@ -181,6 +182,7 @@ export default function LoginPage({ onLogin, onLegalPage, onBackToLanding }) {
             <div className="login-field-group">
               <label htmlFor="login-password" className="login-label">
                 Password
+                <span className="required-asterisk" aria-hidden="true">*</span>
               </label>
               <div className="login-input-wrap">
                 <Lock size={16} className="login-input-icon" aria-hidden="true" />

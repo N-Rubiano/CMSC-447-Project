@@ -441,10 +441,12 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
 
             <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label htmlFor="doc-title-input" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   Document Title
+                  <span className="required-asterisk" aria-hidden="true">*</span>
                 </label>
                 <input
+                  id="doc-title-input"
                   type="text"
                   value={docName}
                   onChange={(e) => setDocName(e.target.value)}

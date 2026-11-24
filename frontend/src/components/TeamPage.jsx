@@ -1215,10 +1215,12 @@ export default function TeamPage({ currentUser, projects = [] }) {
               {/* Full Name & Email */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Full Name *
+                  <label htmlFor="team-member-name" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
+                    Full Name
+                    <span className="required-asterisk" aria-hidden="true">*</span>
                   </label>
                   <input
+                    id="team-member-name"
                     type="text"
                     required
                     placeholder="e.g. Jordan Miller"
@@ -1229,10 +1231,12 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Work Email *
+                  <label htmlFor="team-member-email" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
+                    Work Email
+                    <span className="required-asterisk" aria-hidden="true">*</span>
                   </label>
                   <input
+                    id="team-member-email"
                     type="email"
                     required
                     placeholder="e.g. jordan@construct.com"
@@ -1248,7 +1252,8 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 {/* Role / Position Title Dropdown */}
                 <div>
                   <label htmlFor="user-role-select" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Role / Position Title *
+                    Role / Position Title
+                    <span className="required-asterisk" aria-hidden="true">*</span>
                   </label>
                   <select
                     id="user-role-select"
@@ -1279,7 +1284,8 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 {/* Company / Organization Dropdown */}
                 <div>
                   <label htmlFor="user-org-select" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
-                    Company / Organization *
+                    Company / Organization
+                    <span className="required-asterisk" aria-hidden="true">*</span>
                   </label>
                   <select
                     id="user-org-select"

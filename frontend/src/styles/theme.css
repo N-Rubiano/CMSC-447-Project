@@ -1141,6 +1141,12 @@ button:disabled {
   text-decoration: line-through;
 }
 
+.required-asterisk {
+  color: var(--crimson, #DC2626);
+  margin-left: 3px;
+  font-weight: 700;
+}
+
 /* Settings Responsive Two-Pane Layout */
 .settings-layout {
   display: grid;

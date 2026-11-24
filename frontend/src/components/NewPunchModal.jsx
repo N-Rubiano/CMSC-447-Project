@@ -127,8 +127,12 @@ export default function NewPunchModal({
 
           {/* Title */}
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Issue Title</label>
+            <label htmlFor="new-punch-title" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+              Issue Title
+              <span className="required-asterisk" aria-hidden="true">*</span>
+            </label>
             <input
+              id="new-punch-title"
               type="text"
               required
               placeholder="e.g. Loose fire door arm or missing drywall backing"
