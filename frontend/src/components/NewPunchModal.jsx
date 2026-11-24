@@ -23,55 +23,45 @@ export default function NewPunchModal({
     let active = true;
 
     async function loadContractors() {
-      const [compRes, teamRes] = await Promise.allSettled([
-        api.getCompanies(),
-        api.getTeam(),
-      ]);
+      try {
+        const team = await api.getTeam();
+        if (!active || !Array.isArray(team)) return;
 
-      if (!active) return;
+        const list = [];
+        const seen = new Set();
 
-      const list = [];
-      const seen = new Set();
-
-      if (teamRes.status === 'fulfilled' && Array.isArray(teamRes.value)) {
-        for (const u of teamRes.value) {
+        for (const u of team) {
           if (!u?.id || u.status === 'rejected' || u.status === 'suspended') continue;
           const role = (u.role || '').toLowerCase();
           if (role === 'owner') continue;
           const key = `usr:${u.id}`;
           if (seen.has(key)) continue;
           seen.add(key);
+
+          const roleLabel =
+            role === 'admin' ? 'Facility Admin' :
+            role === 'general_contractor' ? 'General Contractor' :
+            role === 'sub_contractor' ? 'Trade Subcontractor' :
+            role.replace(/_/g, ' ');
+
           list.push({
             id: key,
             userId: u.id,
             companyId: u.company_id || null,
+            role,
             name: u.name || u.email,
-            company: u.company || 'Field Partner',
-            trade: u.trade || (role === 'sub_contractor' ? 'Trade Subcontractor' : role.replace('_', ' ')),
+            company: u.organization || u.company || '',
+            trade: u.trade ? `${roleLabel} · ${u.trade}` : roleLabel,
           });
         }
-      }
 
-      if (compRes.status === 'fulfilled' && Array.isArray(compRes.value)) {
-        for (const c of compRes.value) {
-          if (!c?.id) continue;
-          const key = `cmp:${c.id}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          list.push({
-            id: key,
-            userId: null,
-            companyId: c.id,
-            name: c.contact_person || c.name,
-            company: c.name,
-            trade: c.trade || c.type || 'Subcontractor',
-          });
+        if (list.length > 0) {
+          setPartners(list);
+          const defaultSub = list.find((p) => p.role === 'sub_contractor') || list[0];
+          setSelectedPartnerId((prev) => prev || defaultSub.id);
         }
-      }
-
-      if (list.length > 0) {
-        setPartners(list);
-        setSelectedPartnerId((prev) => prev || list[0].id);
+      } catch (err) {
+        console.warn('Could not load project team members:', err);
       }
     }
 
