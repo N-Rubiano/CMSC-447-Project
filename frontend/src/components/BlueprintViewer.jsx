@@ -20,7 +20,8 @@ import {
   AlertCircle,
   Plus,
   Upload,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
 import { renderPdfToCanvas } from '../services/pdfRenderer';
@@ -38,6 +39,7 @@ export default function BlueprintViewer({
   onOpenPhotoLightbox,
   onCreatePinAtCoords,
   onOpenUploadModal,
+  onExportProject,
   selectedBuilding,
   selectedFloor,
   currentUser
@@ -76,6 +78,9 @@ export default function BlueprintViewer({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+  const activePointersRef = useRef(new Map());
+  const pinchStartDistRef = useRef(null);
+  const pinchStartZoomRef = useRef(1);
 
   // Cursor coordinates over the 1400x900 sheet
   const [cursorCoords, setCursorCoords] = useState({ x_pct: '50.0', y_pct: '50.0', grid: 'D-3' });
@@ -90,6 +95,7 @@ export default function BlueprintViewer({
 
   // Comment input in slide-over drawer
   const [newCommentText, setNewCommentText] = useState('');
+  const [reassignFeedback, setReassignFeedback] = useState('');
 
   // Active sheet pins
   const currentSheetPins = activeSheet
@@ -138,12 +144,33 @@ export default function BlueprintViewer({
     setZoom(prev => Math.min(prev * 1.4, 3.0));
   };
 
-  // Pan handlers
-  const handleMouseDown = (e) => {
+  // Pointer / Pan / Pinch-to-Zoom handlers (supports mouse, touch, and stylus)
+  const handlePointerDown = (e) => {
     // If clicking a pin or floating HUD, don't start pan
     if (e.target.closest('.cad-pin-wrapper') || e.target.closest('.floating-hud') || e.target.closest('.slide-over-drawer')) {
       return;
     }
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') {
+      return;
+    }
+
+    if (e.pointerId !== undefined) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.currentTarget.setPointerCapture) {
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+    }
+
+    // Two-finger pinch-to-zoom initialization on touch tablets
+    if (activePointersRef.current.size === 2) {
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      pinchStartDistRef.current = dist || 1;
+      pinchStartZoomRef.current = zoom;
+      setIsPanning(false);
+      return;
+    }
+
     if (activeTool === 'dropPin') {
       handleCanvasDropPin(e);
       return;
@@ -156,13 +183,27 @@ export default function BlueprintViewer({
     setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
-  const handleMouseMove = (e) => {
-    if (!containerRef.current) return;
+  const handlePointerMove = (e) => {
+    if (!containerRef.current || !activeSheet) return;
+
+    if (e.pointerId !== undefined && activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Two-finger pinch-to-zoom gesture
+    if (activePointersRef.current.size === 2 && pinchStartDistRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      const nextZoom = Math.min(Math.max(pinchStartZoomRef.current * (dist / pinchStartDistRef.current), 0.3), 3.0);
+      setZoom(nextZoom);
+      return;
+    }
+
     const rect = containerRef.current.getBoundingClientRect();
     const sheetW = activeSheet.dimensions?.width || 1400;
     const sheetH = activeSheet.dimensions?.height || 900;
 
-    // Calculate mouse position relative to the transformed sheet
+    // Calculate pointer position relative to the transformed sheet
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
 
@@ -183,7 +224,20 @@ export default function BlueprintViewer({
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e) => {
+    if (e?.pointerId !== undefined) {
+      activePointersRef.current.delete(e.pointerId);
+      if (activePointersRef.current.size < 2) {
+        pinchStartDistRef.current = null;
+      }
+      if (e.currentTarget?.releasePointerCapture) {
+        try {
+          if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+          }
+        } catch (_) {}
+      }
+    }
     setIsPanning(false);
   };
 
@@ -321,15 +375,17 @@ export default function BlueprintViewer({
     <div
       ref={containerRef}
       onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
+        touchAction: 'none',
         cursor: activeTool === 'dropPin' ? 'crosshair' : isPanning ? 'grabbing' : 'grab',
         backgroundColor: 'var(--bg-canvas)',
         backgroundImage: `
@@ -781,6 +837,31 @@ export default function BlueprintViewer({
           <Plus size={14} strokeWidth={2.5} />
           <span>Add Sheet</span>
         </button>
+
+        {onExportProject && (
+          <button
+            type="button"
+            onClick={onExportProject}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+              backgroundColor: 'var(--surface)',
+              color: 'var(--ink)',
+              fontWeight: 700,
+              fontSize: 12,
+              transition: 'all var(--ease-quick)'
+            }}
+            title="Export Project Info & Punch List (.pdf / .xlsx)"
+          >
+            <Download size={14} strokeWidth={2.2} />
+            <span>Export</span>
+          </button>
+        )}
       </div>
 
       {/* 2. TOP-RIGHT: Vertical Toolbar (Drop-pin, Measure, Layers, Zoom in/out %, Fit) */}
@@ -1195,6 +1276,21 @@ export default function BlueprintViewer({
             </div>
 
             {/* Drawer Footer Actions */}
+            {reassignFeedback && (
+              <div
+                role="status"
+                style={{
+                  padding: '8px 24px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--success, #15803D)',
+                  backgroundColor: 'var(--success-light, #DCFCE7)',
+                  borderTop: '1px solid var(--border-subtle)',
+                }}
+              >
+                {reassignFeedback}
+              </div>
+            )}
             <div style={{
               padding: '16px 24px',
               borderTop: '1px solid var(--border)',
@@ -1216,7 +1312,8 @@ export default function BlueprintViewer({
 
               <button
                 onClick={() => {
-                  alert(`Reassigning ${selectedPin.id}: Assigned foreman notified.`);
+                  setReassignFeedback(`Reassignment notice queued for ${selectedPin.item_number || selectedPin.id}.`);
+                  setTimeout(() => setReassignFeedback(''), 3000);
                 }}
                 className="btn btn-ghost"
                 style={{ flex: 1, height: 42 }}

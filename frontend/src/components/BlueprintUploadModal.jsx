@@ -331,7 +331,16 @@ export default function BlueprintUploadModal({
   }, []);
 
   return (
-    <div className="bp-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="bp-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === 'version' ? 'Upload Latest Blueprint Version' : 'Upload Building Blueprint'}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
       <div className="bp-modal">
 
         {/* ── Header ── */}

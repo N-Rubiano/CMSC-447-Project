@@ -119,15 +119,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
   const drawingSetsCount = documents.filter(d => d.category === 'Drawing Sets').length;
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="page-container">
       {/* Hidden file picker */}
       <input
         type="file"
@@ -137,12 +129,12 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
       />
 
       {/* Header & Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
+      <div className="page-header">
         <div>
           <div className="eyebrow" style={{ marginBottom: 4 }}>
             Field Documentation &amp; Compliance
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)' }}>
+          <h1 className="page-title">
             Project Documents &amp; Sets
           </h1>
         </div>
@@ -170,11 +162,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
       </div>
 
       {/* Small Stat Cards Up Top (Calm 4px scale, tabular figures) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 16
-      }}>
+      <div className="stat-grid">
         <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
             <FileText size={20} />
@@ -206,7 +194,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
         </div>
 
         <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--info-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--info)' }}>
             <Layers size={20} />
           </div>
           <div>

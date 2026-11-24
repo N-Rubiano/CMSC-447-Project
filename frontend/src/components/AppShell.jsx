@@ -575,7 +575,13 @@ export default function AppShell({
     <div className="app-shell">
       {/* ---------------- Left rail ---------------- */}
       <aside className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}>
-        <div className="rail__brand">
+        <button
+          type="button"
+          className="rail__brand"
+          onClick={() => onNavigate('dashboard')}
+          title="Go to Dashboard"
+          aria-label="PunchList Pro — Go to Dashboard"
+        >
           <div className="rail__logo">
             <HardHat size={20} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
           </div>
@@ -584,7 +590,7 @@ export default function AppShell({
               PunchList <span>PRO</span>
             </div>
           )}
-        </div>
+        </button>
 
         <nav className="rail__nav" aria-label="Main">
           <div>

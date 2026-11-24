@@ -1,0 +1,24 @@
+{
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  },
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "frontend/src/components/LandingPage.css"
+        ],
+        "createdAt": "2026-11-24T22:14:55.387Z",
+        "reason": "Intentional architectural CAD blueprint viewport preview surface"
+      }
+    ]
+  }
+}

@@ -514,89 +514,33 @@ export default function TeamPage({ currentUser, projects = [] }) {
     switch (s) {
       case 'pending_approval':
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 12,
-            backgroundColor: '#FEF3C7',
-            color: '#B45309',
-            border: '1px solid #FCD34D',
-            fontSize: 11,
-            fontWeight: 700
-          }}>
-            <Clock size={11} /> Pending Approval
+          <span className="status-pill status-pill--warning">
+            <Clock size={11} aria-hidden="true" /> Pending Approval
           </span>
         );
       case 'pending_invitation':
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 12,
-            backgroundColor: '#EFF6FF',
-            color: '#1D4ED8',
-            border: '1px solid #BFDBFE',
-            fontSize: 11,
-            fontWeight: 700
-          }}>
-            <Mail size={11} /> Invite Sent
+          <span className="status-pill status-pill--info">
+            <Mail size={11} aria-hidden="true" /> Invite Sent
           </span>
         );
       case 'suspended':
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 12,
-            backgroundColor: '#FEE2E2',
-            color: '#B91C1C',
-            border: '1px solid #FCA5A5',
-            fontSize: 11,
-            fontWeight: 700
-          }}>
-            <Ban size={11} /> Suspended
+          <span className="status-pill status-pill--danger">
+            <Ban size={11} aria-hidden="true" /> Suspended
           </span>
         );
       case 'rejected':
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 12,
-            backgroundColor: '#F4F4F5',
-            color: '#71717A',
-            border: '1px solid #E4E4E7',
-            fontSize: 11,
-            fontWeight: 700,
-            textDecoration: 'line-through'
-          }}>
-            <X size={11} /> Rejected
+          <span className="status-pill status-pill--muted">
+            <X size={11} aria-hidden="true" /> Rejected
           </span>
         );
       case 'active':
       default:
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 12,
-            backgroundColor: '#DCFCE7',
-            color: '#15803D',
-            border: '1px solid #86EFAC',
-            fontSize: 11,
-            fontWeight: 700
-          }}>
-            <CheckCircle2 size={11} /> Active
+          <span className="status-pill status-pill--active">
+            <CheckCircle2 size={11} aria-hidden="true" /> Active
           </span>
         );
     }
@@ -608,15 +552,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
     .filter(m => (m.status || 'active') === 'pending_approval').length;
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '28px 32px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="page-container">
       {/* Toast Notification */}
       {toast && (
         <div style={{

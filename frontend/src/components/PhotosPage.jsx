@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Camera,
   ZoomIn,
@@ -15,41 +15,75 @@ import {
 } from 'lucide-react';
 import { FIELD_PHOTOS, TRADES } from '../data/mockData';
 
-export default function PhotosPage({ onSelectPunchById }) {
+export default function PhotosPage({ punchItems = [], onSelectPunchById }) {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
   const [lightboxZoom, setLightboxZoom] = useState(1);
 
-  const activePhoto = selectedPhotoIndex !== null ? FIELD_PHOTOS[selectedPhotoIndex] : null;
+  const photos = useMemo(() => {
+    const derived = [];
+    for (const pin of punchItems) {
+      const pinPhotos = Array.isArray(pin.photos) ? pin.photos : [];
+      for (let i = 0; i < pinPhotos.length; i++) {
+        const entry = pinPhotos[i];
+        const url = typeof entry === 'string' ? entry : entry?.url;
+        if (!url) continue;
+        derived.push({
+          id: `${pin.id}-photo-${i}`,
+          url,
+          title: pin.title || 'Field Observation',
+          caption: (typeof entry === 'object' && entry?.caption) || pin.description || 'Field punch observation photo.',
+          trade: pin.trade || 'AC',
+          punchId: pin.id,
+          room: pin.room || 'Site',
+          gridLocation: pin.gridLocation || pin.grid_location || '—',
+          capturedBy: pin.createdBy || pin.created_by_name || 'Field Inspector',
+          date: (pin.createdAt || pin.created_at || '').slice(0, 10) || 'Recent',
+        });
+      }
+    }
+    return derived.length > 0 ? derived : FIELD_PHOTOS;
+  }, [punchItems]);
+
+  const activePhoto = selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
+
+  useEffect(() => {
+    if (selectedPhotoIndex === null) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedPhotoIndex(null);
+      if (e.key === 'ArrowLeft') {
+        setLightboxZoom(1);
+        setSelectedPhotoIndex(prev => (prev > 0 ? prev - 1 : photos.length - 1));
+      }
+      if (e.key === 'ArrowRight') {
+        setLightboxZoom(1);
+        setSelectedPhotoIndex(prev => (prev < photos.length - 1 ? prev + 1 : 0));
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedPhotoIndex, photos.length]);
 
   const handlePrev = (e) => {
     e.stopPropagation();
     setLightboxZoom(1);
-    setSelectedPhotoIndex(prev => (prev > 0 ? prev - 1 : FIELD_PHOTOS.length - 1));
+    setSelectedPhotoIndex(prev => (prev > 0 ? prev - 1 : photos.length - 1));
   };
 
   const handleNext = (e) => {
     e.stopPropagation();
     setLightboxZoom(1);
-    setSelectedPhotoIndex(prev => (prev < FIELD_PHOTOS.length - 1 ? prev + 1 : 0));
+    setSelectedPhotoIndex(prev => (prev < photos.length - 1 ? prev + 1 : 0));
   };
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="page-container">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="page-header">
         <div>
           <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
             Visual Audit Trail
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>
+          <h1 className="page-title">
             Geotagged Field Photos
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
@@ -59,13 +93,13 @@ export default function PhotosPage({ onSelectPunchById }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className="chip-mono" style={{ fontSize: 12 }}>
-            {FIELD_PHOTOS.length} Captured Images
+            {photos.length} Captured Images
           </span>
         </div>
       </div>
 
       {/* Grid of Geotagged Field Photos — or empty state */}
-      {FIELD_PHOTOS.length === 0 ? (
+      {photos.length === 0 ? (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -75,7 +109,7 @@ export default function PhotosPage({ onSelectPunchById }) {
           gap: 16,
           color: 'var(--text-muted)'
         }}>
-          <Camera size={48} strokeWidth={1.2} color="var(--border)" />
+          <Camera size={48} strokeWidth={1.2} color="var(--border)" aria-hidden="true" />
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-secondary)' }}>No field photos yet</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 340, textAlign: 'center', lineHeight: 1.6 }}>
             Photos will appear here once punch items with attached images are created on a building floor blueprint.
@@ -84,10 +118,10 @@ export default function PhotosPage({ onSelectPunchById }) {
       ) : (
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
         gap: 20
       }}>
-        {FIELD_PHOTOS.map((photo, index) => {
+        {photos.map((photo, index) => {
           const tr = TRADES[photo.trade] || TRADES.AC;
           return (
             <div
@@ -178,6 +212,9 @@ export default function PhotosPage({ onSelectPunchById }) {
       {activePhoto && (
         <div
           className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={activePhoto.title || 'Field photo lightbox'}
           onClick={() => setSelectedPhotoIndex(null)}
           style={{
             zIndex: 200,
@@ -189,79 +226,89 @@ export default function PhotosPage({ onSelectPunchById }) {
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               width: '100vw',
               height: '100vh',
-              position: 'relative'
+              position: 'relative',
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button Top Right */}
             <button
+              type="button"
               onClick={() => setSelectedPhotoIndex(null)}
               className="btn-icon"
+              aria-label="Close photo lightbox"
               style={{
                 position: 'absolute',
                 top: 20,
                 right: 20,
                 zIndex: 40,
+                width: 40,
+                height: 40,
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
                 color: '#FFFFFF'
               }}
             >
-              <X size={20} />
-            </button>
-
-            {/* Left Prev Arrow Button */}
-            <button
-              onClick={handlePrev}
-              className="btn-icon"
-              style={{
-                position: 'absolute',
-                left: 24,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                zIndex: 30,
-                width: 46,
-                height: 46,
-                borderRadius: '50%',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                color: '#FFFFFF'
-              }}
-            >
-              <ChevronLeft size={28} />
-            </button>
-
-            {/* Right Next Arrow Button */}
-            <button
-              onClick={handleNext}
-              className="btn-icon"
-              style={{
-                position: 'absolute',
-                right: 384, // clear side metadata panel
-                top: '50%',
-                transform: 'translateY(-50%)',
-                zIndex: 30,
-                width: 46,
-                height: 46,
-                borderRadius: '50%',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                color: '#FFFFFF'
-              }}
-            >
-              <ChevronRight size={28} />
+              <X size={20} aria-hidden="true" />
             </button>
 
             {/* Main Photo Zoom Canvas Area */}
             <div style={{
-              flex: 1,
+              flex: '1 1 560px',
+              minHeight: '60vh',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative',
               overflow: 'hidden',
-              padding: '40px 60px'
+              padding: '40px 64px'
             }}>
+              {/* Left Prev Arrow Button */}
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="btn-icon"
+                aria-label="Previous photo"
+                style={{
+                  position: 'absolute',
+                  left: 16,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 30,
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  color: '#FFFFFF'
+                }}
+              >
+                <ChevronLeft size={26} aria-hidden="true" />
+              </button>
+
+              {/* Right Next Arrow Button */}
+              <button
+                type="button"
+                onClick={handleNext}
+                className="btn-icon"
+                aria-label="Next photo"
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 30,
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  color: '#FFFFFF'
+                }}
+              >
+                <ChevronRight size={26} aria-hidden="true" />
+              </button>
               <div
                 style={{
                   maxWidth: '100%',
@@ -303,29 +350,35 @@ export default function PhotosPage({ onSelectPunchById }) {
                 color: '#FFFFFF'
               }}>
                 <button
+                  type="button"
                   onClick={() => setLightboxZoom(z => Math.max(z - 0.3, 0.7))}
                   className="btn-icon"
-                  style={{ width: 32, height: 32, color: '#FFFFFF' }}
+                  aria-label="Zoom out"
+                  style={{ width: 38, height: 38, color: '#FFFFFF' }}
                 >
-                  <ZoomOut size={16} />
+                  <ZoomOut size={16} aria-hidden="true" />
                 </button>
                 <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', minWidth: 46, textAlign: 'center' }}>
                   {Math.round(lightboxZoom * 100)}%
                 </span>
                 <button
+                  type="button"
                   onClick={() => setLightboxZoom(z => Math.min(z + 0.3, 3))}
                   className="btn-icon"
-                  style={{ width: 32, height: 32, color: '#FFFFFF' }}
+                  aria-label="Zoom in"
+                  style={{ width: 38, height: 38, color: '#FFFFFF' }}
                 >
-                  <ZoomIn size={16} />
+                  <ZoomIn size={16} aria-hidden="true" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setLightboxZoom(1)}
                   className="btn-icon"
-                  style={{ width: 32, height: 32, color: '#FFFFFF' }}
+                  aria-label="Reset zoom"
+                  style={{ width: 38, height: 38, color: '#FFFFFF' }}
                   title="Reset Zoom"
                 >
-                  <Maximize2 size={16} />
+                  <Maximize2 size={16} aria-hidden="true" />
                 </button>
               </div>
             </div>

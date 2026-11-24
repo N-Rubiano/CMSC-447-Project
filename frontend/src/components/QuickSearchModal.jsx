@@ -46,7 +46,13 @@ export default function QuickSearchModal({
     : teamMembers.slice(0, 3);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quick search"
+      onClick={onClose}
+    >
       <div
         className="modal-card"
         style={{ maxWidth: 620, padding: 0, overflow: 'hidden' }}
@@ -61,10 +67,11 @@ export default function QuickSearchModal({
           borderBottom: '1px solid var(--border)',
           background: '#FFFFFF'
         }}>
-          <Search size={20} color="var(--amber)" />
+          <Search size={20} color="var(--amber)" aria-hidden="true" />
           <input
             type="text"
             autoFocus
+            aria-label="Search punch pins, drawing sheets, specs, RFIs, and team"
             placeholder="Search punch pins, drawing sheets, specs, RFIs, team..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -79,11 +86,13 @@ export default function QuickSearchModal({
             }}
           />
           <button
+            type="button"
             onClick={onClose}
             className="btn-icon"
-            style={{ width: 32, height: 32 }}
+            aria-label="Close search"
+            style={{ width: 38, height: 38 }}
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 

@@ -252,6 +252,183 @@ def generate_punch_list_csv(pins: list, sheets: list) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Excel (.xlsx) Export
+# ---------------------------------------------------------------------------
+
+def generate_project_excel(
+    project: dict,
+    pins: list,
+    sheets: list,
+    members: list | None = None,
+) -> bytes:
+    """Generate a multi-sheet Excel (.xlsx) workbook with Project Info, Punch Items, and Team."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+
+    header_fill = PatternFill(start_color="18181B", end_color="18181B", fill_type="solid")
+    amber_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    stripe_fill = PatternFill(start_color="F8F7F4", end_color="F8F7F4", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    section_font = Font(name="Calibri", size=12, bold=True, color="18181B")
+    bold_font = Font(name="Calibri", size=11, bold=True, color="18181B")
+    body_font = Font(name="Calibri", size=11, color="18181B")
+    thin_side = Side(style="thin", color="DCD5C8")
+    cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+    total = len(pins)
+    closed_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("closed", "resolved"))
+    open_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("open", "assigned"))
+    in_progress_count = sum(1 for p in pins if (p.get("status") or "").lower() == "in_progress")
+    in_review_count = sum(1 for p in pins if "review" in (p.get("status") or "").lower())
+    resolution_rate = round((closed_count / total) * 100, 1) if total > 0 else 0.0
+
+    # ── Sheet 1: Project Overview ────────────────────────────────────────
+    ws_overview = wb.active
+    ws_overview.title = "Project Overview"
+    ws_overview.append(["PunchList Pro — Project Deliverable Summary"])
+    ws_overview["A1"].font = Font(name="Calibri", size=15, bold=True, color="D97706")
+    ws_overview.append([])
+
+    info_rows = [
+        ("Project Name", project.get("name", "Project")),
+        ("Project Code", project.get("code", "PRJ")),
+        ("Client / Owner", project.get("client_name") or "—"),
+        ("Site Address", project.get("address") or "—"),
+        ("Status", (project.get("status") or "active").upper()),
+        ("Target Completion", str(project.get("target_completion") or "—")[:10]),
+        ("Exported At", datetime.now().strftime("%Y-%m-%d %H:%M")),
+    ]
+    ws_overview.append(["Field", "Value"])
+    for cell in ws_overview[3]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+    for label, val in info_rows:
+        ws_overview.append([label, val])
+        row = ws_overview[ws_overview.max_row]
+        row[0].font = bold_font
+        row[1].font = body_font
+        for c in row:
+            c.border = cell_border
+
+    ws_overview.append([])
+    ws_overview.append(["KPI Summary", "Count"])
+    for cell in ws_overview[ws_overview.max_row]:
+        cell.fill = header_fill
+        cell.font = header_font
+    kpi_rows = [
+        ("Total Punch Items", total),
+        ("Open / Assigned", open_count),
+        ("In Progress", in_progress_count),
+        ("In Review", in_review_count),
+        ("Closed / Resolved", closed_count),
+        ("Resolution Rate", f"{resolution_rate}%"),
+        ("Total Blueprint Sheets", len(sheets)),
+    ]
+    for label, val in kpi_rows:
+        ws_overview.append([label, val])
+        row = ws_overview[ws_overview.max_row]
+        row[0].font = bold_font
+        row[1].font = body_font
+        if label == "Resolution Rate":
+            row[1].fill = amber_fill
+        for c in row:
+            c.border = cell_border
+
+    ws_overview.column_dimensions["A"].width = 28
+    ws_overview.column_dimensions["B"].width = 48
+
+    # ── Sheet 2: Punch Items ─────────────────────────────────────────────
+    ws_pins = wb.create_sheet(title="Punch Items")
+    sheet_map = {s["id"]: s for s in sheets}
+    pin_headers = [
+        "Item #", "Title", "Status", "Priority", "Discipline",
+        "Location / Room", "Assigned To", "Sheet Number", "Sheet Name",
+        "X (%)", "Y (%)", "Due Date", "Created At", "Stamp Initials",
+    ]
+    ws_pins.append(pin_headers)
+    ws_pins.freeze_panes = "A2"
+    for cell in ws_pins[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    for idx, pin in enumerate(sorted(pins, key=lambda p: p.get("item_number", 0)), start=2):
+        sheet = sheet_map.get(pin.get("sheet_id", ""), {})
+        ws_pins.append([
+            pin.get("item_number", ""),
+            pin.get("title", ""),
+            format_status_label(pin.get("status", "open")),
+            (pin.get("priority") or "medium").upper(),
+            (pin.get("discipline") or "architectural").capitalize(),
+            pin.get("room_location") or pin.get("room") or "",
+            pin.get("assigned_to_company") or pin.get("assignee") or "",
+            sheet.get("sheet_number") or sheet.get("number") or "",
+            sheet.get("name") or sheet.get("title") or "",
+            pin.get("x_pct", ""),
+            pin.get("y_pct", ""),
+            str(pin.get("due_date") or "")[:10],
+            str(pin.get("created_at") or "")[:10],
+            pin.get("stamp_initials", ""),
+        ])
+        for cell in ws_pins[idx]:
+            cell.font = body_font
+            cell.border = cell_border
+            if idx % 2 == 1:
+                cell.fill = stripe_fill
+
+    pin_widths = [10, 38, 18, 12, 16, 22, 24, 14, 26, 10, 10, 14, 14, 14]
+    for i, w in enumerate(pin_widths, start=1):
+        col_letter = ws_pins.cell(row=1, column=i).column_letter
+        ws_pins.column_dimensions[col_letter].width = w
+
+    # ── Sheet 3: Team & Assignments ──────────────────────────────────────
+    ws_team = wb.create_sheet(title="Team & Assignments")
+    team_headers = ["Name", "Email", "Role", "Company", "Assigned Items", "Open Items", "Closed Items"]
+    ws_team.append(team_headers)
+    ws_team.freeze_panes = "A2"
+    for cell in ws_team[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    for idx, m in enumerate(members or [], start=2):
+        uid = m.get("id")
+        cid = m.get("company_id")
+        assigned = [
+            p for p in pins
+            if (uid and p.get("assigned_to_user_id") == uid)
+            or (cid and p.get("assigned_subcontractor_id") == cid)
+        ]
+        m_closed = sum(1 for p in assigned if (p.get("status") or "").lower() in ("closed", "resolved"))
+        m_open = len(assigned) - m_closed
+        ws_team.append([
+            m.get("name", ""),
+            m.get("email", ""),
+            (m.get("role") or "").replace("_", " ").title(),
+            m.get("company") or m.get("company_name") or "",
+            len(assigned),
+            m_open,
+            m_closed,
+        ])
+        for cell in ws_team[idx]:
+            cell.font = body_font
+            cell.border = cell_border
+            if idx % 2 == 1:
+                cell.fill = stripe_fill
+
+    for i, w in enumerate([24, 30, 22, 26, 16, 14, 14], start=1):
+        col_letter = ws_team.cell(row=1, column=i).column_letter
+        ws_team.column_dimensions[col_letter].width = w
+
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+# ---------------------------------------------------------------------------
 # Minimal fallback PDF (if reportlab not yet installed)
 # ---------------------------------------------------------------------------
 

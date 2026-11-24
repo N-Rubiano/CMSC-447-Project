@@ -61,12 +61,21 @@ export default function NewPunchModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="New punch item"
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
       <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540, padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
-              <MapPin size={18} />
+              <MapPin size={18} aria-hidden="true" />
             </div>
             <div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>New Punch Item</h3>
@@ -75,8 +84,8 @@ export default function NewPunchModal({
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="btn-icon">
-            <X size={18} />
+          <button type="button" onClick={onClose} className="btn-icon" aria-label="Close new punch modal" style={{ width: 38, height: 38 }}>
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 

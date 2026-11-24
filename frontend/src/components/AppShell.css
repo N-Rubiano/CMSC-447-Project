@@ -50,13 +50,22 @@
 .rail.is-collapsed { width: var(--rail-collapsed-width); }
 
 .rail__brand {
+  width: 100%;
   height: var(--topbar-height);
   display: flex;
   align-items: center;
   padding: 0 20px;
   gap: 12px;
+  background: transparent;
+  border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--ease-quick);
 }
+.rail__brand:hover { background-color: rgba(255, 255, 255, 0.04); }
 .is-collapsed .rail__brand { padding: 0 18px; }
 
 .rail__logo {
@@ -124,7 +133,7 @@
 .rail__user-name { font-size: 13px; font-weight: 600; color: #fff; }
 .rail__user-role { font-size: 11px; color: #a1a1aa; }
 
-.rail__toggle { color: #a1a1aa; width: 32px; height: 32px; }
+.rail__toggle { color: #a1a1aa; width: 38px; height: 38px; }
 
 /* Avatar */
 .avatar {

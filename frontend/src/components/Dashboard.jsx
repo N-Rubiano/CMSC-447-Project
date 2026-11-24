@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
 import './Dashboard.css';
@@ -61,6 +62,7 @@ export default function Dashboard({
   onOpenBlueprint,
   onNewPunch,
   onUploadBlueprint,
+  onExportProject,
   onSelectPunch,
   onApprovePunch,
   currentUser,
@@ -290,6 +292,18 @@ export default function Dashboard({
             >
               <Upload size={15} color="#5C3A21" />
               <span>Add Blueprint</span>
+            </button>
+          )}
+
+          {onExportProject && (
+            <button
+              type="button"
+              onClick={onExportProject}
+              className="dashboard-btn-secondary"
+              title="Export Project Info & Punch List (.pdf / .xlsx)"
+            >
+              <Download size={15} color="#5C3A21" />
+              <span>Export</span>
             </button>
           )}
 

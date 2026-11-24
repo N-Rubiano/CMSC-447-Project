@@ -23,6 +23,7 @@ const LandingPage           = lazy(() => import('./components/LandingPage'));
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
 const NewPunchModal         = lazy(() => import('./components/NewPunchModal'));
 const BlueprintUploadModal  = lazy(() => import('./components/BlueprintUploadModal'));
+const ExportModal           = lazy(() => import('./components/ExportModal'));
 
 // ── Lightweight full-screen loader shown while any chunk is downloading ─────
 function PageLoader() {
@@ -218,6 +219,16 @@ export default function App() {
       return false;
     }
   });
+  const [isExportModalOpen, setIsExportModalOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'export';
+    } catch (_) {
+      return false;
+    }
+  });
+  const canExportProject = ['admin', 'general_contractor', 'architect', 'owner'].includes(
+    (currentUser?.role || '').toLowerCase()
+  );
   const [blueprintModalMode, setBlueprintModalMode] = useState('new'); // 'new' | 'version'
   const [blueprintTargetSheet, setBlueprintTargetSheet] = useState(null);
 
@@ -989,6 +1000,7 @@ export default function App() {
                 setIsNewPunchModalOpen(true);
               }}
               onUploadBlueprint={() => handleOpenUploadBlueprint('new')}
+              onExportProject={canExportProject ? () => setIsExportModalOpen(true) : undefined}
               onSelectPunch={handleSelectPunchFromAnywhere}
               onApprovePunch={handleApprovePunch}
               currentUser={currentUser}
@@ -1016,6 +1028,7 @@ export default function App() {
               }}
               onCreatePinAtCoords={handleCreatePinAtCoords}
               onOpenUploadModal={(mode, target) => handleOpenUploadBlueprint(mode, target)}
+              onExportProject={canExportProject ? () => setIsExportModalOpen(true) : undefined}
               currentUser={currentUser}
             />
           </Suspense>
@@ -1035,6 +1048,7 @@ export default function App() {
         {activeModule === 'photos' && (
           <Suspense fallback={<PageLoader />}>
             <PhotosPage
+              punchItems={punchItems}
               onSelectPunchById={handleSelectPunchById}
             />
           </Suspense>
@@ -1130,6 +1144,17 @@ export default function App() {
               initialFloorLevel={selectedFloorId || activeFloor?.name || ''}
               onClose={() => setIsBlueprintUploadOpen(false)}
               onUploaded={handleSheetsUploaded}
+            />
+          </Suspense>
+        )}
+
+        {/* Export Project Deliverables Modal (.pdf / .xlsx / .csv) */}
+        {isExportModalOpen && (
+          <Suspense fallback={null}>
+            <ExportModal
+              project={activeProject}
+              sheets={sheets}
+              onClose={() => setIsExportModalOpen(false)}
             />
           </Suspense>
         )}

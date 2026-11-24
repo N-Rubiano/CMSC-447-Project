@@ -238,22 +238,14 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   };
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="page-container">
       {/* Header with SOC 2 Badge Chip */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header">
         <div>
           <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
             System Preferences
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>
+          <h1 className="page-title">
             Settings &amp; Preferences
           </h1>
         </div>
@@ -264,22 +256,22 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
           gap: 6,
           padding: '5px 12px',
           borderRadius: 'var(--radius-full)',
-          backgroundColor: '#F0FDF4',
-          border: '1px solid #BBF7D0',
-          color: '#166534',
+          backgroundColor: 'var(--success-light)',
+          border: '1px solid var(--success-border)',
+          color: 'var(--success)',
           fontSize: 12,
           fontWeight: 700
         }}>
-          <ShieldCheck size={16} color="#16A34A" />
+          <ShieldCheck size={16} color="var(--success)" aria-hidden="true" />
           <span>SOC 2 Type II Certified</span>
         </div>
       </div>
 
       {saveToast && (
-        <div style={{
-          backgroundColor: '#F0FDF4',
-          border: '1px solid #86EFAC',
-          color: '#166534',
+        <div role="status" style={{
+          backgroundColor: 'var(--success-light)',
+          border: '1px solid var(--success-border)',
+          color: 'var(--success)',
           padding: '10px 16px',
           borderRadius: 8,
           display: 'flex',
@@ -289,27 +281,15 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
           fontWeight: 600,
           animation: 'fadeIn 150ms ease'
         }}>
-          <Check size={16} />
+          <Check size={16} aria-hidden="true" />
           <span>Settings saved successfully!</span>
         </div>
       )}
 
       {/* Main Settings Card: Left Vertical Rail + Content Panel */}
-      <div className="card" style={{
-        display: 'grid',
-        gridTemplateColumns: '220px 1fr',
-        minHeight: 520,
-        overflow: 'hidden'
-      }}>
+      <div className="card settings-layout">
         {/* Left Vertical Tab Rail */}
-        <div style={{
-          backgroundColor: 'var(--surface-muted)',
-          borderRight: '1px solid var(--border)',
-          padding: '16px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4
-        }}>
+        <div className="settings-rail">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -945,7 +925,10 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </button>
                 <button
                   type="button"
-                  onClick={() => alert('Offline vector cache cleared.')}
+                  onClick={() => {
+                    setSaveToast(true);
+                    setTimeout(() => setSaveToast(false), 2500);
+                  }}
                   className="btn btn-secondary"
                   style={{ height: 40, color: 'var(--crimson)' }}
                 >
