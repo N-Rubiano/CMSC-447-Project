@@ -155,38 +155,35 @@ export default function NewPunchModal({
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Trade Stamp Selector */}
+          {/* Trade Stamp Dropdown */}
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Trade Stamp</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {Object.keys(TRADES).map((k) => {
-                const tr = TRADES[k];
-                const isSelected = trade === k;
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setTrade(k)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      border: isSelected ? `2px solid ${tr.color}` : '1px solid var(--border)',
-                      backgroundColor: isSelected ? tr.bg : 'var(--surface)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span className="trade-stamp-badge sm" style={{ backgroundColor: tr.color }}>
-                      {k}
-                    </span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: isSelected ? tr.color : 'var(--ink)' }}>
-                      {k}
-                    </span>
-                  </button>
-                );
-              })}
+            <label htmlFor="new-punch-trade" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+              Trade Stamp
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span
+                className="trade-stamp-badge md"
+                style={{ backgroundColor: (TRADES[trade] || TRADES.AC).color, flexShrink: 0 }}
+                aria-hidden="true"
+              >
+                {trade}
+              </span>
+              <select
+                id="new-punch-trade"
+                value={trade}
+                onChange={(e) => setTrade(e.target.value)}
+                className="select-field"
+                style={{ flex: 1 }}
+              >
+                {Object.keys(TRADES).map((k) => {
+                  const tr = TRADES[k];
+                  return (
+                    <option key={k} value={k}>
+                      {k} — {tr.name}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
           </div>
 

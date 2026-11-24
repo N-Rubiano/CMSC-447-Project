@@ -230,6 +230,35 @@
   padding-bottom: 2px;
 }
 
+.dashboard-kpi-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #52525B);
+  background-color: var(--surface-muted, #F7F5F0);
+  border: 1px solid var(--border-subtle, #EDE8DF);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dashboard-meter {
+  margin-top: 10px;
+  height: 6px;
+  width: 100%;
+  border-radius: 9999px;
+  background-color: var(--surface-muted, #F2EFE9);
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+}
+
+.dashboard-meter__seg {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 300ms var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
 .dashboard-kpi-card__footer {
   margin-top: 10px;
   padding-top: 8px;

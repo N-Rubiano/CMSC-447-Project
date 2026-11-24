@@ -21,37 +21,6 @@ import {
 import { TRADES } from '../data/mockData';
 import './Dashboard.css';
 
-/**
- * Clean SVG Trend Sparkline
- * Ultra-crisp vector line + subtle tint fill + terminating dot.
- */
-function Sparkline({ data, stroke = '#D97706', fill = 'rgba(217, 119, 6, 0.08)', width = 84, height = 28 }) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const paddingY = 3;
-  const availHeight = height - paddingY * 2;
-
-  const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * (width - 4) + 2;
-    const y = height - paddingY - ((val - min) / range) * availHeight;
-    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
-  });
-
-  const pathD = points.reduce((acc, [x, y], i) => (i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`), '');
-  const areaD = `${pathD} L ${points[points.length - 1][0]} ${height} L ${points[0][0]} ${height} Z`;
-  const [lastX, lastY] = points[points.length - 1];
-
-  return (
-    <svg width={width} height={height} aria-hidden="true" style={{ overflow: 'visible', display: 'block' }}>
-      {fill && <path d={areaD} fill={fill} />}
-      <path d={pathD} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lastX} cy={lastY} r="2.5" fill={stroke} />
-    </svg>
-  );
-}
-
 export default function Dashboard({
   project,
   building,
@@ -109,11 +78,25 @@ export default function Dashboard({
 
   const resolutionRate = totalPunches > 0 ? Math.round((resolvedPunches / totalPunches) * 100) : 0;
 
-  // Sparkline data series
-  const sparkOpen = useMemo(() => [openPunches + 4, openPunches + 3, openPunches + 5, openPunches + 2, openPunches + 1, openPunches + 2, openPunches], [openPunches]);
-  const sparkCritical = useMemo(() => [Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches + 2), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), criticalPunches], [criticalPunches]);
-  const sparkReview = useMemo(() => [Math.max(1, reviewPunches - 2), Math.max(1, reviewPunches - 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), reviewPunches], [reviewPunches]);
-  const sparkRate = useMemo(() => [Math.max(0, resolutionRate - 12), Math.max(0, resolutionRate - 8), Math.max(0, resolutionRate - 6), Math.max(0, resolutionRate - 4), Math.max(0, resolutionRate - 2), Math.max(0, resolutionRate - 1), resolutionRate], [resolutionRate]);
+  const inProgressPunches = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'in_progress' || (p.status || '').toLowerCase() === 'in progress').length;
+  }, [punchItems]);
+
+  const highPriorityPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const isHigh = (p.priority || '').toLowerCase() === 'high';
+      const isClosed = ['resolved', 'closed'].includes((p.status || '').toLowerCase());
+      return isHigh && !isClosed;
+    }).length;
+  }, [punchItems]);
+
+  const gcReviewCount = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'submitted_for_contractor_review').length;
+  }, [punchItems]);
+
+  const adminReviewCount = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'submitted_for_admin_review').length;
+  }, [punchItems]);
 
   // Priority sorting weights
   const PRIORITY_WEIGHTS = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -322,48 +305,97 @@ export default function Dashboard({
       </header>
 
       {/* -------------------------------------------------------------
-          2. 4 KPI CARDS WITH REAL-TIME VECTOR TREND SPARKLINES
+          2. 4 KPI CARDS WITH DATA-DRIVEN STATUS METERS
           ------------------------------------------------------------- */}
       <section aria-label="Key Performance Indicators" className="dashboard-kpi-grid">
         {/* KPI 1: Open Punches */}
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Open Punches</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#E0F2FE', color: '#0369A1' }}>
-              <AlertOctagon size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--status-open-bg)', color: 'var(--status-open)' }}>
+              <AlertOctagon size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value">{openPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkOpen} stroke="#0284C7" fill="rgba(2, 132, 199, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {inProgressPunches} in progress
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((openPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--status-open)',
+              }}
+            />
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((inProgressPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--amber)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span className="dashboard-kpi-card__delta-good">↓ 2</span>
-            <span>vs last inspection walk</span>
+            <span>
+              {openPunches + inProgressPunches} active of {totalPunches} total items
+            </span>
           </div>
         </div>
 
         {/* KPI 2: Critical / Overdue */}
-        <div className="dashboard-kpi-card dashboard-kpi-card--critical">
+        <div className={`dashboard-kpi-card${criticalPunches > 0 ? ' dashboard-kpi-card--critical' : ''}`}>
           <div className="dashboard-kpi-card__head">
-            <span className="dashboard-kpi-card__label dashboard-kpi-card__label--critical">Critical / Overdue</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
-              <AlertTriangle size={16} />
+            <span className={`dashboard-kpi-card__label${criticalPunches > 0 ? ' dashboard-kpi-card__label--critical' : ''}`}>
+              Critical / Overdue
+            </span>
+            <div
+              className="dashboard-kpi-card__icon"
+              style={{
+                backgroundColor: criticalPunches > 0 ? 'var(--danger-bg)' : 'var(--success-light)',
+                color: criticalPunches > 0 ? 'var(--danger)' : 'var(--success)',
+              }}
+            >
+              <AlertTriangle size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
-            <div className="dashboard-kpi-card__value dashboard-kpi-card__value--critical">{criticalPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkCritical} stroke="#DC2626" fill="rgba(220, 38, 38, 0.08)" />
+            <div className={`dashboard-kpi-card__value${criticalPunches > 0 ? ' dashboard-kpi-card__value--critical' : ''}`}>
+              {criticalPunches}
             </div>
+            <span className="dashboard-kpi-pill">
+              {highPriorityPunches} high priority
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((criticalPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--danger)',
+              }}
+            />
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((highPriorityPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--amber)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span className="dashboard-kpi-card__delta-warn">
-              <AlertTriangle size={12} />
-              Requires life-safety clearance
-            </span>
+            {criticalPunches > 0 ? (
+              <span className="dashboard-kpi-card__delta-warn">
+                <AlertTriangle size={12} aria-hidden="true" />
+                Requires life-safety clearance
+              </span>
+            ) : (
+              <span className="dashboard-kpi-card__delta-good">
+                No critical life-safety items
+              </span>
+            )}
           </div>
         </div>
 
@@ -371,18 +403,27 @@ export default function Dashboard({
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Awaiting Review</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
-              <Clock size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--status-review-bg)', color: 'var(--status-review)' }}>
+              <Clock size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value">{reviewPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkReview} stroke="#7C3AED" fill="rgba(124, 58, 237, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {gcReviewCount} GC · {adminReviewCount} Admin
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((reviewPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--status-review)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span>Ready for GC field sign-off</span>
+            <span>{reviewPunches > 0 ? 'Ready for field sign-off' : 'No items pending review'}</span>
           </div>
         </div>
 
@@ -390,15 +431,24 @@ export default function Dashboard({
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Resolution Rate</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-              <TrendingUp size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--amber-light)', color: 'var(--warning)' }}>
+              <TrendingUp size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value dashboard-kpi-card__value--amber">{resolutionRate}%</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkRate} stroke="#B45309" fill="rgba(180, 83, 9, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {resolvedPunches} closed
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: `${resolutionRate}%`,
+                backgroundColor: 'var(--success)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
             <span>
