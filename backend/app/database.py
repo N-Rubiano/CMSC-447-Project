@@ -724,22 +724,16 @@ def seed_admin_account():
     now_iso = now_dt.isoformat()
     is_pg = settings.use_postgres
 
-    # 1. Clean up legacy demo accounts, mock/seeded assigned projects, and demo projects
+    # 1. Clean up legacy demo accounts and demo-only project memberships
     try:
         execute_write(
             "DELETE FROM users WHERE email LIKE '%@punchlistpro.demo' OR email IN ('admin@punchlist.pro', 'gc@punchlist.pro', 'sub@punchlist.pro')"
         )
         execute_write(
-            "DELETE FROM project_members WHERE id LIKE 'pm-%' OR project_id IN ('b24a830c-17b8-4ef4-801e-ab32d1e21408', '757c1301-1828-45c6-951f-e9d91ce88e1f', 'proj-demo-1', 'proj-demo-2', 'proj-2', 'proj-3')"
+            "DELETE FROM project_members WHERE id LIKE 'pm-%' OR project_id IN ('proj-demo-1', 'proj-demo-2', 'proj-2', 'proj-3')"
         )
         execute_write(
-            "DELETE FROM pins WHERE project_id IN ('b24a830c-17b8-4ef4-801e-ab32d1e21408', '757c1301-1828-45c6-951f-e9d91ce88e1f')"
-        )
-        execute_write(
-            "DELETE FROM sheets WHERE project_id IN ('b24a830c-17b8-4ef4-801e-ab32d1e21408', '757c1301-1828-45c6-951f-e9d91ce88e1f')"
-        )
-        execute_write(
-            "DELETE FROM projects WHERE id IN ('b24a830c-17b8-4ef4-801e-ab32d1e21408', '757c1301-1828-45c6-951f-e9d91ce88e1f', 'proj-demo-1', 'proj-demo-2', 'proj-2', 'proj-3')"
+            "DELETE FROM projects WHERE id IN ('proj-demo-1', 'proj-demo-2', 'proj-2', 'proj-3')"
         )
     except Exception as e:
         print(f"⚠️  Demo cleanup notice: {e}")
