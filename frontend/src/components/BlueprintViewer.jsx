@@ -314,59 +314,112 @@ export default function BlueprintViewer({
         height: '100%',
         width: '100%',
         backgroundColor: 'var(--bg)',
-        padding: '40px 24px',
+        backgroundImage: 'radial-gradient(rgba(120, 113, 108, 0.16) 1px, transparent 1px)',
+        backgroundSize: '20px 20px',
+        padding: '32px 24px',
         textAlign: 'center'
       }}>
         <div style={{
-          width: 76,
-          height: 76,
-          borderRadius: 18,
-          backgroundColor: 'var(--surface-muted)',
-          border: '2px dashed var(--border)',
+          width: '100%',
+          maxWidth: 460,
+          backgroundColor: '#FFFFFF',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '32px 28px 28px',
+          boxShadow: '0 12px 32px rgba(24, 24, 27, 0.06), 0 2px 6px rgba(24, 24, 27, 0.03)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 20,
-          color: 'var(--amber)'
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
-          <LayersIcon size={36} strokeWidth={1.7} />
-        </div>
+          <div style={{
+            width: 52,
+            height: 52,
+            borderRadius: 12,
+            backgroundColor: '#FEF3C7',
+            border: '1px solid #FDE68A',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 18,
+            color: '#B45309'
+          }}>
+            <LayersIcon size={24} strokeWidth={2} aria-hidden="true" />
+          </div>
 
-        <div className="eyebrow" style={{ color: 'var(--text-muted)', fontWeight: 500, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>{selectedBuilding?.name || 'Project Site'}</span>
-          {selectedFloor && (
-            <>
-              <span>·</span>
-              <span style={{ color: 'var(--amber)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{selectedFloor}</span>
-            </>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            borderRadius: 999,
+            backgroundColor: 'var(--surface-muted)',
+            border: '1px solid var(--border-subtle, #EDE8DF)',
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            marginBottom: 14
+          }}>
+            <Building size={12} color="var(--amber-hover)" aria-hidden="true" />
+            <span>{selectedBuilding?.name || 'Project Site'}</span>
+            {selectedFloor && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--amber-hover)', fontWeight: 700 }}>{selectedFloor}</span>
+              </>
+            )}
+          </div>
+
+          <h2 style={{
+            fontSize: 19,
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: 'var(--ink)',
+            margin: '0 0 8px'
+          }}>
+            No blueprint uploaded for {selectedFloor || 'this floor'}
+          </h2>
+
+          <p style={{
+            fontSize: 13.5,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.55,
+            margin: '0 0 22px',
+            maxWidth: 380
+          }}>
+            {selectedBuilding?.name
+              ? `Attach an architectural PDF or floor plan image for ${selectedBuilding.name} to start dropping trade pins and tracking issues.`
+              : 'Select a building and floor from the top bar to view or upload its architectural drawing set.'}
+          </p>
+
+          {onOpenUploadModal && selectedBuilding && (
+            <button
+              type="button"
+              onClick={() => onOpenUploadModal('new')}
+              className="btn btn-primary"
+              style={{
+                height: 40,
+                padding: '0 20px',
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <Upload size={15} strokeWidth={2.2} aria-hidden="true" />
+              <span>Upload Blueprint for {selectedFloor || 'Floor'}</span>
+            </button>
           )}
+
+          <div style={{
+            marginTop: 14,
+            fontSize: 11.5,
+            color: 'var(--text-muted)'
+          }}>
+            Supports PDF drawing sets, PNG, JPG, and WebP
+          </div>
         </div>
-
-        <h2 style={{ fontSize: 20, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
-          No blueprint available for this floor yet
-        </h2>
-
-        <p style={{ maxWidth: 460, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
-          {selectedBuilding?.name ? (
-            <>
-              No architectural drawing sheet or CAD floor plan has been attached for <strong>{selectedBuilding.name}</strong> ({selectedFloor || 'Selected Floor'}).
-              You can upload an architectural set or image blueprint to start pinning punch items for this floor.
-            </>
-          ) : (
-            'Select a Building and Floor from the navigation bar to view its architectural drawing set.'
-          )}
-        </p>
-
-        {onOpenUploadModal && selectedBuilding && (
-          <button
-            onClick={() => onOpenUploadModal('new')}
-            className="btn btn-primary"
-            style={{ height: 42, padding: '0 20px', fontSize: 13 }}
-          >
-            <Upload size={16} strokeWidth={2.4} />
-            <span>Upload Blueprint for {selectedFloor || 'Floor'}</span>
-          </button>
-        )}
       </div>
     );
   }
