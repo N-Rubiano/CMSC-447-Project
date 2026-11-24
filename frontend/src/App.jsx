@@ -1155,6 +1155,8 @@ export default function App() {
               project={activeProject}
               sheets={sheets}
               activeSheet={activeSheet}
+              selectedBuildingId={selectedBuildingId}
+              selectedFloorId={selectedFloorId}
               onClose={() => setIsExportModalOpen(false)}
             />
           </Suspense>

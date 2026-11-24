@@ -33,7 +33,7 @@ describe('ExportModal Component', () => {
     expect(screen.getByRole('button', { name: /Download Excel \(\.xlsx\)/i })).toBeInTheDocument();
   });
 
-  it('calls the backend /export/excel endpoint when downloading Excel', async () => {
+  it('defaults to current floor/sheet and passes sheetId to /export/excel', async () => {
     const mockBlob = new Blob(['xlsx-bytes']);
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -48,7 +48,7 @@ describe('ExportModal Component', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/projects/proj-1/export/excel',
+        '/api/projects/proj-1/export/excel?sheetId=sheet-1',
         expect.objectContaining({
           headers: { Authorization: 'Bearer test-jwt-token' },
         })

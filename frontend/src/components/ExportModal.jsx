@@ -10,6 +10,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { getToken } from '../services/api';
+import { sheetMatchesBuildingAndFloor } from '../data/umbcBuildings';
 
 const EXPORT_OPTIONS = [
   {
@@ -50,12 +51,32 @@ export default function ExportModal({
   project,
   sheets = [],
   activeSheet = null,
+  selectedBuildingId = null,
+  selectedFloorId = null,
   onClose
 }) {
-  const [selectedSheetId, setSelectedSheetId] = useState(activeSheet?.id || 'all');
+  const resolveDefaultSheetId = () => {
+    if (activeSheet?.id && sheets.some((s) => s.id === activeSheet.id)) {
+      return activeSheet.id;
+    }
+    if (selectedBuildingId || selectedFloorId) {
+      const matched = sheets.find((s) =>
+        sheetMatchesBuildingAndFloor(s, selectedBuildingId, selectedFloorId)
+      );
+      if (matched?.id) return matched.id;
+    }
+    return sheets[0]?.id || 'all';
+  };
+
+  const [selectedSheetId, setSelectedSheetId] = useState(resolveDefaultSheetId);
   const [exportType, setExportType] = useState('punch-report');
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+
+  useEffect(() => {
+    setSelectedSheetId(resolveDefaultSheetId());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSheet?.id, selectedBuildingId, selectedFloorId, sheets.length]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -255,15 +276,16 @@ export default function ExportModal({
                 className="input-field"
                 style={{ width: '100%', fontWeight: 600 }}
               >
-                <option value="all">All Sheets in Project ({sheets.length} Sheets)</option>
                 {sheets.map((s) => {
                   const floorLabel = [s.building_name, s.floor_level].filter(Boolean).join(' — ');
+                  const isCurrent = s.id === activeSheet?.id || (selectedFloorId && (s.floor_level || '').toLowerCase() === selectedFloorId.toLowerCase());
                   return (
                     <option key={s.id} value={s.id}>
-                      {s.sheet_number || s.number} — {floorLabel || s.name || s.title}
+                      {s.sheet_number || s.number} — {floorLabel || s.name || s.title}{isCurrent ? ' (Current Floor)' : ''}
                     </option>
                   );
                 })}
+                <option value="all">All Sheets in Project ({sheets.length} Sheets)</option>
               </select>
             </div>
           )}
