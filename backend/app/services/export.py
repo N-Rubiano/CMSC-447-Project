@@ -68,7 +68,7 @@ def _resolve_upload_path(raw_path: str | None) -> Path | None:
 
 
 def _load_sheet_pil_image(sheet: dict, target_w: int = 1400, target_h: int = 900):
-    """Load sheet raster image if available, otherwise draw a crisp CAD grid canvas."""
+    """Load actual PDF/raster blueprint image if available, else draw CAD grid canvas."""
     from PIL import Image, ImageDraw, ImageFont
 
     image_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
@@ -81,14 +81,35 @@ def _load_sheet_pil_image(sheet: dict, target_w: int = 1400, target_h: int = 900
         if val.startswith("data:image/"):
             try:
                 _, b64 = val.split(",", 1)
-                img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
-                return img
+                return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
             except Exception:
                 continue
         resolved = _resolve_upload_path(val)
         if resolved and resolved.suffix.lower() in image_exts:
             try:
                 return Image.open(resolved).convert("RGB")
+            except Exception:
+                continue
+
+    # 2. Render actual uploaded PDF blueprint page via pypdfium2
+    for candidate_key in ("file_path", "pdf_url", "image_url"):
+        val = sheet.get(candidate_key)
+        if not val or not isinstance(val, str):
+            continue
+        resolved = _resolve_upload_path(val)
+        if resolved and resolved.suffix.lower() == ".pdf":
+            try:
+                import pypdfium2 as pdfium
+                pdf_doc = pdfium.PdfDocument(str(resolved))
+                page_idx = int(sheet.get("page_index") or 0)
+                page_idx = max(0, min(page_idx, len(pdf_doc) - 1))
+                page = pdf_doc[page_idx]
+                pw, ph = page.get_size()
+                scale = max(1.5, min(3.0, 1600.0 / max(1.0, float(pw))))
+                bitmap = page.render(scale=scale)
+                pil_img = bitmap.to_pil().convert("RGB")
+                pdf_doc.close()
+                return pil_img
             except Exception:
                 continue
 
@@ -291,9 +312,9 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
 
         # Stats
         total = len(pins)
-        closed = sum(1 for p in pins if p.get("status") == "closed")
-        open_count = sum(1 for p in pins if p.get("status") in ("open", "assigned"))
-        in_review = sum(1 for p in pins if "review" in (p.get("status") or ""))
+        closed = sum(1 for p in pins if (p.get("status") or "").lower() in ("closed", "resolved"))
+        open_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("open", "assigned"))
+        in_review = sum(1 for p in pins if "review" in (p.get("status") or "").lower())
         resolution_rate = round(closed / total * 100, 1) if total > 0 else 0
 
         stat_data = [
@@ -329,8 +350,8 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
                     format_status_label(pin.get("status", "open")),
                     (pin.get("priority") or "medium").upper(),
                     (pin.get("discipline") or "").capitalize(),
-                    (pin.get("room_location") or sheet.get("name") or "")[:25],
-                    (pin.get("assigned_to_company") or "")[:20],
+                    (pin.get("room_location") or sheet.get("name") or "")[:18],
+                    (pin.get("assigned_to_company") or "")[:18],
                     (sheet.get("sheet_number") or "")[:10],
                     str(pin.get("created_at") or "")[:10],
                 ])
@@ -353,7 +374,7 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
 
         # Blueprint Pin Map Snapshots
         if sheets:
-            from reportlab.platypus import Image as RLImage, PageBreak
+            from reportlab.platypus import Image as RLImage, PageBreak, KeepTogether
             from PIL import Image as PILImage
 
             elements.append(PageBreak())
@@ -362,20 +383,22 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
 
             for sheet in sheets:
                 sheet_pins = [p for p in pins if p.get("sheet_id") == sheet.get("id")]
-                png_bytes = _render_sheet_with_pins_png(sheet, sheet_pins, max_width=1200)
+                png_bytes = _render_sheet_with_pins_png(sheet, sheet_pins, max_width=1400)
                 pil_dim = PILImage.open(io.BytesIO(png_bytes))
                 pw, ph = pil_dim.size
                 display_w = 9.0 * inch
-                display_h = min(5.4 * inch, display_w * (ph / float(pw or 1)))
+                display_h = min(5.2 * inch, display_w * (ph / float(pw or 1)))
                 s_num = sheet.get("sheet_number") or sheet.get("number") or "Sheet"
                 s_name = sheet.get("name") or sheet.get("title") or ""
-                elements.append(Paragraph(
-                    f"<b>{s_num}</b> — {s_name} ({len(sheet_pins)} pinned items)",
-                    styles["Normal"]
-                ))
-                elements.append(Spacer(1, 0.08 * inch))
-                elements.append(RLImage(io.BytesIO(png_bytes), width=display_w, height=display_h))
-                elements.append(Spacer(1, 0.2 * inch))
+                elements.append(KeepTogether([
+                    Paragraph(
+                        f"<b>{s_num}</b> — {s_name} ({len(sheet_pins)} pinned items)",
+                        styles["Normal"]
+                    ),
+                    Spacer(1, 0.08 * inch),
+                    RLImage(io.BytesIO(png_bytes), width=display_w, height=display_h),
+                    Spacer(1, 0.2 * inch),
+                ]))
 
         doc.build(elements)
         return buf.getvalue()

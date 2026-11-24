@@ -49,9 +49,10 @@ const EXPORT_OPTIONS = [
 export default function ExportModal({
   project,
   sheets = [],
+  activeSheet = null,
   onClose
 }) {
-  const [selectedSheetId, setSelectedSheetId] = useState('all');
+  const [selectedSheetId, setSelectedSheetId] = useState(activeSheet?.id || 'all');
   const [exportType, setExportType] = useState('punch-report');
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
@@ -74,17 +75,21 @@ export default function ExportModal({
     let filename = '';
     const code = project.code || 'PRJ';
 
+    const sheetQuery = selectedSheetId && selectedSheetId !== 'all'
+      ? `?sheetId=${encodeURIComponent(selectedSheetId)}`
+      : '';
+
     if (exportType === 'annotated-pdf') {
-      url = `/api/projects/${project.id}/export/annotated-pdf${selectedSheetId !== 'all' ? `?sheetId=${encodeURIComponent(selectedSheetId)}` : ''}`;
+      url = `/api/projects/${project.id}/export/annotated-pdf${sheetQuery}`;
       filename = `${code}_Annotated_PlanSet.pdf`;
     } else if (exportType === 'punch-report') {
-      url = `/api/projects/${project.id}/export/punch-report`;
+      url = `/api/projects/${project.id}/export/punch-report${sheetQuery}`;
       filename = `${code}_PunchList_Report.pdf`;
     } else if (exportType === 'excel') {
-      url = `/api/projects/${project.id}/export/excel`;
+      url = `/api/projects/${project.id}/export/excel${sheetQuery}`;
       filename = `${code}_Project_Report.xlsx`;
     } else {
-      url = `/api/projects/${project.id}/export/csv`;
+      url = `/api/projects/${project.id}/export/csv${sheetQuery}`;
       filename = `${code}_PunchList.csv`;
     }
 
@@ -233,15 +238,15 @@ export default function ExportModal({
             </div>
           </div>
 
-          {/* Sheet Selection Scope (For Annotated PDF) */}
-          {exportType === 'annotated-pdf' && (
+          {/* Sheet / Floor Scope Selector (Applies to all export formats) */}
+          {sheets.length > 0 && (
             <div>
               <label
                 htmlFor="export-sheet-scope"
                 className="eyebrow"
                 style={{ display: 'block', color: 'var(--timber)', marginBottom: 6 }}
               >
-                Sheet Scope
+                Floor / Sheet Scope
               </label>
               <select
                 id="export-sheet-scope"
@@ -251,11 +256,14 @@ export default function ExportModal({
                 style={{ width: '100%', fontWeight: 600 }}
               >
                 <option value="all">All Sheets in Project ({sheets.length} Sheets)</option>
-                {sheets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.sheet_number || s.number} — {s.name || s.title}
-                  </option>
-                ))}
+                {sheets.map((s) => {
+                  const floorLabel = [s.building_name, s.floor_level].filter(Boolean).join(' — ');
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.sheet_number || s.number} — {floorLabel || s.name || s.title}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

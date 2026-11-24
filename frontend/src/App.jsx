@@ -1154,6 +1154,7 @@ export default function App() {
             <ExportModal
               project={activeProject}
               sheets={sheets}
+              activeSheet={activeSheet}
               onClose={() => setIsExportModalOpen(false)}
             />
           </Suspense>
