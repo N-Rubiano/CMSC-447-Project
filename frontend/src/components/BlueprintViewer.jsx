@@ -757,7 +757,7 @@ export default function BlueprintViewer({
           FLOATING GLASS HUD PANELS
           ------------------------------------------------------------- */}
 
-      {/* 1. TOP-LEFT: Sheet Tab Switcher (A-301, A-302, M-301, E-301, S-201) */}
+      {/* 1. TOP-LEFT: Active Floor Context + Quick Actions */}
       <div
         className="glass-hud floating-hud"
         style={{
@@ -766,54 +766,43 @@ export default function BlueprintViewer({
           left: 16,
           padding: 6,
           display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
           gap: 6,
           zIndex: 25
         }}
       >
-        {sheets.map((s) => {
-          const isActive = s.id === activeSheet.id;
-          const pinCount = punchItems.filter(p => p.sheetId === s.id && p.status !== 'Resolved').length;
-          return (
-            <button
-              key={s.id}
-              onClick={() => onSelectSheet(s)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '6px 14px',
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: isActive ? 'var(--ink)' : 'transparent',
-                color: isActive ? '#FFFFFF' : 'var(--ink)',
-                fontWeight: 700,
-                fontSize: 13,
-                fontFamily: 'var(--font-mono)',
-                transition: 'all var(--ease-quick)'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              <span>{s.number || s.sheet_number}</span>
-              {pinCount > 0 && (
-                <span style={{
-                  fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  backgroundColor: isActive ? 'var(--amber)' : '#E4E4E7',
-                  color: isActive ? '#FFFFFF' : 'var(--ink)'
-                }}>
-                  {pinCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 12px',
+            borderRadius: 8,
+            backgroundColor: 'var(--ink)',
+            color: '#FFFFFF',
+            fontWeight: 600,
+            fontSize: 13
+          }}
+        >
+          <Building size={14} color="var(--amber)" aria-hidden="true" />
+          <span>
+            {selectedBuilding?.name || activeSheet.building_name || 'Blueprint'}
+            {(selectedFloor || activeSheet.floor_level) ? ` · ${selectedFloor || activeSheet.floor_level}` : ''}
+          </span>
+          {currentSheetPins.filter(p => (p.status || '').toLowerCase() !== 'resolved' && (p.status || '').toLowerCase() !== 'closed').length > 0 && (
+            <span style={{
+              fontSize: 11,
+              padding: '1px 7px',
+              borderRadius: 10,
+              backgroundColor: 'var(--amber)',
+              color: '#FFFFFF',
+              fontWeight: 700
+            }}>
+              {currentSheetPins.filter(p => (p.status || '').toLowerCase() !== 'resolved' && (p.status || '').toLowerCase() !== 'closed').length}
+            </span>
+          )}
+        </div>
 
         {/* Upload Blueprint Sheet Button */}
         <button

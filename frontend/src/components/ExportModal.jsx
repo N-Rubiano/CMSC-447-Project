@@ -281,7 +281,7 @@ export default function ExportModal({
                   const isCurrent = s.id === activeSheet?.id || (selectedFloorId && (s.floor_level || '').toLowerCase() === selectedFloorId.toLowerCase());
                   return (
                     <option key={s.id} value={s.id}>
-                      {s.sheet_number || s.number} — {floorLabel || s.name || s.title}{isCurrent ? ' (Current Floor)' : ''}
+                      {floorLabel || s.name || s.title}{isCurrent ? ' (Current Floor)' : ''}
                     </option>
                   );
                 })}
