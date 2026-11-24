@@ -15,7 +15,7 @@ const EXPORT_OPTIONS = [
   {
     id: 'punch-report',
     title: 'Formal Punch List Summary Report (.pdf)',
-    description: 'Executive PDF report with project info, KPI summary, categorized trade tables, and status breakdown.',
+    description: 'Executive PDF report with project info, KPI summary, categorized trade tables, and blueprint pin-map images.',
     icon: FileText,
     iconBg: 'var(--amber)',
     iconColor: '#FFFFFF',
@@ -23,7 +23,7 @@ const EXPORT_OPTIONS = [
   {
     id: 'excel',
     title: 'Project & Punch Workbook (.xlsx)',
-    description: 'Native multi-sheet Excel workbook with Project Overview, Punch Items, and Team Assignments tabs.',
+    description: 'Native multi-sheet Excel workbook with Project Overview, Punch Items, Team Assignments, and Blueprint Pin Maps.',
     icon: FileSpreadsheet,
     iconBg: 'var(--success)',
     iconColor: '#FFFFFF',
