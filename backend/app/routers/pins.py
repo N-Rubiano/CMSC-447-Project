@@ -178,7 +178,7 @@ async def create_pin(body: dict, current_user: dict = Depends(get_current_user))
              desc=body.get("description", ""), status=body.get("status", "open"),
              prio=body.get("priority", "medium"), disc=body.get("discipline", "architectural"),
              x=body.get("x_pct", 0.5), y=body.get("y_pct", 0.5),
-             room=body.get("room_location"), due=body.get("due_date"),
+             room=body.get("room_location") or body.get("room"), due=body.get("due_date") or body.get("dueDate"),
              uid=assigned_to_user_id, company=company_name, created_by=user.get("id"),
              cid=assigned_contractor_id, scid=assigned_subcontractor_id,
              root=body.get("root_cause"), stamp=stamp, scale=float(body.get("stamp_scale") or 1.0), now=now),
@@ -275,6 +275,8 @@ async def update_pin(pin_id: str, body: dict, current_user: dict = Depends(get_c
                       old_value=pin["status"], new_value=new_status,
                       details=f"Status changed to {new_status}")
 
+    if "due_date" not in body and "dueDate" in body:
+        body["due_date"] = body["dueDate"]
     allowed = ["title", "description", "status", "priority", "discipline", "x_pct", "y_pct",
                "room_location", "due_date", "assigned_to_user_id", "assigned_to_company",
                "assigned_contractor_id", "assigned_subcontractor_id", "root_cause", "stamp_initials", "stamp_scale"]
