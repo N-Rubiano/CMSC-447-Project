@@ -63,6 +63,8 @@ Thumbs.db
 user-interface-design-document.html
 walkthrough_table.html
 screenshots/
+!assets/screenshots/
+!assets/screenshots/*.png
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
