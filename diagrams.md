@@ -691,7 +691,7 @@ sequenceDiagram
         FastAPI->>FastAPI: Validate role (need pin.create permission)
         FastAPI->>DB: INSERT INTO pins (...)
         DB-->>FastAPI: { id, item_number, ... }
-        FastAPI->>SIO: Emit "pin_created" event
+        FastAPI->>SIO: Emit "pin:created" event
         SIO-->>OtherUsers: Real-time update: new pin
         FastAPI-->>API: 201 Created { pin }
         API->>IndexedDB: localDb.pins.put(pin)

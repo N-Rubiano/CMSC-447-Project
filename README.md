@@ -21,6 +21,7 @@
   - [3. Defect Item Lifecycle State Machine](#3-defect-item-lifecycle-state-machine)
   - [4. User Onboarding & Account Provisioning Sequence](#4-user-onboarding--account-provisioning-sequence)
 - [🗄️ Database Schema & Entity-Relationship Diagram (ERD)](#️-database-schema--entity-relationship-diagram-erd)
+- [📁 Project Structure](#-project-structure)
 - [👥 Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
 - [✨ Key Features](#-key-features)
 - [⚡ Quick Start & Installation](#-quick-start--installation)
@@ -134,45 +135,45 @@ sequenceDiagram
 
     Note over Inspector,Admin: Phase 1: Defect Observation & Pin Drop
     Inspector->>FE: Tap blueprint sheet at (X, Y) coordinates
-    Inspector->>FE: Fill defect details (Trade: MP, Priority: High, Photo)
-    FE->>API: POST /api/projects/{id}/sheets/{id}/pins
-    API->>DB: INSERT INTO pins (status='open', trade='MP')
-    API->>DB: INSERT INTO audit_logs (action='PIN_CREATED')
-    API->>WS: broadcast('pin_created', pinData)
+    Inspector->>FE: Fill defect details (Discipline, Priority, Photo)
+    FE->>API: POST /api/pins
+    API->>DB: INSERT INTO pins (status='open', x_pct, y_pct)
+    API->>DB: INSERT INTO audit_logs (action='CREATED')
+    API->>WS: emit('pin:created', pinData)
     WS-->>FE: Real-time update to all active project viewers
     FE-->>Sub: Tablet receives live notification & visual pin on sheet
 
     Note over Sub,API: Phase 2: Remediating Defect in Field
     Sub->>FE: Opens pin, changes status to 'in_progress'
-    FE->>API: PATCH /api/pins/{id}/status (new_status='in_progress')
+    FE->>API: PATCH /api/pins/{id}/status (status='in_progress')
     API->>DB: UPDATE pins SET status='in_progress'
-    API->>WS: broadcast('pin_status_changed', {status: 'in_progress'})
+    API->>WS: emit('pin:updated', pinData)
 
-    Sub->>FE: Uploads photo evidence of completed work
-    Sub->>FE: Submits item for review ('contractor_review')
-    FE->>API: PATCH /api/pins/{id}/status (new_status='contractor_review')
-    API->>DB: UPDATE pins SET status='contractor_review', resolution_photo_url=...
-    API->>WS: broadcast('pin_status_changed')
+    Sub->>FE: Uploads photo evidence (POST /api/pins/{id}/photos)
+    Sub->>FE: Submits item for review ('submitted_for_contractor_review')
+    FE->>API: PATCH /api/pins/{id}/status (status='submitted_for_contractor_review')
+    API->>DB: UPDATE pins SET status='submitted_for_contractor_review'
+    API->>WS: emit('pin:updated', pinData)
 
     Note over GC,Admin: Phase 3: Verification & Approval Gate
     GC->>FE: Inspects work against architectural drawing
     alt Remediation Incomplete
         GC->>FE: Rejects remediation with comment
-        FE->>API: PATCH /api/pins/{id}/status (new_status='in_progress')
+        FE->>API: PATCH /api/pins/{id}/status (status='in_progress')
     else Remediation Verified
         GC->>FE: Approves fix, forwards to Admin
-        FE->>API: PATCH /api/pins/{id}/status (new_status='admin_review')
+        FE->>API: PATCH /api/pins/{id}/status (status='submitted_for_admin_review')
     end
     API->>DB: UPDATE pins SET status=...
-    API->>WS: broadcast('pin_status_changed')
+    API->>WS: emit('pin:updated', pinData)
 
     Note over Admin,DB: Phase 4: Final Signoff & Closeout
     Admin->>FE: Performs final compliance audit
     Admin->>FE: Clicks "Approve & Close Defect"
-    FE->>API: PATCH /api/pins/{id}/status (new_status='closed')
-    API->>DB: UPDATE pins SET status='closed', updated_at=NOW()
-    API->>DB: INSERT INTO audit_logs (action='PIN_CLOSED')
-    API->>WS: broadcast('pin_closed', {id: pinId})
+    FE->>API: PATCH /api/pins/{id}/status (status='closed')
+    API->>DB: UPDATE pins SET status='closed', closed_at=NOW()
+    API->>DB: INSERT INTO audit_logs (action='STATUS_CHANGED')
+    API->>WS: emit('pin:updated', {id: pinId, status: 'closed'})
     WS-->>FE: Pin ring updates to Green (Closed) across all field tablets
 ```
 
@@ -182,10 +183,10 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Open: Pin Dropped (Inspector / GC / Admin)
+    [*] --> Open: Pin Dropped (Inspector / Architect / GC / Admin)
 
-    Open --> InProgress: Subcontractor acknowledges & begins remediation
-    InProgress --> ContractorReview: Subcontractor submits fix + photo evidence
+    Open --> InProgress: Subcontractor / Inspector begins remediation
+    InProgress --> ContractorReview: Submitted for Contractor Review
 
     state ContractorReview {
         [*] --> PendingGC
@@ -256,160 +257,221 @@ erDiagram
     PROJECTS ||--o{ PROJECT_MEMBERS : "allocates"
     USERS ||--o{ PROJECT_MEMBERS : "participates"
     PROJECTS ||--o{ SHEETS : "contains"
+    SHEETS ||--o{ SHEET_VERSIONS : "revisions"
     SHEETS ||--o{ PINS : "anchors"
+    SHEETS ||--o{ MARKUPS : "annotates"
     USERS ||--o{ PINS : "creates"
     USERS ||--o{ PINS : "assigned_to"
-    PINS ||--o{ PIN_COMMENTS : "has"
-    USERS ||--o{ PIN_COMMENTS : "authors"
-    PINS ||--o{ PIN_STATUS_HISTORY : "tracks"
+    PINS ||--o{ PIN_PHOTOS : "evidences"
+    PINS ||--o{ COMMENTS : "has"
+    USERS ||--o{ COMMENTS : "authors"
     PROJECTS ||--o{ DOCUMENTS : "stores"
     PROJECTS ||--o{ AUDIT_LOGS : "records"
 
     COMPANIES {
-        string id PK "e.g. cmp-gc-1"
-        string name "Company legal name"
-        string type "contractor | subcontractor | owner"
-        string trade "Trade discipline"
-        string phone "Phone number"
-        string email "Official email"
-        string license_number "State contractor license"
-        string address "Office address"
-        timestamp created_at
+        text id PK "e.g. cmp-gc-1"
+        text name "Company legal name"
+        text type "contractor | subcontractor | owner"
+        text parent_contractor_id FK "Sponsoring GC company"
+        text trade "Trade discipline"
+        text phone "Phone number"
+        text email "Official email"
+        text license_number "State contractor license"
+        text address "Office address"
+        timestamptz created_at
     }
 
     USERS {
-        uuid id PK "User UUID"
-        string name "Full Name"
-        string email UK "Official email address"
-        string role "admin | general_contractor | sub_contractor | architect | owner | field_inspector"
-        string password_hash "Bcrypt salted hash"
-        string company "Company text label"
-        string company_id FK "References COMPANIES(id)"
-        string phone "Mobile contact"
-        string avatar_url "Profile photo URL"
-        string status "active | pending_invitation | pending_approval | suspended | rejected"
-        string trade "Specialty trade code (MP, EL, etc.)"
-        string invitation_token "Secure onboarding token"
-        timestamp invitation_expires_at "Token TTL"
+        text id PK "User UUID"
+        text name "Full Name"
+        text email UK "Official email address"
+        text role "admin | general_contractor | architect | field_inspector | sub_contractor | owner"
+        text password_hash "Bcrypt salted hash"
+        text company "Company text label"
+        text company_id FK "References COMPANIES(id)"
+        text phone "Mobile contact"
+        text avatar_url "Profile photo URL"
+        text status "active | pending_invitation | pending_approval | suspended | rejected"
+        text trade "Specialty trade code (MP, EL, etc.)"
+        text invitation_token "Secure onboarding token"
+        timestamptz invitation_expires_at "Token TTL"
         boolean must_reset_password "First login flag"
-        string presence "on_site | away | offline"
-        timestamp created_at
-        timestamp updated_at
+        text presence "active | on_site | away | offline"
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     PROJECTS {
-        uuid id PK "Project UUID or slug"
-        string name "Project Title"
-        string code "Project Short Code (e.g. HPT-2026)"
-        string address "Jobsite location"
-        string status "active | closeout | archived"
-        timestamp created_at
-        timestamp updated_at
+        text id PK "Project UUID or slug"
+        text name "Project Title"
+        text code "Project Short Code (e.g. UMBC-2026)"
+        text address "Jobsite location"
+        text gc_user_id "Assigned GC user ID"
+        text contractor_company_id "Assigned GC company ID"
+        text status "active | closeout | archived"
+        timestamptz created_at
     }
 
     PROJECT_MEMBERS {
-        uuid id PK "Membership UUID"
-        uuid project_id FK "References PROJECTS(id)"
-        uuid user_id FK "References USERS(id)"
-        string role "Project-level role override"
-        json permissions "Array of permitted scopes"
-        timestamp created_at
+        text id PK "Membership UUID"
+        text project_id FK "References PROJECTS(id)"
+        text user_id FK "References USERS(id)"
+        text role "Project-level role"
+        text company_name "Member company name"
+        timestamptz created_at
     }
 
     SHEETS {
-        uuid id PK "Sheet UUID"
-        uuid project_id FK "References PROJECTS(id)"
-        string sheet_number "e.g. A-301, M-102"
-        string name "Level 01 Architectural Plan"
-        string discipline "architectural | mechanical | electrical | structural"
-        string floor_level "Level 01, B1, Penthouse"
+        text id PK "Sheet UUID"
+        text project_id FK "References PROJECTS(id)"
+        text sheet_number "e.g. A-301, M-102"
+        text name "Sheet title"
+        text discipline "architectural | mechanical | electrical | structural"
+        text floor_level "Floor / level label"
         int version_number "Sheet revision sequence"
-        string file_url "Storage location of drawing (PDF / Image)"
-        int width "Original drawing pixel width"
-        int height "Original drawing pixel height"
-        timestamp created_at
+        text version "e.g. Rev 1"
+        text file_path "Stored PDF path"
+        text image_url "Rasterized preview URL"
+        int width_pts "Original drawing width"
+        int height_pts "Original drawing height"
+        timestamptz created_at
+    }
+
+    SHEET_VERSIONS {
+        text id PK "Version UUID"
+        text sheet_id "References SHEETS(id)"
+        text project_id "References PROJECTS(id)"
+        int version_number "Revision sequence"
+        text version_tag "e.g. Rev 2"
+        text file_name "Uploaded filename"
+        text image_url "Preview image URL"
+        text uploaded_by "Uploader user ID/name"
+        timestamptz created_at
     }
 
     PINS {
-        uuid id PK "Pin UUID"
-        uuid project_id FK "References PROJECTS(id)"
-        uuid sheet_id FK "References SHEETS(id)"
-        float x "X coordinate (0.0 to 1.0 normalized)"
-        float y "Y coordinate (0.0 to 1.0 normalized)"
-        string title "Defect title"
+        text id PK "Pin UUID"
+        text project_id "References PROJECTS(id)"
+        text sheet_id "References SHEETS(id)"
+        int item_number "Sequential item #"
+        float x_pct "X coordinate (0-100%)"
+        float y_pct "Y coordinate (0-100%)"
+        text title "Defect title"
         text description "Detailed observation notes"
-        string status "open | in_progress | contractor_review | admin_review | closed"
-        string priority "Critical | High | Medium | Low"
-        string trade "Trade stamp code (MP, EL, DW, etc.)"
-        uuid assigned_user_id FK "Assigned subcontractor user"
-        uuid created_by FK "Inspector / creator"
-        string photo_url "Initial defect photo"
-        string resolution_photo_url "Remediation evidence photo"
-        timestamp due_date "Closeout deadline"
-        timestamp created_at
-        timestamp updated_at
+        text status "open | in_progress | submitted_for_contractor_review | submitted_for_admin_review | closed"
+        text priority "critical | high | medium | low"
+        text discipline "Discipline / trade category"
+        text stamp_initials "2-letter trade stamp"
+        text assigned_to_user_id "Assigned subcontractor user"
+        text assigned_subcontractor_id "Assigned subcontractor company"
+        text created_by_user_id "Inspector / creator"
+        text due_date "Closeout deadline"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz closed_at
     }
 
-    PIN_COMMENTS {
-        uuid id PK "Comment UUID"
-        uuid pin_id FK "References PINS(id)"
-        uuid user_id FK "References USERS(id)"
-        text comment "Discussion or field note"
-        string photo_url "Attached observation photo"
-        timestamp created_at
+    PIN_PHOTOS {
+        text id PK "Photo UUID"
+        text pin_id FK "References PINS(id)"
+        text url "Stored photo URL"
+        text type "issue | progress | resolved"
+        text caption "Photo caption"
+        text uploaded_by "Uploader display name"
+        timestamptz created_at
     }
 
-    PIN_STATUS_HISTORY {
-        uuid id PK "History UUID"
-        uuid pin_id FK "References PINS(id)"
-        string changed_by "User name / ID who transitioned"
-        string old_status "Previous lifecycle status"
-        string new_status "Target lifecycle status"
-        text comment "Transition justification note"
-        timestamp created_at
+    COMMENTS {
+        text id PK "Comment UUID"
+        text pin_id FK "References PINS(id)"
+        text author_id "Author user ID"
+        text author_name "Author display name"
+        text body "Discussion or field note"
+        text parent_id "Optional reply parent"
+        timestamptz created_at
+    }
+
+    MARKUPS {
+        text id PK "Markup UUID"
+        text sheet_id FK "References SHEETS(id)"
+        text author_id "Author user ID"
+        text type "Vector annotation type"
+        text points_json "Serialized geometry"
+        text stroke_color "Hex color"
+        timestamptz created_at
     }
 
     AUDIT_LOGS {
-        uuid id PK "Log UUID"
-        uuid project_id "Associated project"
-        uuid pin_id "Associated pin"
-        uuid user_id "Actor user ID"
-        string user_name "Actor display name"
-        string user_role "Role at time of action"
-        string action "e.g. PIN_CREATED, ACCOUNT_PROVISIONED"
+        text id PK "Log UUID"
+        text project_id "Associated project"
+        text pin_id "Associated pin"
+        text user_id "Actor user ID"
+        text user_name "Actor display name"
+        text user_role "Role at time of action"
+        text action "e.g. CREATED, STATUS_CHANGED, ACCOUNT_PROVISIONED"
         text old_value "Previous value"
         text new_value "New value"
-        text details "Structured JSON or audit string"
-        timestamp created_at
+        text details "Audit details"
+        timestamptz created_at
     }
 
     DOCUMENTS {
-        uuid id PK "Document UUID"
-        uuid project_id FK "References PROJECTS(id)"
-        string name "Document title"
-        string file_name "Original filename"
-        string file_url "Storage URL"
+        text id PK "Document UUID"
+        text project_id "Associated project"
+        text name "Document title"
+        text file_name "Original filename"
+        text file_url "Storage URL"
         int file_size_bytes "File size"
-        string mime_type "application/pdf, image/png"
-        string uploaded_by "Uploader name / ID"
-        timestamp created_at
+        text file_type "MIME type / extension"
+        text category "Document category"
+        text uploaded_by "Uploader name"
+        timestamptz created_at
     }
+```
+
+---
+
+## 📁 Project Structure
+
+```text
+PunchList/
+├── api/                        # Vercel Python serverless entry point (index.py)
+├── assets/screenshots/         # README UI showcase captures
+├── backend/
+│   └── app/
+│       ├── database.py         # Dual PostgreSQL / SQLite WAL DDL & query helpers
+│       ├── permissions.py      # Server-side 6-role RBAC & transition validator
+│       └── routers/            # auth, projects, sheets, pins, team, exports, audit_logs
+├── frontend/
+│   ├── public/                 # Favicons, manifest.json, static assets
+│   └── src/
+│       ├── __tests__/          # Vitest + React Testing Library (11 suites, 55 tests)
+│       ├── components/         # AppShell, Dashboard, BlueprintViewer, BlueprintUploadModal,
+│       │                       # TeamPage, SettingsPage, DocumentsPage, PhotosPage, Modals
+│       ├── data/
+│       │   ├── rbac.js         # Single source of truth for 6 roles & live capabilities
+│       │   ├── umbcBuildings.js
+│       │   └── mockData.js
+│       └── services/           # api.js (REST + Dexie IndexedDB), pdfRenderer.js, supabase.js
+├── Report.md                   # Autocannon load-test & Gitleaks security audit report
+├── docker-compose.yml
+└── vercel.json
 ```
 
 ---
 
 ## 👥 Role-Based Access Control (RBAC)
 
-PunchList Pro enforces an enterprise construction governance matrix to guarantee data integrity:
+PunchList Pro enforces operational security and least privilege across all **6 canonical roles** (`frontend/src/data/rbac.js` + `backend/app/permissions.py`):
 
-| Role | Label | Target Persona | Scope & Permissions |
-|---|---|---|---|
-| **`admin`** | Facility Administrator | Project Director, Facility Owner | **Full System Authority**: Provisions user accounts, manages sheet uploads, modifies system settings, and is the **only role authorized to close or delete punch items**. |
-| **`general_contractor`** | General Contractor | Project Superintendent, GC Project Manager | **Field Coordination**: Allocates items to trade subcontractors, approves or rejects subcontractor remediation submissions, and sponsors subcontractor accounts. |
-| **`sub_contractor`** | Trade Subcontractor | Mechanical, Electrical, Plumbing, Drywall Foremen | **Strictly Scoped**: Can only view pins assigned to their trade/company. Can transition items (`Open` &rarr; `In Progress` &rarr; `Contractor Review`) and upload proof photos. |
-| **`architect`** | Architect / Engineer | Design Team AIA, Structural Consultant | **Specification Compliance**: Drops specification discrepancy pins, reviews drawing sets, and audits punch progress. |
-| **`owner`** | Owner Representative | Client Executive, Capital Asset Manager | **Executive Visibility**: Read-only oversight across project milestones, punch progress gauges, and formal PDF export generation. |
-| **`field_inspector`** | Field Inspector | Municipal Building Inspector, QA/QC Lead | **Inspection Capture**: Walks jobsite floors, anchors punch pins with photos and priority tags. |
+| Role Key | Label | View Blueprints | Drop Pins | Approve Signoffs | Upload Docs | Admin Settings |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| **`admin`** | Facility Administrator | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **`general_contractor`** | General Contractor | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **`architect`** | Architect / Engineer | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **`field_inspector`** | Field Inspector | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **`sub_contractor`** | Trade Subcontractor | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **`owner`** | Owner Representative | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -519,12 +581,13 @@ Tests cover:
 cd frontend
 npm test
 ```
-Tests cover:
-- Login page authentication & validation
-- Onboarding page credential setup & password strength
-- Settings page profile & avatar customization
-- Stamp renderer mathematical calculations
-- Navigation & AppShell responsive rendering
+11 test suites (55 tests) cover:
+- RBAC 6-role capability enforcement (`rbac.test.js`)
+- AppShell topbar, collapsible rail, and role-gated New Punch (`AppShell.test.jsx`)
+- Team Administration & 6-role onboarding (`TeamPage.test.jsx`)
+- Blueprint & revision upload modal (`BlueprintUploadModal.test.jsx`)
+- Settings profile, RBAC matrix, and live IndexedDB cache stats (`SettingsPage.test.jsx`)
+- Login, Onboarding, Landing, ExportModal, Sidebar, and StampRenderer math
 
 ### Production Build Verification
 ```bash
