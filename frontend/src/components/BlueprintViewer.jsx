@@ -21,10 +21,42 @@ import {
   Plus,
   Upload,
   RefreshCw,
-  Download
+  Download,
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
 import { renderPdfToCanvas } from '../services/pdfRenderer';
+
+const DISCIPLINE_TO_TRADE = {
+  architectural: 'AC',
+  mechanical: 'MP',
+  plumbing: 'MP',
+  electrical: 'EL',
+  fire: 'FP',
+  'fire protection': 'FP',
+  structural: 'ST',
+  glazing: 'GL',
+  drywall: 'DW',
+  flooring: 'FL',
+};
+
+function resolveTradeInfo(pin) {
+  const raw = (pin?.trade || pin?.stamp_initials || '').toString().trim().toUpperCase();
+  if (raw && TRADES[raw]) return TRADES[raw];
+  const disc = (pin?.discipline || '').toString().trim().toLowerCase();
+  const mappedCode = DISCIPLINE_TO_TRADE[disc];
+  if (mappedCode && TRADES[mappedCode]) return TRADES[mappedCode];
+  if (raw) return { code: raw.slice(0, 2), name: raw, color: '#D97706' };
+  return TRADES.AC || { code: 'AC', name: 'Architectural', color: '#4F46E5' };
+}
+
+function formatPinId(pin) {
+  if (pin?.item_number != null) return `#${pin.item_number}`;
+  const id = String(pin?.id || '');
+  if (id.startsWith('pin-')) return `#${id.slice(4, 10).toUpperCase()}`;
+  return id || '—';
+}
 
 export default function BlueprintViewer({
   sheets,
@@ -36,6 +68,7 @@ export default function BlueprintViewer({
   onCloseDrawer,
   onUpdatePunchStatus,
   onAddComment,
+  onUploadPinPhoto,
   onOpenPhotoLightbox,
   onCreatePinAtCoords,
   onOpenUploadModal,
@@ -93,9 +126,36 @@ export default function BlueprintViewer({
   // Measurement tool state
   const [measurePoints, setMeasurePoints] = useState([]);
 
-  // Comment input in slide-over drawer
+  // Comment input & progress photo upload in slide-over drawer
   const [newCommentText, setNewCommentText] = useState('');
   const [reassignFeedback, setReassignFeedback] = useState('');
+  const [photoStage, setPhotoStage] = useState('progress'); // 'progress' | 'issue' | 'resolved'
+  const [photoCaption, setPhotoCaption] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoUploadError, setPhotoUploadError] = useState('');
+  const photoInputRef = useRef(null);
+
+  const handleProgressPhotoSelected = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length || !selectedPinId || !onUploadPinPhoto) return;
+
+    setPhotoUploadError('');
+    setIsUploadingPhoto(true);
+    try {
+      for (const file of files) {
+        await onUploadPinPhoto(selectedPinId, file, {
+          type: photoStage,
+          caption: photoCaption.trim(),
+        });
+      }
+      setPhotoCaption('');
+    } catch (err) {
+      setPhotoUploadError(err?.message || 'Could not upload photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   // Active sheet pins
   const currentSheetPins = activeSheet
@@ -1138,159 +1198,343 @@ export default function BlueprintViewer({
               justifyContent: 'space-between',
               backgroundColor: 'var(--surface-muted)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span
-                  className="trade-stamp-badge lg"
-                  style={{ backgroundColor: TRADES[selectedPin.trade]?.color || 'var(--amber)' }}
-                >
-                  {selectedPin.trade}
-                </span>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="chip-mono" style={{ fontSize: 13, fontWeight: 700 }}>
-                      {selectedPin.id}
+              {(() => {
+                const tr = resolveTradeInfo(selectedPin);
+                const prio = selectedPin.priority || 'Medium';
+                const statusStr = selectedPin.status || 'Open';
+                const statusLower = statusStr.toLowerCase();
+                const statusClass =
+                  statusLower === 'in progress' || statusLower === 'in_progress'
+                    ? 'progress'
+                    : statusLower === 'in review' || statusLower === 'in_review'
+                    ? 'review'
+                    : statusLower === 'resolved' || statusLower === 'closed'
+                    ? 'resolved'
+                    : 'open';
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span
+                      className="trade-stamp-badge lg"
+                      style={{ backgroundColor: tr.color }}
+                      title={tr.name}
+                    >
+                      {tr.code}
                     </span>
-                    <span className={`chip chip-priority-${(selectedPin.priority || 'medium').toLowerCase()}`}>
-                      {selectedPin.priority || 'Medium'}
-                    </span>
-                    <span className={`chip chip-status-${selectedPin.status === 'In Progress' ? 'progress' : selectedPin.status === 'In Review' ? 'review' : (selectedPin.status || 'open').toLowerCase()}`}>
-                      {selectedPin.status || 'Open'}
-                    </span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                        <span className="chip-mono" style={{ fontSize: 12.5, fontWeight: 700 }}>
+                          {formatPinId(selectedPin)}
+                        </span>
+                        <span className={`chip chip-priority-${prio.toLowerCase()}`}>
+                          {prio}
+                        </span>
+                        <span className={`chip chip-status-${statusClass}`}>
+                          {statusStr}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                        {tr.name}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {TRADES[selectedPin.trade]?.name || selectedPin.trade}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               <button
+                type="button"
                 onClick={onCloseDrawer}
                 className="btn-icon"
-                style={{ width: 32, height: 32 }}
+                aria-label="Close punch item details"
+                style={{ width: 32, height: 32, borderRadius: 8 }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Drawer Scrollable Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
               {/* Title & Description */}
-              <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, marginBottom: 8 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--ink)', lineHeight: 1.35, marginBottom: 6 }}>
                 {selectedPin.title}
               </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>
-                {selectedPin.description}
+              <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 18 }}>
+                {selectedPin.description || 'No description provided for this punch item.'}
               </p>
 
               {/* Meta Grid (4px spacing scale, calm hairlines) */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: 12,
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
+                gap: '12px 16px',
+                padding: '14px 16px',
+                borderRadius: 10,
                 backgroundColor: 'var(--surface-muted)',
-                border: '1px solid var(--border)',
-                marginBottom: 24
+                border: '1px solid var(--border-subtle, #EDE8DF)',
+                marginBottom: 22
               }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Assignee</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.assignee || selectedPin.assigned_to_name || 'Unassigned'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Company</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.company || selectedPin.company_name || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Location</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{selectedPin.room || selectedPin.location || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Coordinates</div>
-                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--amber)' }}>
-                    X {selectedPin.x_pct ?? selectedPin.xPct ?? 0}% · Y {selectedPin.y_pct ?? selectedPin.yPct ?? 0}% ({selectedPin.gridLocation || selectedPin.grid_location || '—'})
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Assignee</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                    {selectedPin.assignee || selectedPin.assigned_to_name || 'Unassigned'}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Due date</div>
-                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{selectedPin.dueDate || selectedPin.due_date || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Company</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                    {selectedPin.company || selectedPin.assigned_to_company || selectedPin.company_name || '—'}
+                  </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Created</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Location</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                    {selectedPin.room || selectedPin.room_location || selectedPin.location || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Coordinates</div>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--amber-hover)', fontWeight: 600 }}>
+                    X {Number(selectedPin.x_pct ?? selectedPin.xPct ?? 0).toFixed(1)}% · Y {Number(selectedPin.y_pct ?? selectedPin.yPct ?? 0).toFixed(1)}%
+                    {(selectedPin.gridLocation || selectedPin.grid_location) ? ` (${selectedPin.gridLocation || selectedPin.grid_location})` : ''}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Due date</div>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>
+                    {selectedPin.dueDate || selectedPin.due_date || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>Created</div>
                   <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
                     {selectedPin.createdAt ? selectedPin.createdAt.split('T')[0] : selectedPin.created_at ? String(selectedPin.created_at).split('T')[0] : '—'}
                   </div>
                 </div>
               </div>
 
-              {/* Field Photo Thumbnails */}
-              {selectedPin.photos && selectedPin.photos.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <div className="eyebrow" style={{ marginBottom: 8 }}>
-                    Field photos ({selectedPin.photos.length})
+              {/* Progress & Field Photos Section (always visible on open punch items) */}
+              <div style={{
+                marginBottom: 22,
+                padding: '14px 16px',
+                borderRadius: 10,
+                backgroundColor: '#FFFFFF',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <Camera size={15} color="var(--amber-hover)" aria-hidden="true" />
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+                      Progress &amp; Field Photos ({selectedPin.photos ? selectedPin.photos.length : 0})
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {selectedPin.photos.map((photoUrl, idx) => (
-                      <img
-                        key={idx}
-                        src={photoUrl}
-                        alt="Field observation"
-                        onClick={() => onOpenPhotoLightbox({
-                          title: selectedPin.title,
-                          punchId: selectedPin.id,
-                          trade: selectedPin.trade,
-                          gridLocation: selectedPin.gridLocation || selectedPin.grid_location || '—',
-                          date: (selectedPin.createdAt || selectedPin.created_at ? String(selectedPin.createdAt || selectedPin.created_at).split('T')[0] : 'Recent'),
-                          capturedBy: selectedPin.createdBy || selectedPin.created_by_name || 'Field Lead',
-                          url: photoUrl
-                        })}
-                        style={{
-                          width: 96,
-                          height: 72,
-                          borderRadius: 6,
-                          objectFit: 'cover',
-                          cursor: 'pointer',
-                          border: '1px solid var(--border)',
-                          transition: 'border-color 120ms ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--amber)'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-                      />
-                    ))}
-                  </div>
+
+                  {onUploadPinPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={isUploadingPhoto}
+                      className="btn btn-primary"
+                      style={{
+                        height: 30,
+                        padding: '0 11px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 7,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      {isUploadingPhoto ? (
+                        <Loader2 size={13} className="sync-badge__spin" aria-hidden="true" />
+                      ) : (
+                        <Upload size={13} aria-hidden="true" />
+                      )}
+                      <span>{isUploadingPhoto ? 'Uploading…' : 'Upload Photo'}</span>
+                    </button>
+                  )}
+
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleProgressPhotoSelected}
+                    style={{ display: 'none' }}
+                    aria-label="Upload progress photo"
+                  />
                 </div>
-              )}
+
+                {/* Stage selector + optional caption */}
+                {onUploadPinPhoto && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'progress', label: 'Progress' },
+                        { id: 'issue', label: 'Issue' },
+                        { id: 'resolved', label: 'Completion' },
+                      ].map((opt) => {
+                        const active = photoStage === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setPhotoStage(opt.id)}
+                            style={{
+                              height: 26,
+                              padding: '0 10px',
+                              borderRadius: 999,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              border: active ? '1px solid var(--amber)' : '1px solid var(--border)',
+                              backgroundColor: active ? 'rgba(217, 119, 6, 0.12)' : 'var(--surface-muted)',
+                              color: active ? 'var(--amber-hover)' : 'var(--text-secondary)',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={photoCaption}
+                      onChange={(e) => setPhotoCaption(e.target.value)}
+                      placeholder="Optional caption before selecting photo (e.g., Framing repaired)…"
+                      className="input-field"
+                      style={{ height: 34, fontSize: 12 }}
+                    />
+                  </div>
+                )}
+
+                {photoUploadError && (
+                  <div role="alert" style={{ fontSize: 12, color: '#DC2626', marginBottom: 10 }}>
+                    {photoUploadError}
+                  </div>
+                )}
+
+                {selectedPin.photos && selectedPin.photos.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: 10 }}>
+                    {selectedPin.photos.map((photoItem, idx) => {
+                      const photoUrl = typeof photoItem === 'string' ? photoItem : photoItem?.url;
+                      const photoType = typeof photoItem === 'object' ? (photoItem?.type || 'progress') : 'issue';
+                      const photoCap = typeof photoItem === 'object' ? photoItem?.caption : '';
+                      const photoDate = typeof photoItem === 'object' && photoItem?.created_at
+                        ? String(photoItem.created_at).split('T')[0]
+                        : (selectedPin.createdAt || selectedPin.created_at ? String(selectedPin.createdAt || selectedPin.created_at).split('T')[0] : 'Recent');
+                      const tr = resolveTradeInfo(selectedPin);
+
+                      return (
+                        <div
+                          key={(typeof photoItem === 'object' && photoItem?.id) || idx}
+                          onClick={() => onOpenPhotoLightbox({
+                            title: photoCap || selectedPin.title,
+                            punchId: formatPinId(selectedPin),
+                            trade: tr.code,
+                            gridLocation: selectedPin.gridLocation || selectedPin.grid_location || '—',
+                            date: photoDate,
+                            capturedBy: (typeof photoItem === 'object' && photoItem?.uploaded_by) || selectedPin.createdBy || 'Field Lead',
+                            url: photoUrl
+                          })}
+                          style={{
+                            position: 'relative',
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            border: '1px solid var(--border)',
+                            cursor: 'pointer',
+                            backgroundColor: 'var(--surface-muted)',
+                            aspectRatio: '4 / 3'
+                          }}
+                          title={photoCap || 'View full photo'}
+                        >
+                          <img
+                            src={photoUrl}
+                            alt={photoCap || 'Field progress photo'}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                          <span style={{
+                            position: 'absolute',
+                            top: 5,
+                            left: 5,
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            textTransform: 'capitalize',
+                            backgroundColor: 'rgba(24, 24, 27, 0.78)',
+                            color: '#FFFFFF'
+                          }}>
+                            {photoType}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={!onUploadPinPhoto || isUploadingPhoto}
+                    style={{
+                      width: '100%',
+                      padding: '18px 14px',
+                      borderRadius: 8,
+                      border: '1px dashed var(--border)',
+                      backgroundColor: 'var(--surface-muted)',
+                      color: 'var(--text-secondary)',
+                      fontSize: 12.5,
+                      cursor: onUploadPinPhoto ? 'pointer' : 'default',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>No progress photos attached yet</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                      Click here or use Upload Photo above to document site progress
+                    </span>
+                  </button>
+                )}
+              </div>
 
               {/* Activity Timeline */}
-              <div style={{ marginBottom: 24 }}>
-                <div className="eyebrow" style={{ marginBottom: 12, color: 'var(--timber)' }}>
-                  Audit History & Timeline
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>
+                  Audit History &amp; Timeline
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {selectedPin.history && selectedPin.history.map((h, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--amber)', marginTop: 5 }} />
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{h.action}</span>
-                        <span style={{ color: 'var(--text-muted)' }}> by {h.by}</span>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{h.time}</div>
+                {selectedPin.history && selectedPin.history.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {selectedPin.history.map((h, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--amber)', marginTop: 6, flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{h.action}</span>
+                          <span style={{ color: 'var(--text-muted)' }}> by {h.by}</span>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{h.time}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    Logged on {selectedPin.createdAt ? selectedPin.createdAt.split('T')[0] : selectedPin.created_at ? String(selectedPin.created_at).split('T')[0] : 'site walk'}.
+                  </div>
+                )}
               </div>
 
               {/* Comments Stream */}
-              <div style={{ marginBottom: 24 }}>
-                <div className="eyebrow" style={{ marginBottom: 12, color: 'var(--timber)' }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>
                   Discussion ({selectedPin.comments ? selectedPin.comments.length : 0})
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                   {selectedPin.comments && selectedPin.comments.map((c) => (
-                    <div key={c.id} style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--surface-muted)' }}>
+                    <div key={c.id} style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border-subtle, #EDE8DF)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{c.author} ({c.role})</span>
-                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{c.time}</span>
+                        <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{c.time}</span>
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{c.text}</div>
                     </div>
@@ -1310,7 +1554,7 @@ export default function BlueprintViewer({
                     className="input-field"
                     style={{ flex: 1, height: 38 }}
                   />
-                  <button type="submit" className="btn btn-primary" style={{ height: 38, padding: '0 12px' }}>
+                  <button type="submit" className="btn btn-primary" aria-label="Send comment" style={{ height: 38, padding: '0 12px' }}>
                     <Send size={15} />
                   </button>
                 </form>
@@ -1334,42 +1578,66 @@ export default function BlueprintViewer({
               </div>
             )}
             <div style={{
-              padding: '16px 24px',
+              padding: '14px 24px',
               borderTop: '1px solid var(--border)',
               display: 'flex',
-              gap: 12,
+              gap: 10,
               backgroundColor: 'var(--surface)'
             }}>
               <button
+                type="button"
                 onClick={() => {
                   const nextStatus = selectedPin.status === 'Resolved' ? 'Open' : 'Resolved';
                   onUpdatePunchStatus(selectedPin.id, nextStatus);
                 }}
                 className="btn btn-primary"
-                style={{ flex: 1, height: 42 }}
+                style={{ flex: 1, height: 40, borderRadius: 8 }}
               >
                 <Check size={16} strokeWidth={2.5} />
                 <span>{selectedPin.status === 'Resolved' ? 'Reopen Punch' : 'Mark Resolved'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
-                  setReassignFeedback(`Reassignment notice queued for ${selectedPin.item_number || selectedPin.id}.`);
+                  setReassignFeedback(`Reassignment notice queued for ${formatPinId(selectedPin)}.`);
                   setTimeout(() => setReassignFeedback(''), 3000);
                 }}
-                className="btn btn-ghost"
-                style={{ flex: 1, height: 42 }}
+                style={{
+                  height: 40,
+                  padding: '0 14px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--ink)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
               >
                 <span>Reassign Trade</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => onOpenUploadModal && onOpenUploadModal('version', activeSheet)}
-                className="btn btn-ghost"
-                style={{ height: 42, padding: '0 14px' }}
+                style={{
+                  height: 40,
+                  padding: '0 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--ink)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
                 title="Upload Latest Revision for this Sheet"
               >
-                <RefreshCw size={15} />
+                <RefreshCw size={14} />
                 <span>Revision</span>
               </button>
             </div>

@@ -815,6 +815,38 @@ export default function App() {
     });
   };
 
+  const handleUploadPinPhoto = async (pinId, file, { type = 'progress', caption = '' } = {}) => {
+    if (!pinId || !file) return null;
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('type', type);
+    formData.append('caption', caption || `${type === 'progress' ? 'Progress' : type === 'resolved' ? 'Completion' : 'Inspection'} photo`);
+
+    const uploaded = await api.uploadPhoto(pinId, formData);
+    setPunchItems((prev) =>
+      prev.map((p) => {
+        if (p.id !== pinId) return p;
+        const existing = Array.isArray(p.photos) ? p.photos : [];
+        if (uploaded?.id && existing.some((ph) => typeof ph === 'object' && ph.id === uploaded.id)) {
+          return p;
+        }
+        return { ...p, photos: [...existing, uploaded] };
+      })
+    );
+
+    addAuditLog({
+      category: 'Photos',
+      action: 'Progress Photo Uploaded',
+      details: caption || `Attached ${type} photo to punch item`,
+      target: pinId,
+      actor: currentUser?.name || 'Field Inspector',
+      role: currentUser?.role || 'Operations',
+      projectId: activeProject?.id,
+      pinId
+    });
+    return uploaded;
+  };
+
   const handleCreatePinAtCoords = (coords) => {
     setNewPunchCoords(coords);
     setIsNewPunchModalOpen(true);
@@ -1023,6 +1055,7 @@ export default function App() {
               onCloseDrawer={() => setSelectedPinId(null)}
               onUpdatePunchStatus={handleUpdatePunchStatus}
               onAddComment={handleAddComment}
+              onUploadPinPhoto={handleUploadPinPhoto}
               onOpenPhotoLightbox={(photoMeta) => {
                 setActiveModule('photos');
               }}
