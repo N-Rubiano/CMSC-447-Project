@@ -1081,6 +1081,8 @@ export default function App() {
         {activeModule === 'photos' && (
           <Suspense fallback={<PageLoader />}>
             <PhotosPage
+              project={activeProject}
+              sheets={sheets}
               punchItems={punchItems}
               onSelectPunchById={handleSelectPunchById}
             />
