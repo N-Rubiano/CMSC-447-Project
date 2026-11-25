@@ -92,6 +92,7 @@ sdd_assets/
 .agent/
 .agents/
 .gemini/
+.impeccable/
 .github/hooks/
 scratch/
 unslop-story/

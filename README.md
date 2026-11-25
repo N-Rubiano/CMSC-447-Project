@@ -14,6 +14,7 @@
 ## 📑 Table of Contents
 
 - [🏗️ Overview](#️-overview)
+- [📸 UI Showcase](#-ui-showcase)
 - [🧩 Architecture & System Design (UML)](#-architecture--system-design-uml)
   - [1. System Component Architecture](#1-system-component-architecture)
   - [2. End-to-End Field Inspection Sequence](#2-end-to-end-field-inspection-sequence)
@@ -45,6 +46,18 @@
 - **Strict Role Separation**: Subcontractors cannot self-approve or close items; only Facility Administrators hold closeout authority.
 - **Zero-Latency Field Sync**: WebSocket broadcasting ensures engineers in field trailers and superintendents on catwalks see identical pin states instantaneously.
 - **Offline Reliability**: IndexedDB local storage queues edits and caches drawing sets when cellular coverage drops underground or inside concrete cores.
+
+---
+
+## 📸 UI Showcase
+
+| Landing Page | Field Dashboard |
+| :---: | :---: |
+| ![PunchList Pro Landing Page](assets/screenshots/landing.png) | ![Field Dashboard](assets/screenshots/dashboard.png) |
+
+| Interactive Blueprint Viewer | Geotagged Progress & Field Photos |
+| :---: | :---: |
+| ![Interactive Blueprint Viewer](assets/screenshots/blueprints.png) | ![Progress and Field Photos](assets/screenshots/photos.png) |
 
 ---
 
@@ -402,13 +415,13 @@ PunchList Pro enforces an enterprise construction governance matrix to guarantee
 
 ## ✨ Key Features
 
-- **Pinch-to-Zoom 4K Vector Canvas**: Dynamic HTML5 Canvas rendering of CAD & architectural drawing sets without rasterization loss.
+- **Pinch-to-Zoom 4K Vector Canvas**: Dynamic HTML5 Canvas + `PDF.js` rendering of CAD & architectural drawing sets without rasterization loss.
 - **Normalized Coordinate Anchoring**: Pins store relative ratios $(x/W, y/H)$ so markers stay pinned to the exact architectural feature regardless of screen resolution, device orientation, or zoom level.
-- **Subcontractor Circle Stamp Markers**: Clean 2-letter trade badges (e.g., `MP` for Mechanical Plumbing, `EL` for Electrical, `DW` for Drywall) rendered with color-coded status rings.
-- **Customizable User Profile & Avatars**: Users can select from curated professional avatars, upload custom photos (with client-side resizing), or generate initials badges in **Settings**.
-- **Real-Time WebSockets**: Powered by `python-socketio`, instant broadcasts alert field tablets of newly dropped pins, status shifts, and markup annotations.
-- **Industrial Glare-Resistant Design**: Clean high-contrast typography, large touch targets ($\ge 44\text{px}$), and Amber/Slate palette engineered for sunlight readability on job sites.
-- **Executive PDF & CSV Reports**: Generates formal punch lists with embedded high-resolution defect photographs using ReportLab.
+- **Subcontractor Trade Stamp Markers & Deadlines**: Color-coded 2-letter trade badges (`MP`, `AC`, `EL`, `FP`, `ST`, `GL`, `DW`, `FL`) with assignee routing and persisted closeout deadlines (`due_date`).
+- **Progress Photo Uploads & Live Gallery Sync**: Attach `Progress`, `Issue`, or `Completion` photos directly inside any open punch item drawer; uploads sync immediately to the **Photos** gallery with project, building, floor, and grid metadata.
+- **Floor-Scoped PDF & Excel Reports**: Generates formal punch lists with rendered blueprint snapshots (`pypdfium2` + ReportLab) and Excel workbooks scoped to the active floor or all floors.
+- **Tablet-First Responsive UI**: Dual-pane building & level navigator, `>= 48px` touch targets on tablet/mobile bars, and swipe-friendly slide-over drawers.
+- **Real-Time WebSockets & Offline Queue**: Powered by `python-socketio` and Dexie/IndexedDB for instant multi-device sync and offline resilience.
 
 ---
 
