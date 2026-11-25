@@ -866,6 +866,12 @@ button:disabled {
     display: flex !important;
   }
   .slide-over-drawer {
+    width: min(460px, 92vw);
+  }
+}
+
+@media (max-width: 600px) {
+  .slide-over-drawer {
     width: 100vw;
   }
 }
