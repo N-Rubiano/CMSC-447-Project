@@ -72,6 +72,7 @@ let _cachedTeamData = null;
 
 export default function TeamPage({ currentUser, projects = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all' | canonical role key
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_approval' | 'pending_invitation' | 'active' | 'suspended'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetTeam, setTargetTeam] = useState('admin'); // canonical role key
@@ -484,44 +485,179 @@ export default function TeamPage({ currentUser, projects = [] }) {
         gap: 16
       }}>
         <div>
-          <div className="eyebrow" style={{ marginBottom: 4 }}>
-            Project Directory &amp; Provisioning
-          </div>
-          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>
             Team Administration &amp; Onboarding
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Manage authorized project personnel, approve contractor sponsorship requests, and coordinate secure credential onboarding.
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, marginBottom: 0 }}>
+            Manage authorized project personnel across all 6 RBAC roles, approve sponsorship requests, and issue onboarding credentials.
           </p>
         </div>
 
-        {/* Global Search Bar */}
-        <div style={{ position: 'relative', width: 240 }}>
-          <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} />
-          <input
-            type="text"
-            placeholder="Search team"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field"
-            style={{ paddingLeft: 36, height: 38, fontSize: 13 }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', width: 240 }}>
+            <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 11, pointerEvents: 'none' }} />
+            <input
+              type="text"
+              placeholder="Search name, email, or company…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field"
+              style={{ paddingLeft: 36, height: 38, fontSize: 13 }}
+              aria-label="Search team directory"
+            />
+          </div>
+
+          {(isAdmin || isGC) && (
+            <button
+              type="button"
+              onClick={() => handleOpenAddModal(roleFilter !== 'all' ? roleFilter : (isAdmin ? 'admin' : 'sub_contractor'))}
+              style={{
+                height: 38,
+                padding: '0 16px',
+                borderRadius: 8,
+                border: 'none',
+                backgroundColor: 'var(--ink)',
+                color: '#FFFFFF',
+                fontSize: 13,
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(24, 24, 27, 0.12)'
+              }}
+            >
+              <Plus size={15} strokeWidth={2.4} />
+              <span>
+                {roleFilter !== 'all'
+                  ? `Provision ${ROLE_LABELS[roleFilter] || 'Member'}`
+                  : 'Provision Member'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Lifecycle Filter Tabs & Pending Badge ───────────────────────── */}
+      {/* ── Role Filter Strip (All + 6 Canonical Roles) ──────────────── */}
+      <div
+        role="tablist"
+        aria-label="Filter directory by project role"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          flexWrap: 'wrap',
+          padding: '6px',
+          backgroundColor: 'var(--surface-muted)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 10
+        }}
+      >
+        {(() => {
+          const totalCount = TEAMS.reduce((acc, t) => acc + (teamMembers[t.key]?.length || 0), 0);
+          const isAllActive = roleFilter === 'all';
+          return (
+            <button
+              id="team-container-all"
+              type="button"
+              role="tab"
+              aria-selected={isAllActive}
+              onClick={() => setRoleFilter('all')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '7px 12px',
+                borderRadius: 7,
+                border: isAllActive ? '1px solid var(--border)' : '1px solid transparent',
+                backgroundColor: isAllActive ? '#FFFFFF' : 'transparent',
+                color: isAllActive ? 'var(--ink)' : 'var(--text-secondary)',
+                fontSize: 12.5,
+                fontWeight: isAllActive ? 700 : 500,
+                cursor: 'pointer',
+                boxShadow: isAllActive ? '0 1px 2px rgba(24, 24, 27, 0.06)' : 'none',
+                transition: 'all 120ms ease'
+              }}
+            >
+              <span>All Roles</span>
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                padding: '1px 6px',
+                borderRadius: 999,
+                backgroundColor: isAllActive ? 'var(--ink)' : 'rgba(24, 24, 27, 0.08)',
+                color: isAllActive ? '#FFFFFF' : 'var(--text-secondary)'
+              }}>
+                {totalCount}
+              </span>
+            </button>
+          );
+        })()}
+
+        {TEAMS.map((team) => {
+          const count = (teamMembers[team.key] || []).length;
+          const isActive = roleFilter === team.key;
+          return (
+            <button
+              key={team.key}
+              id={`team-container-${team.key}`}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setRoleFilter(team.key)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '7px 12px',
+                borderRadius: 7,
+                border: isActive ? '1px solid var(--border)' : '1px solid transparent',
+                backgroundColor: isActive ? '#FFFFFF' : 'transparent',
+                color: isActive ? 'var(--ink)' : 'var(--text-secondary)',
+                fontSize: 12.5,
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer',
+                boxShadow: isActive ? '0 1px 2px rgba(24, 24, 27, 0.06)' : 'none',
+                transition: 'all 120ms ease'
+              }}
+            >
+              <span style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                backgroundColor: team.color,
+                flexShrink: 0
+              }} />
+              <span>{team.title}</span>
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                padding: '1px 6px',
+                borderRadius: 999,
+                backgroundColor: isActive ? team.bg : 'rgba(24, 24, 27, 0.07)',
+                color: isActive ? team.color : 'var(--text-muted)'
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Lifecycle Status Filter & GC Notice ─────────────────────── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: 12,
-        paddingBottom: 4,
-        borderBottom: '1px solid var(--border)'
+        gap: 12
       }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {[
-            { key: 'all', label: 'All Personnel' },
+            { key: 'all', label: 'All Statuses' },
             { key: 'pending_approval', label: 'Pending Approval', count: pendingApprovalCount, highlight: pendingApprovalCount > 0 },
             { key: 'pending_invitation', label: 'Pending Invitation' },
             { key: 'active', label: 'Active' },
@@ -537,10 +673,10 @@ export default function TeamPage({ currentUser, projects = [] }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 500,
+                  padding: '5px 11px',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: isSelected ? 600 : 500,
                   cursor: 'pointer',
                   border: isSelected ? '1px solid var(--ink)' : '1px solid var(--border)',
                   backgroundColor: isSelected ? 'var(--ink)' : '#FFFFFF',
@@ -551,12 +687,12 @@ export default function TeamPage({ currentUser, projects = [] }) {
                 <span>{tab.label}</span>
                 {tab.count !== undefined && tab.count > 0 && (
                   <span style={{
-                    backgroundColor: tab.highlight ? '#EF4444' : '#6B7280',
+                    backgroundColor: tab.highlight ? '#DC2626' : '#6B7280',
                     color: '#FFFFFF',
                     padding: '1px 6px',
-                    borderRadius: 6,
-                    fontSize: 11,
-                    fontWeight: 500,
+                    borderRadius: 999,
+                    fontSize: 10.5,
+                    fontWeight: 700,
                     fontVariantNumeric: 'tabular-nums'
                   }}>
                     {tab.count}
@@ -567,461 +703,375 @@ export default function TeamPage({ currentUser, projects = [] }) {
           })}
         </div>
 
-        {/* Informative badge for GC user */}
         {isGC && !isAdmin && (
           <div style={{
             fontSize: 12,
-            color: '#B45309',
-            backgroundColor: '#FEF3C7',
-            padding: '5px 12px',
-            borderRadius: 6,
+            color: '#92400E',
+            backgroundColor: '#FFFBEB',
+            padding: '6px 12px',
+            borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            border: '1px solid #FCD34D'
+            border: '1px solid #FDE68A'
           }}>
-            <Info size={14} /> General Contractor sponsorship mode: Added subcontractors require Facility Administrator approval.
+            <Info size={14} /> General Contractor mode: Added subcontractors require Facility Administrator approval.
           </div>
         )}
       </div>
 
-      {/* ── 4 Dedicated Team Containers ──────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {TEAMS.map((team) => {
-          const TeamIcon = team.icon;
-          const allMembers = teamMembers[team.key] || [];
+      {/* ── Unified Personnel Directory Table ────────────────────────── */}
+      {(() => {
+        const visibleTeams = roleFilter === 'all'
+          ? TEAMS
+          : TEAMS.filter(t => t.key === roleFilter);
 
-          // Filter by search query and lifecycle status filter
-          const filteredMembers = allMembers.filter(m => {
-            const currentStatus = m.status || 'active';
-            if (statusFilter !== 'all' && currentStatus !== statusFilter) {
-              return false;
-            }
-            if (!searchQuery.trim()) return true;
-            const q = searchQuery.toLowerCase().trim();
-            return (
-              m.name.toLowerCase().includes(q) ||
-              m.email.toLowerCase().includes(q) ||
-              m.role.toLowerCase().includes(q) ||
-              (m.company && m.company.toLowerCase().includes(q))
-            );
-          });
+        const combinedMembers = visibleTeams.flatMap(t =>
+          (teamMembers[t.key] || []).map(m => ({ ...m, _teamKey: t.key, _teamMeta: t }))
+        );
 
-          // GC can only add subcontractors
-          const canAddMemberToTeam = isAdmin || (isGC && team.key === 'sub_contractor');
-
+        const filteredMembers = combinedMembers.filter(m => {
+          const currentStatus = m.status || 'active';
+          if (statusFilter !== 'all' && currentStatus !== statusFilter) return false;
+          if (!searchQuery.trim()) return true;
+          const q = searchQuery.toLowerCase().trim();
           return (
-            <div
-              key={team.key}
-              id={`team-container-${team.key}`}
-              className="card"
-              style={{
-                padding: '22px 24px',
-                borderRadius: 'var(--radius-card)',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid var(--border)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-              }}
-            >
-              {/* Container Header */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 12,
-                marginBottom: 16,
-                paddingBottom: 14,
-                borderBottom: '1px solid var(--border-subtle)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 9,
-                    backgroundColor: team.bg,
-                    border: `1.5px solid ${team.border}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+            (m.name || '').toLowerCase().includes(q) ||
+            (m.email || '').toLowerCase().includes(q) ||
+            (m.role || '').toLowerCase().includes(q) ||
+            (ROLE_LABELS[m.role] || '').toLowerCase().includes(q) ||
+            (m.company || m.organization || '').toLowerCase().includes(q)
+          );
+        });
+
+        const showTradeCol = roleFilter === 'all' || roleFilter === 'sub_contractor';
+        const activeRoleMeta = TEAMS.find(t => t.key === roleFilter);
+        const canAddCurrent = isAdmin || (isGC && (roleFilter === 'all' || roleFilter === 'sub_contractor'));
+
+        return (
+          <div
+            className="card"
+            style={{
+              borderRadius: 12,
+              backgroundColor: '#FFFFFF',
+              border: '1px solid var(--border)',
+              boxShadow: '0 1px 3px rgba(24, 24, 27, 0.04)',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                <thead>
+                  <tr style={{
+                    backgroundColor: '#FAFAF9',
+                    borderBottom: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
                   }}>
-                    <TeamIcon size={20} color={team.color} strokeWidth={2.4} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
-                        {team.title}
-                      </h2>
-                      <span
-                        className="chip-mono"
+                    <th style={{ padding: '11px 16px' }}>Name &amp; Contact</th>
+                    <th style={{ padding: '11px 14px' }}>Role</th>
+                    <th style={{ padding: '11px 14px' }}>Organization</th>
+                    {showTradeCol && <th style={{ padding: '11px 14px' }}>Trade</th>}
+                    <th style={{ padding: '11px 14px' }}>Status</th>
+                    <th style={{ padding: '11px 14px' }}>Presence</th>
+                    <th style={{ padding: '11px 16px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map((member) => {
+                    const presence = getPresenceDot(member.presence);
+                    const tradeInfo = member.trade ? TRADES[member.trade] : null;
+                    const status = member.status || 'active';
+                    const isPendingApproval = status === 'pending_approval';
+                    const isPendingInvitation = status === 'pending_invitation';
+                    const isSuspended = status === 'suspended';
+                    const isRejected = status === 'rejected';
+                    const isSelf = currentUser && member.id === currentUser.id;
+                    const roleColor = member._teamMeta?.color || 'var(--text-muted)';
+
+                    return (
+                      <tr
+                        key={member.id}
                         style={{
-                          backgroundColor: team.bg,
-                          color: team.color,
-                          borderColor: team.border,
-                          fontWeight: 700
+                          borderBottom: '1px solid var(--border-subtle)',
+                          backgroundColor: isPendingApproval ? '#FEFCE8' : isSuspended ? '#FEF2F2' : '#FFFFFF',
+                          transition: 'background 120ms ease'
                         }}
                       >
-                        {allMembers.length} {allMembers.length === 1 ? 'member' : 'members'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {team.subtitle}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Container Specific "+ Add Member" Button */}
-                {canAddMemberToTeam && (
-                  <button
-                    type="button"
-                    id={`btn-add-${team.key}`}
-                    onClick={() => handleOpenAddModal(team.key)}
-                    className="btn"
-                    style={{
-                      backgroundColor: team.bg,
-                      color: team.color,
-                      border: `1.5px solid ${team.border}`,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      cursor: 'pointer',
-                      transition: 'all 120ms ease'
-                    }}
-                  >
-                    <Plus size={15} strokeWidth={2.6} />
-                    <span>Provision {team.title.replace(' Team', '').replace(' Members', '')}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Members Table */}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{
-                      borderBottom: '1.5px solid var(--border)',
-                      color: 'var(--text-muted)',
-                      fontSize: 11,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      <th style={{ padding: '10px 12px' }}>Name & Contact</th>
-                      <th style={{ padding: '10px 12px' }}>Role / Position</th>
-                      <th style={{ padding: '10px 12px' }}>Company / Organization</th>
-                      { team.key === 'sub_contractor' && (
-                        <th style={{ padding: '10px 12px' }}>Trade</th>
-                      )}
-                      <th style={{ padding: '10px 12px' }}>Account Status</th>
-                      <th style={{ padding: '10px 12px' }}>Presence</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions & Handoff</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMembers.map((member) => {
-                      const presence = getPresenceDot(member.presence);
-                      const tradeInfo = member.trade ? TRADES[member.trade] : null;
-                      const status = member.status || 'active';
-                      const isPendingApproval = status === 'pending_approval';
-                      const isPendingInvitation = status === 'pending_invitation';
-                      const isSuspended = status === 'suspended';
-                      const isRejected = status === 'rejected';
-                      const isSelf = currentUser && member.id === currentUser.id;
-
-                      return (
-                        <tr
-                          key={member.id}
-                          style={{
-                            borderBottom: '1px solid var(--border-subtle)',
-                            backgroundColor: isPendingApproval ? '#FEFCE8' : isSuspended ? '#FEF2F2' : 'transparent',
-                            transition: 'background 120ms ease'
-                          }}
-                        >
-                          {/* Name & Avatar */}
-                          <td style={{ padding: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                              <img
-                                src={member.avatar_url || member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
-                                alt={member.name}
-                                style={{
-                                  width: 36,
-                                  height: 36,
-                                  borderRadius: '50%',
-                                  objectFit: 'cover',
-                                  border: '1.5px solid var(--border)'
-                                }}
-                              />
-                              <div>
-                                <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{member.name}</div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                  {member.email}
-                                </div>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                            <img
+                              src={member.avatar_url || member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
+                              alt={member.name}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '1px solid var(--border)'
+                              }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{member.name}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                {member.email}
                               </div>
                             </div>
-                          </td>
+                          </div>
+                        </td>
 
-                          {/* Role */}
-                          <td style={{ padding: '12px' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              backgroundColor: 'var(--surface-muted)',
-                              color: 'var(--ink)',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              border: '1px solid var(--border)'
-                            }}>
-                              {ROLE_LABELS[member.role] || member.role}
-                            </span>
-                          </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '3px 9px',
+                            borderRadius: 6,
+                            backgroundColor: 'var(--surface-muted)',
+                            color: 'var(--ink)',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            border: '1px solid var(--border-subtle)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: roleColor }} />
+                            {ROLE_LABELS[member.role] || member.role}
+                          </span>
+                        </td>
 
-                          {/* Company */}
-                          <td style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            {member.company || member.organization || '—'}
-                          </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                          {member.company || member.organization || '—'}
+                        </td>
 
-                          {/* Trade Stamp (for Subcontractor or Crew) */}
-                          { team.key === 'sub_contractor' && (
-                            <td style={{ padding: '12px' }}>
-                              {tradeInfo ? (
-                                <span
-                                  className="trade-stamp-badge"
-                                  style={{ backgroundColor: tradeInfo.color }}
-                                  title={tradeInfo.name}
-                                >
-                                  {tradeInfo.code}
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
-                              )}
-                            </td>
-                          )}
-
-                          {/* Account Lifecycle Status */}
-                          <td style={{ padding: '12px' }}>
-                            {renderStatusBadge(status)}
-                            {isRejected && member.rejection_reason && (
-                              <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>
-                                Reason: {member.rejection_reason}
-                              </div>
+                        {showTradeCol && (
+                          <td style={{ padding: '12px 14px' }}>
+                            {tradeInfo ? (
+                              <span
+                                className="trade-stamp-badge"
+                                style={{ backgroundColor: tradeInfo.color }}
+                                title={tradeInfo.name}
+                              >
+                                {tradeInfo.code}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
                             )}
                           </td>
+                        )}
 
-                          {/* Presence Status */}
-                          <td style={{ padding: '12px' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: presence.color }} />
-                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-                                {member.presenceText || presence.text}
-                              </span>
+                        <td style={{ padding: '12px 14px' }}>
+                          {renderStatusBadge(status)}
+                          {isRejected && member.rejection_reason && (
+                            <div style={{ fontSize: 10.5, color: '#DC2626', marginTop: 2 }}>
+                              Reason: {member.rejection_reason}
                             </div>
-                          </td>
+                          )}
+                        </td>
 
-                          {/* Actions & Lifecycle Handlers */}
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
-                              {/* Pending Approval Controls for Administrator */}
-                              {isPendingApproval && isAdmin && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApproveMember(member)}
-                                    className="btn"
-                                    style={{
-                                      backgroundColor: '#DCFCE7',
-                                      color: '#15803D',
-                                      border: '1px solid #86EFAC',
-                                      padding: '4px 8px',
-                                      borderRadius: 6,
-                                      fontSize: 12,
-                                      fontWeight: 700,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4
-                                    }}
-                                    title="Approve this account"
-                                  >
-                                    <Check size={13} strokeWidth={3} /> Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenRejectModal(member)}
-                                    className="btn"
-                                    style={{
-                                      backgroundColor: '#FEE2E2',
-                                      color: '#B91C1C',
-                                      border: '1px solid #FCA5A5',
-                                      padding: '4px 8px',
-                                      borderRadius: 6,
-                                      fontSize: 12,
-                                      fontWeight: 700,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4
-                                    }}
-                                    title="Reject this account"
-                                  >
-                                    <X size={13} strokeWidth={3} /> Reject
-                                  </button>
-                                </>
-                              )}
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: presence.color }} />
+                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                              {member.presenceText || presence.text}
+                            </span>
+                          </div>
+                        </td>
 
-                              {/* Credential Handoff / Resend Invitation */}
-                              {(isPendingInvitation || isPendingApproval) && (
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                            {isPendingApproval && isAdmin && (
+                              <>
                                 <button
                                   type="button"
-                                  onClick={() => handleResendInvite(member)}
+                                  onClick={() => handleApproveMember(member)}
+                                  className="btn"
+                                  style={{
+                                    backgroundColor: '#DCFCE7',
+                                    color: '#15803D',
+                                    border: '1px solid #86EFAC',
+                                    padding: '4px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4
+                                  }}
+                                  title="Approve this account"
+                                >
+                                  <Check size={13} strokeWidth={3} /> Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectModal(member)}
+                                  className="btn"
+                                  style={{
+                                    backgroundColor: '#FEE2E2',
+                                    color: '#B91C1C',
+                                    border: '1px solid #FCA5A5',
+                                    padding: '4px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4
+                                  }}
+                                  title="Reject this account"
+                                >
+                                  <X size={13} strokeWidth={3} /> Reject
+                                </button>
+                              </>
+                            )}
+
+                            {(isPendingInvitation || isPendingApproval) && (
+                              <button
+                                type="button"
+                                onClick={() => handleResendInvite(member)}
+                                className="btn-icon"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  color: '#2563EB',
+                                  backgroundColor: '#EFF6FF',
+                                  border: '1px solid #BFDBFE'
+                                }}
+                                title="Resend invitation link / copy onboarding credential"
+                              >
+                                <Copy size={14} />
+                              </button>
+                            )}
+
+                            {isAdmin && !isSelf && !isPendingApproval && !isRejected && (
+                              isSuspended ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReactivateMember(member)}
                                   className="btn-icon"
                                   style={{
                                     width: 30,
                                     height: 30,
-                                    color: '#2563EB',
-                                    backgroundColor: '#EFF6FF',
-                                    border: '1px solid #BFDBFE'
+                                    color: '#15803D',
+                                    backgroundColor: '#DCFCE7',
+                                    border: '1px solid #86EFAC'
                                   }}
-                                  title="Resend invitation link / copy onboarding credential"
+                                  title="Reactivate account access"
                                 >
-                                  <Copy size={14} />
+                                  <RotateCw size={14} />
                                 </button>
-                              )}
-
-                              {/* Admin Suspend / Reactivate Controls */}
-                              {isAdmin && !isSelf && !isPendingApproval && !isRejected && (
-                                <>
-                                  {isSuspended ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleReactivateMember(member)}
-                                      className="btn-icon"
-                                      style={{
-                                        width: 30,
-                                        height: 30,
-                                        color: '#15803D',
-                                        backgroundColor: '#DCFCE7',
-                                        border: '1px solid #86EFAC'
-                                      }}
-                                      title="Reactivate account access"
-                                    >
-                                      <RotateCw size={14} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSuspendMember(member)}
-                                      className="btn-icon"
-                                      style={{
-                                        width: 30,
-                                        height: 30,
-                                        color: '#DC2626',
-                                        backgroundColor: '#FEF2F2',
-                                        border: '1px solid #FECACA'
-                                      }}
-                                      title="Suspend account access"
-                                    >
-                                      <Ban size={14} />
-                                    </button>
-                                  )}
-                                </>
-                              )}
-
-                              {/* Email & Phone Links */}
-                              <a
-                                href={`mailto:${member.email}`}
-                                className="btn-icon"
-                                style={{ width: 30, height: 30 }}
-                                title={`Email ${member.name}`}
-                              >
-                                <Mail size={14} />
-                              </a>
-                              {member.phone && (
-                                <a
-                                  href={`tel:${member.phone}`}
-                                  className="btn-icon"
-                                  style={{ width: 30, height: 30 }}
-                                  title={`Call ${member.phone}`}
-                                >
-                                  <Phone size={14} />
-                                </a>
-                              )}
-
-                              {/* Delete Account (Admin only) */}
-                              {isAdmin && !isSelf && (
+                              ) : (
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveMember(team.key, member.id)}
+                                  onClick={() => handleSuspendMember(member)}
                                   className="btn-icon"
-                                  style={{ width: 30, height: 30, color: 'var(--crimson)' }}
-                                  title="Remove member permanently"
+                                  style={{
+                                    width: 30,
+                                    height: 30,
+                                    color: '#DC2626',
+                                    backgroundColor: '#FEF2F2',
+                                    border: '1px solid #FECACA'
+                                  }}
+                                  title="Suspend account access"
                                 >
-                                  <Trash2 size={14} />
+                                  <Ban size={14} />
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                              )
+                            )}
 
-                    {/* Loading State for Container */}
-                    {loadingTeam && filteredMembers.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={team.key === 'sub_contractor' ? 7 : 6}
-                          style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)' }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                            <span style={{
-                              width: 16, height: 16, borderRadius: '50%',
-                              border: '2px solid var(--amber)', borderTopColor: 'transparent',
-                              animation: 'spin 0.7s linear infinite', display: 'inline-block'
-                            }} />
-                            <span style={{ fontSize: 13, fontWeight: 500 }}>Loading personnel roster…</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                            <a
+                              href={`mailto:${member.email}`}
+                              className="btn-icon"
+                              style={{ width: 30, height: 30 }}
+                              title={`Email ${member.name}`}
+                            >
+                              <Mail size={14} />
+                            </a>
+                            {member.phone && (
+                              <a
+                                href={`tel:${member.phone}`}
+                                className="btn-icon"
+                                style={{ width: 30, height: 30 }}
+                                title={`Call ${member.phone}`}
+                              >
+                                <Phone size={14} />
+                              </a>
+                            )}
 
-                    {/* Empty State for Container (only when NOT loading) */}
-                    {!loadingTeam && filteredMembers.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={team.key === 'sub_contractor' ? 7 : 6}
-                          style={{ padding: '36px 16px', textAlign: 'center' }}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                            <Users size={30} color="var(--border)" />
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                              {searchQuery
-                                ? `No members match "${searchQuery}"`
-                                : statusFilter !== 'all'
-                                ? `No members with status "${statusFilter.replace('_', ' ')}"`
-                                : `No ${team.title} members registered yet`}
-                            </div>
-                            {!searchQuery && canAddMemberToTeam && (
+                            {isAdmin && !isSelf && (
                               <button
                                 type="button"
-                                onClick={() => handleOpenAddModal(team.key)}
-                                className="btn-secondary"
-                                style={{ fontSize: 12, padding: '5px 12px', marginTop: 4 }}
+                                onClick={() => handleRemoveMember(member._teamKey, member.id)}
+                                className="btn-icon"
+                                style={{ width: 30, height: 30, color: 'var(--crimson)' }}
+                                title="Remove member permanently"
                               >
-                                <Plus size={13} /> Add first {team.title.replace(' Team', '').replace(' Members', '')}
+                                <Trash2 size={14} />
                               </button>
                             )}
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+
+                  {loadingTeam && filteredMembers.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={showTradeCol ? 7 : 6}
+                        style={{ padding: '42px 16px', textAlign: 'center', color: 'var(--text-muted)' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                          <span style={{
+                            width: 16, height: 16, borderRadius: '50%',
+                            border: '2px solid var(--amber)', borderTopColor: 'transparent',
+                            animation: 'spin 0.7s linear infinite', display: 'inline-block'
+                          }} />
+                          <span style={{ fontSize: 13, fontWeight: 500 }}>Loading personnel roster…</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loadingTeam && filteredMembers.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={showTradeCol ? 7 : 6}
+                        style={{ padding: '48px 16px', textAlign: 'center' }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                          <Users size={28} color="var(--border)" />
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
+                            {searchQuery
+                              ? `No personnel match "${searchQuery}"`
+                              : statusFilter !== 'all'
+                              ? `No personnel with status "${statusFilter.replace('_', ' ')}"`
+                              : activeRoleMeta
+                              ? `No ${activeRoleMeta.title} accounts provisioned yet`
+                              : 'No team members provisioned yet'}
+                          </div>
+                          {!searchQuery && canAddCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddModal(roleFilter !== 'all' ? roleFilter : 'sub_contractor')}
+                              className="btn-secondary"
+                              style={{ fontSize: 12.5, padding: '6px 14px', marginTop: 4 }}
+                            >
+                              <Plus size={14} /> Provision {activeRoleMeta ? activeRoleMeta.title : 'Member'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })()}
 
       {/* ── Provision Member Modal ─────────────────────────────────────────── */}
       {isModalOpen && (

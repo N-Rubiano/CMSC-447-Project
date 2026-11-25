@@ -47,7 +47,7 @@ describe('TeamPage Component — 6 Canonical Roles & Onboarding', () => {
     });
   });
 
-  it('renders all 6 canonical role containers and places members into their respective roles', async () => {
+  it('renders all 6 canonical role tabs and displays members from every role in the unified directory', async () => {
     render(<TeamPage currentUser={adminUser} projects={sampleProjects} />);
 
     expect(await screen.findByText('Alice Admin')).toBeInTheDocument();
@@ -57,20 +57,27 @@ describe('TeamPage Component — 6 Canonical Roles & Onboarding', () => {
     expect(screen.getByText('Eve Sub')).toBeInTheDocument();
     expect(screen.getByText('Frank Owner')).toBeInTheDocument();
 
+    expect(document.getElementById('team-container-all')).toBeInTheDocument();
     expect(document.getElementById('team-container-admin')).toBeInTheDocument();
     expect(document.getElementById('team-container-general_contractor')).toBeInTheDocument();
     expect(document.getElementById('team-container-architect')).toBeInTheDocument();
     expect(document.getElementById('team-container-field_inspector')).toBeInTheDocument();
     expect(document.getElementById('team-container-sub_contractor')).toBeInTheDocument();
     expect(document.getElementById('team-container-owner')).toBeInTheDocument();
+
+    // Filtering by Field Inspector isolates Dan Inspector
+    fireEvent.click(document.getElementById('team-container-field_inspector'));
+    expect(screen.getByText('Dan Inspector')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Admin')).not.toBeInTheDocument();
   });
 
   it('onboards a newly provisioned Architect using the existing invitation flow', async () => {
     render(<TeamPage currentUser={adminUser} projects={sampleProjects} />);
 
-    const archContainer = await waitFor(() => document.getElementById('team-container-architect'));
-    const addBtn = archContainer.querySelector('button');
-    fireEvent.click(addBtn);
+    const archTab = await waitFor(() => document.getElementById('team-container-architect'));
+    fireEvent.click(archTab);
+
+    fireEvent.click(screen.getByRole('button', { name: /Provision Architect \/ Engineer/i }));
 
     fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Grace Architect' } });
     fireEvent.change(screen.getByLabelText(/Work Email/i), { target: { value: 'grace@design.com' } });
