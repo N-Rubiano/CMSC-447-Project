@@ -94,7 +94,7 @@ export default defineConfig(({ mode }) => ({
               id.includes('node_modules/scheduler/')) {
             return 'vendor-react';
           }
-          // Framer Motion — large animation lib, only needed for MailSlotUpload
+          // Framer Motion — animation library chunk
           if (id.includes('node_modules/framer-motion') ||
               id.includes('node_modules/motion-dom') ||
               id.includes('node_modules/motion-utils')) {

@@ -19,7 +19,7 @@ const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions
 const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
 const LandingPage           = lazy(() => import('./components/LandingPage'));
 
-// ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
+// ── Lazy-loaded modals: only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
 const NewPunchModal         = lazy(() => import('./components/NewPunchModal'));
 const BlueprintUploadModal  = lazy(() => import('./components/BlueprintUploadModal'));
