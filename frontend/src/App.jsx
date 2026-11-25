@@ -251,12 +251,14 @@ export default function App() {
     }
   });
 
-  // Fetch persisted logs from Supabase database on mount
+  // Fetch persisted logs from Supabase database when authenticated
   useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
     async function loadAuditLogs() {
       try {
         const dbLogs = await api.getAuditLogs();
-        if (Array.isArray(dbLogs)) {
+        if (active && Array.isArray(dbLogs)) {
           setAuditLogs(dbLogs);
         }
       } catch (err) {
@@ -264,7 +266,8 @@ export default function App() {
       }
     }
     loadAuditLogs();
-  }, []);
+    return () => { active = false; };
+  }, [isAuthenticated]);
 
   // -----------------------------------------------------------------
   // Fetch projects from the database on first mount.
@@ -293,49 +296,42 @@ export default function App() {
   }, [isAuthenticated]);
 
   // -----------------------------------------------------------------
-  // Fetch sheets for the active project from the DB on project change.
+  // Fetch sheets and punch pins for the active project in parallel.
   // -----------------------------------------------------------------
   useEffect(() => {
     if (!isAuthenticated || !activeProject?.id) return;
-    async function loadSheets() {
-      try {
-        const pId = activeProject.id;
-        const dbSheets = await api.getSheets(pId);
+    let active = true;
+    async function loadProjectWorkspace() {
+      const pId = activeProject.id;
+      const [sheetsRes, pinsRes] = await Promise.allSettled([
+        api.getSheets(pId),
+        api.getAllProjectPins(pId),
+      ]);
+      if (!active) return;
+
+      if (sheetsRes.status === 'fulfilled') {
+        const dbSheets = sheetsRes.value;
         if (Array.isArray(dbSheets) && dbSheets.length > 0) {
           setSheets(prev => {
             const dbIds = new Set(dbSheets.map(s => s.id));
             const remaining = prev.filter(s => !dbIds.has(s.id));
             return [...dbSheets, ...remaining];
           });
-          // If the current activeSheet belongs to a different project, clear it
           setActiveSheet(prev => {
             if (prev && !dbSheets.some(s => s.id === prev.id)) return dbSheets[0] || null;
             return prev;
           });
         } else {
-          // No sheets in DB for this project — clear the sheet view
           setSheets([]);
           setActiveSheet(null);
         }
-      } catch (err) {
-        console.warn('Could not load sheets from database:', err);
+      } else {
+        console.warn('Could not load sheets from database:', sheetsRes.reason);
       }
-    }
-    loadSheets();
-  }, [isAuthenticated, activeProject?.id]);
 
-  // -----------------------------------------------------------------
-  // Fetch all punch pins for the active project from the DB.
-  // This is the primary fix for data disappearing on refresh.
-  // -----------------------------------------------------------------
-  useEffect(() => {
-    if (!isAuthenticated || !activeProject?.id) return;
-    async function loadPins() {
-      try {
-        const dbPins = await api.getAllProjectPins(activeProject.id);
+      if (pinsRes.status === 'fulfilled') {
+        const dbPins = pinsRes.value;
         if (Array.isArray(dbPins)) {
-          // Replace state entirely with DB truth. Filter out any offline-only
-          // optimistic pins that haven't been synced yet.
           setPunchItems(prev => {
             const dbIds = new Set(dbPins.map(p => p.id));
             const offlinePending = prev.filter(
@@ -344,11 +340,12 @@ export default function App() {
             return [...dbPins, ...offlinePending];
           });
         }
-      } catch (err) {
-        console.warn('Could not load punch items from database:', err);
+      } else {
+        console.warn('Could not load punch items from database:', pinsRes.reason);
       }
     }
-    loadPins();
+    loadProjectWorkspace();
+    return () => { active = false; };
   }, [isAuthenticated, activeProject?.id]);
 
 

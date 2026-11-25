@@ -256,7 +256,7 @@
 .dashboard-meter__seg {
   height: 100%;
   border-radius: 9999px;
-  transition: width 300ms var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
+  transition: transform 300ms var(--ease-base, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .dashboard-kpi-card__footer {
