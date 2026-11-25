@@ -29,18 +29,15 @@ export const ROLE_PERMISSIONS = [
 
 /**
  * Maps each canonical role key → TeamPage UI bucket.
- * - 'admin'       → admin tab
- * - 'owner'       → admin tab  (read-only executive, still shows in admin roster)
- * - 'general_contractor' | 'architect' | 'field_inspector' → contractor tab
- * - 'sub_contractor'  → subcontractor tab
+ * Every canonical role has its own dedicated team section and onboarding bucket.
  */
 export const ROLE_TO_CATEGORY = {
   admin:              'admin',
-  owner:              'admin',
-  general_contractor: 'contractor',
-  architect:          'contractor',
-  field_inspector:    'contractor',
-  sub_contractor:     'subcontractor',
+  general_contractor: 'general_contractor',
+  architect:          'architect',
+  field_inspector:    'field_inspector',
+  sub_contractor:     'sub_contractor',
+  owner:              'owner',
 };
 
 /** Full canonical role definitions with UI metadata (colours, descriptions).
@@ -61,7 +58,7 @@ export const CANONICAL_ROLES = [
     label: 'General Contractor',
     title: 'Project Superintendent, GC Project Manager',
     description: 'Field Coordination: Allocates items to trade subcontractors, approves or rejects subcontractor remediation submissions, and sponsors subcontractor accounts.',
-    teamCategory: 'contractor',
+    teamCategory: 'general_contractor',
     color: '#D97706',
     bg: '#FEF3C7',
     border: '#FCD34D',
@@ -71,7 +68,7 @@ export const CANONICAL_ROLES = [
     label: 'Architect / Engineer',
     title: 'Design Team AIA, Structural Consultant',
     description: 'Specification Compliance: Drops specification discrepancy pins, reviews drawing sets, and audits punch progress.',
-    teamCategory: 'contractor',
+    teamCategory: 'architect',
     color: '#7C3AED',
     bg: '#EDE9FE',
     border: '#C4B5FD',
@@ -81,7 +78,7 @@ export const CANONICAL_ROLES = [
     label: 'Field Inspector',
     title: 'Municipal Building Inspector, QA/QC Lead',
     description: 'Inspection Capture: Walks jobsite floors, anchors punch pins with photos and priority tags.',
-    teamCategory: 'contractor',
+    teamCategory: 'field_inspector',
     color: '#EA580C',
     bg: '#FFEDD5',
     border: '#FDBA74',
@@ -91,7 +88,7 @@ export const CANONICAL_ROLES = [
     label: 'Trade Subcontractor',
     title: 'Mechanical, Electrical, Plumbing, Drywall Foremen',
     description: 'Strictly Scoped: Can only view pins assigned to their trade/company. Can transition items (Open → In Progress → Contractor Review) and upload proof photos.',
-    teamCategory: 'subcontractor',
+    teamCategory: 'sub_contractor',
     color: '#2563EB',
     bg: '#DBEAFE',
     border: '#93C5FD',
@@ -101,7 +98,7 @@ export const CANONICAL_ROLES = [
     label: 'Owner Representative',
     title: 'Client Executive, Capital Asset Manager',
     description: 'Executive Visibility: Read-only oversight across project milestones, punch progress gauges, and formal PDF export generation.',
-    teamCategory: 'admin',
+    teamCategory: 'owner',
     color: '#059669',
     bg: '#D1FAE5',
     border: '#6EE7B7',

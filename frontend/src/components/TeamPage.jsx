@@ -3,6 +3,8 @@ import {
   Shield,
   HardHat,
   Wrench,
+  Compass,
+  ClipboardCheck,
   Users,
   UserPlus,
   Mail,
@@ -72,7 +74,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_approval' | 'pending_invitation' | 'active' | 'suspended'
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [targetTeam, setTargetTeam] = useState('admin'); // 'admin' | 'contractor' | 'subcontractor' | 'crew'
+  const [targetTeam, setTargetTeam] = useState('admin'); // canonical role key
 
   // Credential Handoff Modal State (shows newly generated invite token & link)
   const [inviteModalData, setInviteModalData] = useState(null);
@@ -114,68 +116,46 @@ export default function TeamPage({ currentUser, projects = [] }) {
 
   const [loadingTeam, setLoadingTeam] = useState(!_cachedTeamData);
 
-  // Team roster organized by the 4 required categories (purely database driven with memory cache)
+  // Team roster organized by the 6 canonical RBAC roles (purely database driven with memory cache)
   const [teamMembers, setTeamMembers] = useState(() => {
     return _cachedTeamData || {
       admin: [],
-      contractor: [],
-      subcontractor: [],
-      crew: []
+      general_contractor: [],
+      architect: [],
+      field_inspector: [],
+      sub_contractor: [],
+      owner: []
     };
   });
 
-  // Team configurations — 3 UI buckets mapping to the 6 canonical RBAC roles
-  const TEAMS = [
-    {
-      key: 'admin',
-      title: 'Admin Team',
-      subtitle: 'Project directors, platform administrators, owner representatives, and executive owners',
-      icon: Shield,
-      color: '#DC2626',
-      bg: '#FEE2E2',
-      border: '#FCA5A5',
-      defaultRole: 'admin'
-    },
-    {
-      key: 'contractor',
-      title: 'Contractor Team',
-      subtitle: 'General contractors, architects, engineers, and field inspectors',
-      icon: HardHat,
-      color: '#D97706',
-      bg: '#FEF3C7',
-      border: '#FCD34D',
-      defaultRole: 'general_contractor'
-    },
-    {
-      key: 'subcontractor',
-      title: 'Sub-contractor Team',
-      subtitle: 'Licensed trade subcontractor partners and specialized trade foremen',
-      icon: Wrench,
-      color: '#2563EB',
-      bg: '#DBEAFE',
-      border: '#93C5FD',
-      defaultRole: 'sub_contractor'
-    },
-  ];
+  const ROLE_ICONS = {
+    admin: Shield,
+    general_contractor: HardHat,
+    architect: Compass,
+    field_inspector: ClipboardCheck,
+    sub_contractor: Wrench,
+    owner: Building2
+  };
 
-  // Open modal with specific target team pre-selected and all open projects assigned by default
+  // Team configurations — 6 dedicated containers matching all 6 canonical RBAC roles
+  const TEAMS = CANONICAL_ROLES.map((r) => ({
+    key: r.key,
+    title: r.label,
+    subtitle: r.title,
+    icon: ROLE_ICONS[r.key] || Users,
+    color: r.color,
+    bg: r.bg,
+    border: r.border,
+    defaultRole: r.key
+  }));
+
+  // Open modal with specific target role pre-selected and all open projects assigned by default
   const handleOpenAddModal = (teamKey) => {
-    // If GC, restrict to subcontractor
-    const effectiveTeam = (isGC && !isAdmin) ? 'subcontractor' : teamKey;
+    // If GC, restrict to sub_contractor
+    const effectiveTeam = (isGC && !isAdmin) ? 'sub_contractor' : (teamKey || 'sub_contractor');
     setTargetTeam(effectiveTeam);
 
-    let defaultRoleKey = 'sub_contractor';
-    if (isGC && !isAdmin) {
-      defaultRoleKey = 'sub_contractor';
-    } else if (effectiveTeam === 'admin') {
-      defaultRoleKey = 'admin';
-    } else if (effectiveTeam === 'contractor') {
-      defaultRoleKey = 'general_contractor';
-    } else if (effectiveTeam === 'subcontractor') {
-      defaultRoleKey = 'sub_contractor';
-    } else {
-      defaultRoleKey = 'field_inspector';
-    }
+    const defaultRoleKey = (isGC && !isAdmin) ? 'sub_contractor' : effectiveTeam;
 
     let defaultCompany = 'UMBC Facility Operations';
     if (defaultRoleKey === 'general_contractor') defaultCompany = 'Apex Construction General Contracting';
@@ -209,15 +189,21 @@ export default function TeamPage({ currentUser, projects = [] }) {
     try {
       const data = await api.getTeam();
       if (Array.isArray(data)) {
-        const grouped = { admin: [], contractor: [], subcontractor: [] };
+        const grouped = {
+          admin: [],
+          general_contractor: [],
+          architect: [],
+          field_inspector: [],
+          sub_contractor: [],
+          owner: []
+        };
         data.forEach(m => {
-          // Use ROLE_TO_CATEGORY for authoritative grouping; fall back to 'subcontractor'
-          const cat = ROLE_TO_CATEGORY[m.role] ?? (m.teamCategory === 'sub_contractor' ? 'subcontractor' : (m.teamCategory || 'subcontractor'));
-          const bucket = cat === 'sub_contractor' ? 'subcontractor' : cat;
+          // Use ROLE_TO_CATEGORY for authoritative grouping across all 6 canonical roles
+          const bucket = ROLE_TO_CATEGORY[m.role] ?? 'sub_contractor';
           if (grouped[bucket]) {
             grouped[bucket].push(m);
           } else {
-            grouped.subcontractor.push(m);
+            grouped.sub_contractor.push(m);
           }
         });
         _cachedTeamData = grouped;
@@ -255,8 +241,8 @@ export default function TeamPage({ currentUser, projects = [] }) {
       phone: form.phone.trim() || '+1 (617) 555-0100',
       role: form.role,
       organization: finalCompany,
-      teamCategory: resolvedCategory === 'subcontractor' ? 'sub_contractor' : resolvedCategory,
-      trade: (resolvedCategory === 'subcontractor' || resolvedCategory === 'crew' || form.role === 'sub_contractor') ? form.trade : undefined,
+      teamCategory: resolvedCategory || form.role,
+      trade: form.role === 'sub_contractor' ? form.trade : undefined,
       project_ids: form.projectIds,
       presence: form.presence,
       presenceText: form.presence === 'on_site' ? 'On site' : form.presence === 'away' ? 'Away' : 'Offline'
@@ -269,7 +255,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
       const createdMember = res.user || res;
       const inviteUrl = res.invitation_url || (res.invitation_token ? `${window.location.origin}/#onboard?token=${res.invitation_token}` : null);
 
-      const targetTeamKey = (resolvedCategory === 'sub_contractor') ? 'subcontractor' : (resolvedCategory || 'admin');
+      const targetTeamKey = ROLE_TO_CATEGORY[createdMember.role || form.role] || resolvedCategory || 'sub_contractor';
 
       // Prepend to roster state safely
       setTeamMembers(prev => {
@@ -622,7 +608,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
           });
 
           // GC can only add subcontractors
-          const canAddMemberToTeam = isAdmin || (isGC && team.key === 'subcontractor');
+          const canAddMemberToTeam = isAdmin || (isGC && team.key === 'sub_contractor');
 
           return (
             <div
@@ -726,7 +712,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                       <th style={{ padding: '10px 12px' }}>Name & Contact</th>
                       <th style={{ padding: '10px 12px' }}>Role / Position</th>
                       <th style={{ padding: '10px 12px' }}>Company / Organization</th>
-                      { (team.key === 'subcontractor' || team.key === 'crew') && (
+                      { team.key === 'sub_contractor' && (
                         <th style={{ padding: '10px 12px' }}>Trade</th>
                       )}
                       <th style={{ padding: '10px 12px' }}>Account Status</th>
@@ -799,7 +785,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                           </td>
 
                           {/* Trade Stamp (for Subcontractor or Crew) */}
-                          { (team.key === 'subcontractor' || team.key === 'crew') && (
+                          { team.key === 'sub_contractor' && (
                             <td style={{ padding: '12px' }}>
                               {tradeInfo ? (
                                 <span
@@ -984,7 +970,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                     {loadingTeam && filteredMembers.length === 0 && (
                       <tr>
                         <td
-                          colSpan={team.key === 'subcontractor' || team.key === 'crew' ? 7 : 6}
+                          colSpan={team.key === 'sub_contractor' ? 7 : 6}
                           style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)' }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -1003,7 +989,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
                     {!loadingTeam && filteredMembers.length === 0 && (
                       <tr>
                         <td
-                          colSpan={team.key === 'subcontractor' || team.key === 'crew' ? 7 : 6}
+                          colSpan={team.key === 'sub_contractor' ? 7 : 6}
                           style={{ padding: '36px 16px', textAlign: 'center' }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -1370,7 +1356,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
               )}
 
               {/* Trade Code (for Subcontractor or Crew) */}
-              {(targetTeam === 'subcontractor' || targetTeam === 'crew') && (
+              {targetTeam === 'sub_contractor' && (
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--ink)' }}>
                     Trade Stamp Attribution

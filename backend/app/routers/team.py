@@ -40,11 +40,11 @@ VALID_ROLES = {
 # Maps role key → TeamPage UI bucket (must stay in sync with frontend/src/data/rbac.js)
 ROLE_CATEGORY = {
     "admin":              "admin",
-    "owner":              "admin",
-    "general_contractor": "contractor",
-    "architect":          "contractor",
-    "field_inspector":    "contractor",
-    "sub_contractor":     "subcontractor",
+    "general_contractor": "general_contractor",
+    "architect":          "architect",
+    "field_inspector":    "field_inspector",
+    "sub_contractor":     "sub_contractor",
+    "owner":              "owner",
 }
 
 
@@ -120,7 +120,7 @@ def get_team_members(current_user: dict = Depends(get_current_user)):
         company_val = u.get("company") or "PunchList Pro"
 
         # Determine container group — explicit dict, no string-matching heuristics
-        container = ROLE_CATEGORY.get(role_val, "subcontractor")
+        container = ROLE_CATEGORY.get(role_val, "sub_contractor")
 
         acc_status = u.get("status") or "active"
 
