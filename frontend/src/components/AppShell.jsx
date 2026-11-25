@@ -750,18 +750,20 @@ export default function AppShell({
           className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}
           aria-label="Sidebar navigation"
         >
-          <div className="rail__compose-wrap">
-            <button
-              type="button"
-              className="rail__compose"
-              onClick={handleNewPunch}
-              title="New Punch Item"
-              aria-label="New Punch Item"
-            >
-              <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
-              {!isRailCollapsed && <span className="rail__compose-label">New Punch</span>}
-            </button>
-          </div>
+          {onNewPunch && (
+            <div className="rail__compose-wrap">
+              <button
+                type="button"
+                className="rail__compose"
+                onClick={handleNewPunch}
+                title="New Punch Item"
+                aria-label="New Punch Item"
+              >
+                <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
+                {!isRailCollapsed && <span className="rail__compose-label">New Punch</span>}
+              </button>
+            </div>
+          )}
 
           <nav className="rail__nav" aria-label="Main">
             <div className="rail__section">

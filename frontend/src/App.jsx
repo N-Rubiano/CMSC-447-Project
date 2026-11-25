@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 // ── Critical path: load these synchronously (needed for first paint) ────────
 import { api, getSocket } from './services/api';
 import { supabase } from './services/supabase';
+import { hasCapability } from './data/rbac';
 
 // ── Lazy-loaded pages: each becomes its own JS chunk ───────────────────────
 // Chunks only download when the user first visits that section.
@@ -887,11 +888,13 @@ export default function App() {
   };
 
   const handleCreatePinAtCoords = (coords) => {
+    if (!canDropPins) return;
     setNewPunchCoords(coords);
     setIsNewPunchModalOpen(true);
   };
 
   const handleAddNewPunch = (newPunch) => {
+    if (!canDropPins) return;
     // Optimistic insert with a temporary local ID
     const tempId = newPunch.id || `tmp-${Date.now()}`;
     const optimisticPin = { ...newPunch, id: tempId, is_offline_pending: true };
@@ -904,8 +907,6 @@ export default function App() {
       sheet_id: activeSheet?.id || newPunch.sheetId
     }).then(persistedPin => {
       if (persistedPin && persistedPin.id) {
-        // Replace the temporary optimistic pin with the real DB-persisted pin
-        // (the server assigns the canonical ID and item_number)
         setPunchItems(prev => prev.map(p =>
           p.id === tempId ? { ...p, ...persistedPin, is_offline_pending: false } : p
         ));
@@ -913,10 +914,9 @@ export default function App() {
       }
     }).catch(err => {
       console.warn('Could not persist new punch to DB:', err);
-      // Mark pin as still pending so the sync queue can retry it
-      setPunchItems(prev => prev.map(p =>
-        p.id === tempId ? { ...p, is_offline_pending: true } : p
-      ));
+      // Roll back optimistic pin if server rejected or offline storage failed
+      setPunchItems(prev => prev.filter(p => p.id !== tempId));
+      setSelectedPinId(prev => (prev === tempId ? null : prev));
     });
 
     addAuditLog({
@@ -958,6 +958,22 @@ export default function App() {
     }
     setActiveModule('blueprints');
   };
+
+  // RBAC live capability flags (reactive to SettingsPage RBAC matrix saves)
+  const [rbacVersion, setRbacVersion] = React.useState(0);
+  useEffect(() => {
+    const onRbacUpdate = () => setRbacVersion((v) => v + 1);
+    window.addEventListener('punchlist:rbac-updated', onRbacUpdate);
+    return () => window.removeEventListener('punchlist:rbac-updated', onRbacUpdate);
+  }, []);
+  const canDropPins = React.useMemo(
+    () => hasCapability(currentUser?.role, 'dropPins'),
+    [currentUser?.role, rbacVersion]
+  );
+  const canEditDocs = React.useMemo(
+    () => hasCapability(currentUser?.role, 'editDocs'),
+    [currentUser?.role, rbacVersion]
+  );
 
   // Open punch count for badges
   const openPunchCount = punchItems.filter(p => p.status !== 'Resolved').length;
@@ -1052,7 +1068,7 @@ export default function App() {
         queuedCount={queuedCount}
         onToggleSyncState={handleToggleSyncState}
         onOpenQuickSearch={() => setIsQuickSearchOpen(true)}
-        onNewPunch={() => setIsNewPunchModalOpen(true)}
+        onNewPunch={canDropPins ? () => setIsNewPunchModalOpen(true) : undefined}
         onLogout={handleLogout}
       >
         {/* 4.2 Dashboard View */}
@@ -1068,11 +1084,11 @@ export default function App() {
               auditLogs={auditLogs}
               onClearLogs={handleClearLogs}
               onOpenBlueprint={() => setActiveModule('blueprints')}
-              onNewPunch={() => {
+              onNewPunch={canDropPins ? () => {
                 setNewPunchCoords({ x_pct: 50.0, y_pct: 50.0, gridLocation: 'D-3' });
                 setIsNewPunchModalOpen(true);
-              }}
-              onUploadBlueprint={() => handleOpenUploadBlueprint('new')}
+              } : undefined}
+              onUploadBlueprint={canEditDocs ? () => handleOpenUploadBlueprint('new') : undefined}
               onExportProject={canExportProject ? () => setIsExportModalOpen(true) : undefined}
               onSelectPunch={handleSelectPunchFromAnywhere}
               onApprovePunch={handleApprovePunch}
@@ -1100,8 +1116,8 @@ export default function App() {
               onOpenPhotoLightbox={(photoMeta) => {
                 setActiveModule('photos');
               }}
-              onCreatePinAtCoords={handleCreatePinAtCoords}
-              onOpenUploadModal={(mode, target) => handleOpenUploadBlueprint(mode, target)}
+              onCreatePinAtCoords={canDropPins ? handleCreatePinAtCoords : undefined}
+              onOpenUploadModal={canEditDocs ? (mode, target) => handleOpenUploadBlueprint(mode, target) : undefined}
               onExportProject={canExportProject ? () => setIsExportModalOpen(true) : undefined}
               currentUser={currentUser}
             />
@@ -1113,7 +1129,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <DocumentsPage
               onNavigateBlueprintWithSheet={handleNavigateBlueprintWithSheet}
-              onUploadBlueprint={() => handleOpenUploadBlueprint('new')}
+              onUploadBlueprint={canEditDocs ? () => handleOpenUploadBlueprint('new') : undefined}
             />
           </Suspense>
         )}
@@ -1187,7 +1203,7 @@ export default function App() {
         )}
 
         {/* New Punch Creation Modal */}
-        {isNewPunchModalOpen && (
+        {canDropPins && isNewPunchModalOpen && (
           <Suspense fallback={null}>
             <NewPunchModal
               isOpen={isNewPunchModalOpen}
@@ -1202,8 +1218,8 @@ export default function App() {
           </Suspense>
         )}
 
-        {/* Blueprint Upload Modal — framer-motion only loads here */}
-        {isBlueprintUploadOpen && (
+        {/* Blueprint Upload Modal */}
+        {canEditDocs && isBlueprintUploadOpen && (
           <Suspense fallback={null}>
             <BlueprintUploadModal
               projectId={activeProject?.id}

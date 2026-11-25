@@ -15,7 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { INITIAL_SETTINGS } from '../data/mockData';
-import { ROLE_LABELS, ROLE_PERMISSIONS } from '../data/rbac';
+import { ROLE_LABELS, ROLE_PERMISSIONS, getEffectiveRolePermissions, saveRolePermissions } from '../data/rbac';
 import { api } from '../services/api';
 
 const PRESET_AVATARS = [
@@ -89,7 +89,7 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
   const [settings, setSettings] = useState(() => ({
     ...INITIAL_SETTINGS,
     offlineSync: api.getOfflineSyncPrefs ? api.getOfflineSyncPrefs() : INITIAL_SETTINGS.offlineSync,
-    permissions: ROLE_PERMISSIONS.map((r) => ({ ...r }))
+    permissions: getEffectiveRolePermissions()
   }));
   const [cacheStats, setCacheStats] = useState({ sheetsCount: 0, pinsCount: 0, queuedCount: 0 });
   const [cacheBusy, setCacheBusy] = useState(false);
@@ -149,6 +149,9 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
     e.preventDefault();
     if (activeTab === 'offline' && api.saveOfflineSyncPrefs) {
       api.saveOfflineSyncPrefs(settings.offlineSync);
+    }
+    if (activeTab === 'permissions') {
+      saveRolePermissions(settings.permissions);
     }
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);

@@ -261,6 +261,8 @@ async def update_pin(pin_id: str, body: dict, current_user: dict = Depends(get_c
     pin = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
     if not pin:
         raise HTTPException(404, "Pin not found")
+    if not (has_permission(current_user, "pin.update") or has_permission(current_user, "pin.update.assigned")):
+        raise HTTPException(403, "Forbidden: Your role does not have permission to update punch items.")
     if not can_user_access_pin(current_user, pin):
         raise HTTPException(403, "Forbidden: You do not have permission to update this pin")
 
@@ -277,9 +279,12 @@ async def update_pin(pin_id: str, body: dict, current_user: dict = Depends(get_c
 
     if "due_date" not in body and "dueDate" in body:
         body["due_date"] = body["dueDate"]
-    allowed = ["title", "description", "status", "priority", "discipline", "x_pct", "y_pct",
-               "room_location", "due_date", "assigned_to_user_id", "assigned_to_company",
-               "assigned_contractor_id", "assigned_subcontractor_id", "root_cause", "stamp_initials", "stamp_scale"]
+    if current_user.get("role") == "sub_contractor":
+        allowed = ["status", "root_cause"]
+    else:
+        allowed = ["title", "description", "status", "priority", "discipline", "x_pct", "y_pct",
+                   "room_location", "due_date", "assigned_to_user_id", "assigned_to_company",
+                   "assigned_contractor_id", "assigned_subcontractor_id", "root_cause", "stamp_initials", "stamp_scale"]
 
     assigned_to_company = body.get("assigned_to_company")
     if not body.get("stamp_initials") and assigned_to_company:
@@ -378,6 +383,8 @@ async def add_photo(
     pin = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
     if not pin:
         raise HTTPException(404, "Pin not found")
+    if not has_permission(current_user, "photo.create"):
+        raise HTTPException(403, "Forbidden: Your role cannot upload inspection photos.")
     if not can_user_access_pin(current_user, pin):
         raise HTTPException(403, "Forbidden")
 
@@ -413,6 +420,8 @@ async def add_comment(pin_id: str, body: dict, current_user: dict = Depends(get_
     pin = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
     if not pin:
         raise HTTPException(404, "Pin not found")
+    if not has_permission(current_user, "photo.create"):
+        raise HTTPException(403, "Forbidden: Your role cannot upload inspection photos.")
     if not can_user_access_pin(current_user, pin):
         raise HTTPException(403, "Forbidden")
 
@@ -542,6 +551,8 @@ def pin_audit_logs(pin_id: str, current_user: dict = Depends(get_current_user)):
     pin = execute_one("SELECT * FROM pins WHERE id=:id", {"id": pin_id})
     if not pin:
         raise HTTPException(404, "Pin not found")
+    if not has_permission(current_user, "photo.create"):
+        raise HTTPException(403, "Forbidden: Your role cannot upload inspection photos.")
     if not can_user_access_pin(current_user, pin):
         raise HTTPException(403, "Forbidden")
     return get_audit_logs(project_id=pin["project_id"], pin_id=pin_id)

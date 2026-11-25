@@ -104,3 +104,53 @@ export const CANONICAL_ROLES = [
     border: '#6EE7B7',
   },
 ];
+
+const RBAC_STORAGE_KEY = 'punchlist_rbac_overrides';
+
+/**
+ * Return the effective 6-row permissions matrix (defaults merged with any
+ * admin-saved overrides in localStorage).
+ */
+export function getEffectiveRolePermissions() {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(RBAC_STORAGE_KEY) : null;
+    if (raw) {
+      const overrides = JSON.parse(raw);
+      if (Array.isArray(overrides)) {
+        return ROLE_PERMISSIONS.map((base) => {
+          const match = overrides.find((o) => o && o.role === base.role);
+          return match ? { ...base, ...match } : { ...base };
+        });
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return ROLE_PERMISSIONS.map((r) => ({ ...r }));
+}
+
+/** Persist admin-edited RBAC matrix overrides and notify mounted views. */
+export function saveRolePermissions(matrix) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(RBAC_STORAGE_KEY, JSON.stringify(matrix));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('punchlist:rbac-updated'));
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+/**
+ * Check whether `role` has `capability` ('viewBlueprints' | 'dropPins' |
+ * 'approvePunches' | 'editDocs' | 'adminSettings').
+ * Unknown/null roles default to least-privileged ('sub_contractor').
+ */
+export function hasCapability(role, capability) {
+  const key = String(role || 'sub_contractor').trim().toLowerCase();
+  const matrix = getEffectiveRolePermissions();
+  const row = matrix.find((r) => r.role === key) || matrix.find((r) => r.role === 'sub_contractor');
+  return Boolean(row && row[capability]);
+}

@@ -80,4 +80,9 @@ describe('AppShell Component', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/i }));
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
+
+  it('hides New Punch compose button when onNewPunch is omitted (sub_contractor / owner)', () => {
+    render(<AppShell {...defaultProps} onNewPunch={undefined} />);
+    expect(screen.queryByLabelText('New Punch Item')).not.toBeInTheDocument();
+  });
 });

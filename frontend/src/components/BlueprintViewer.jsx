@@ -26,6 +26,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
+import { hasCapability } from '../data/rbac';
 import { renderPdfToCanvas } from '../services/pdfRenderer';
 
 const DISCIPLINE_TO_TRADE = {
@@ -306,6 +307,7 @@ export default function BlueprintViewer({
 
   // Drop-pin creation on click
   const handleCanvasDropPin = (e) => {
+    if (!hasCapability(currentUser?.role, 'dropPins') || !onCreatePinAtCoords) return;
     const rect = containerRef.current.getBoundingClientRect();
     const sheetW = activeSheet.dimensions?.width || 1400;
     const sheetH = activeSheet.dimensions?.height || 900;
@@ -983,10 +985,10 @@ export default function BlueprintViewer({
           zIndex: 25
         }}
       >
-        {/* Upload Blueprint / Revision (Admin & GC only) */}
-        {(currentUser?.role === 'admin' || currentUser?.role === 'general_contractor') && (
+        {/* Upload Blueprint / Revision */}
+        {hasCapability(currentUser?.role, 'editDocs') && onOpenUploadModal && (
           <button
-            onClick={() => onOpenUploadModal && onOpenUploadModal('new')}
+            onClick={() => onOpenUploadModal('new')}
             className="btn-icon"
             title="Upload New Blueprint or Revision"
             style={{ borderRadius: 8 }}
@@ -995,8 +997,8 @@ export default function BlueprintViewer({
           </button>
         )}
 
-        {/* Drop Pin Mode (Admin, GC, Architect, Field Inspector — not Owner or Sub) */}
-        {currentUser?.role !== 'owner' && currentUser?.role !== 'sub_contractor' && (
+        {/* Drop Pin Mode */}
+        {hasCapability(currentUser?.role, 'dropPins') && onCreatePinAtCoords && (
           <button
             onClick={() => setActiveTool(activeTool === 'dropPin' ? 'select' : 'dropPin')}
             className="btn-icon"
