@@ -90,9 +90,7 @@ export const INITIAL_SETTINGS = {
   },
   offlineSync: {
     autoSyncCellular: false,
-    backgroundSync: true,
-    cachedSheetsCount: 14,
-    queuedChangesCount: 0
+    backgroundSync: true
   },
   fieldDefaults: {
     defaultPriority: 'Medium',

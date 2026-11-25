@@ -3,12 +3,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SettingsPage from '../components/SettingsPage';
 
-// Mock dynamic import of api
+import { api } from '../services/api';
+
+// Mock api
 vi.mock('../services/api', () => ({
   api: {
     updateProfile: vi.fn().mockResolvedValue({
       user: { id: 'usr-admin-1', name: 'Satya Thakur', avatar_url: 'https://example.com/new-avatar.jpg' }
     }),
+    getOfflineSyncPrefs: vi.fn().mockReturnValue({ autoSyncCellular: false, backgroundSync: true }),
+    saveOfflineSyncPrefs: vi.fn(),
+    getOfflineCacheStats: vi.fn().mockResolvedValue({ sheetsCount: 3, pinsCount: 5, queuedCount: 2 }),
+    purgeOfflineCache: vi.fn().mockResolvedValue({ sheetsCount: 0, pinsCount: 0, queuedCount: 2 }),
+    processSyncQueue: vi.fn().mockResolvedValue({ synced: 2 }),
   },
 }));
 
@@ -154,6 +161,29 @@ describe('SettingsPage Component — Avatar & Profile', () => {
 
     expect(screen.queryByRole('button', { name: /Role Permissions/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Role-Based Access Control \(RBAC\)/i)).not.toBeInTheDocument();
+  });
+
+  it('displays live IndexedDB cache stats instead of mock 14 and purges cache', async () => {
+    render(
+      <SettingsPage
+        currentUser={mockCurrentUser}
+        onUpdateUser={mockOnUpdateUser}
+        onSaveProject={mockOnSaveProject}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Offline & Sync/i }));
+
+    expect(await screen.findByText('3 Sheets Cached')).toBeInTheDocument();
+    expect(screen.getByText('2 Mutations Queued')).toBeInTheDocument();
+    expect(screen.queryByText('14 Sheets Cached')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Purge Cache/i }));
+
+    await waitFor(() => {
+      expect(api.purgeOfflineCache).toHaveBeenCalledTimes(1);
+    });
+    expect(await screen.findByText('0 Sheets Cached')).toBeInTheDocument();
   });
 });
 

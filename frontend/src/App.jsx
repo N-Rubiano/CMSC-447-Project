@@ -193,7 +193,8 @@ export default function App() {
       return 'dashboard';
     }
   });
-  const [syncState, setSyncState] = useState('synced'); // 'synced' | 'syncing' | 'offline'
+  const [syncState, setSyncState] = useState(() => (typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'synced')); // 'synced' | 'syncing' | 'offline'
+  const [queuedCount, setQueuedCount] = useState(0);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('modal') === 'search';
@@ -636,8 +637,50 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isAuthenticated]);
 
-  // Cycle sync state on click: synced -> syncing -> offline -> synced
-  const handleToggleSyncState = () => {
+  // Sync online/offline status & IndexedDB queue count
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    let active = true;
+
+    const refreshQueue = async () => {
+      const stats = await api.getOfflineCacheStats();
+      if (active) setQueuedCount(stats.queuedCount || 0);
+    };
+    refreshQueue();
+
+    const onOnline = async () => {
+      const prefs = api.getOfflineSyncPrefs();
+      if (prefs.backgroundSync) {
+        setSyncState('syncing');
+        await api.processSyncQueue();
+      }
+      await refreshQueue();
+      if (active) setSyncState('synced');
+    };
+    const onOffline = () => {
+      if (active) setSyncState('offline');
+      refreshQueue();
+    };
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      active = false;
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [isAuthenticated]);
+
+  // Trigger manual sync or cycle state
+  const handleToggleSyncState = async () => {
+    if (syncState === 'offline' && navigator.onLine) {
+      setSyncState('syncing');
+      await api.processSyncQueue();
+      const stats = await api.getOfflineCacheStats();
+      setQueuedCount(stats.queuedCount || 0);
+      setSyncState('synced');
+      return;
+    }
     setSyncState(prev => {
       if (prev === 'synced') return 'syncing';
       if (prev === 'syncing') return 'offline';
@@ -1006,6 +1049,7 @@ export default function App() {
         currentUser={currentUser}
         openPunchCount={openPunchCount}
         syncState={syncState}
+        queuedCount={queuedCount}
         onToggleSyncState={handleToggleSyncState}
         onOpenQuickSearch={() => setIsQuickSearchOpen(true)}
         onNewPunch={() => setIsNewPunchModalOpen(true)}

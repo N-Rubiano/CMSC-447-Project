@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { INITIAL_SETTINGS } from '../data/mockData';
 import { ROLE_LABELS, ROLE_PERMISSIONS } from '../data/rbac';
+import { api } from '../services/api';
 
 const PRESET_AVATARS = [
   {
@@ -85,10 +86,13 @@ const ROW_DIVIDER_STYLE = {
 
 export default function SettingsPage({ currentUser, onUpdateUser }) {
   const [activeTab, setActiveTab] = useState('profile');
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState(() => ({
     ...INITIAL_SETTINGS,
+    offlineSync: api.getOfflineSyncPrefs ? api.getOfflineSyncPrefs() : INITIAL_SETTINGS.offlineSync,
     permissions: ROLE_PERMISSIONS.map((r) => ({ ...r }))
-  });
+  }));
+  const [cacheStats, setCacheStats] = useState({ sheetsCount: 0, pinsCount: 0, queuedCount: 0 });
+  const [cacheBusy, setCacheBusy] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
 
   // Profile / Avatar states
@@ -120,6 +124,18 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
     }
   }, [currentUser, activeTab]);
 
+  const refreshCacheStats = async () => {
+    if (!api.getOfflineCacheStats) return;
+    const stats = await api.getOfflineCacheStats();
+    if (stats) setCacheStats(stats);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'offline') {
+      refreshCacheStats();
+    }
+  }, [activeTab]);
+
   const tabs = [
     { id: 'profile', label: 'My Profile & Avatar', icon: User },
     { id: 'project', label: 'Project Info', icon: Building2 },
@@ -131,8 +147,37 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (activeTab === 'offline' && api.saveOfflineSyncPrefs) {
+      api.saveOfflineSyncPrefs(settings.offlineSync);
+    }
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
+  };
+
+  const handlePurgeCache = async () => {
+    setCacheBusy(true);
+    try {
+      const next = api.purgeOfflineCache ? await api.purgeOfflineCache() : { sheetsCount: 0, pinsCount: 0, queuedCount: 0 };
+      setCacheStats(next);
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 2500);
+    } finally {
+      setCacheBusy(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setCacheBusy(true);
+    try {
+      if (api.processSyncQueue) {
+        await api.processSyncQueue();
+      }
+      await refreshCacheStats();
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 2500);
+    } finally {
+      setCacheBusy(false);
+    }
   };
 
   const handlePermissionToggle = (rowIndex, colKey) => {
@@ -875,13 +920,13 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Offline Blueprint Cache</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
-                    {settings.offlineSync.cachedSheetsCount} Sheets Cached
+                    {cacheStats.sheetsCount} {cacheStats.sheetsCount === 1 ? 'Sheet' : 'Sheets'} Cached
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Pending Sync Queue</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
-                    {settings.offlineSync.queuedChangesCount} Mutations Queued
+                    {cacheStats.queuedCount} {cacheStats.queuedCount === 1 ? 'Mutation' : 'Mutations'} Queued
                   </div>
                 </div>
               </div>
@@ -928,17 +973,27 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
                 <button onClick={handleSave} className="btn btn-primary" style={{ height: 38 }}>
                   <Save size={15} />
                   <span>Update Sync Settings</span>
                 </button>
+                {cacheStats.queuedCount > 0 && (
+                  <button
+                    type="button"
+                    disabled={cacheBusy}
+                    onClick={handleSyncNow}
+                    className="btn btn-secondary"
+                    style={{ height: 38 }}
+                  >
+                    <RefreshCw size={15} />
+                    <span>Sync Now ({cacheStats.queuedCount})</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setSaveToast(true);
-                    setTimeout(() => setSaveToast(false), 2500);
-                  }}
+                  disabled={cacheBusy}
+                  onClick={handlePurgeCache}
                   className="btn btn-secondary"
                   style={{ height: 38, color: 'var(--crimson)' }}
                 >
