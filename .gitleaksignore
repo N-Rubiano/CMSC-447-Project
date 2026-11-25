@@ -1,0 +1,5 @@
+# Gitleaks false-positive ignore list
+# These are deliberate mock/fixture values in test files — not real credentials.
+frontend/src/__tests__/OnboardingPage.test.jsx:generic-api-key:47
+frontend/src/__tests__/OnboardingPage.test.jsx:generic-api-key:86
+frontend/src/__tests__/OnboardingPage.test.jsx:generic-api-key:108
