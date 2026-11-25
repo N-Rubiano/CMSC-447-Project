@@ -231,7 +231,7 @@ def me(current_user: dict = Depends(get_current_user)):
         "id": str(user.get("id")),
         "email": user.get("email"),
         "name": user.get("name") or (user.get("email", "").split("@")[0] if user.get("email") else "User"),
-        "role": user.get("role", "admin"),
+        "role": user.get("role") or "sub_contractor",
         "company": user.get("company"),
         "company_id": user.get("company_id"),
         "company_type": company.get("type") if company else user.get("role"),

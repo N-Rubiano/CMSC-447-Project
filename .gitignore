@@ -38,6 +38,7 @@ frontend/.env
 *.sqlite3
 data/
 backend/data/
+!frontend/src/data/
 
 # ── ReportLab / upload artefacts ──────────────────────────────────────────────
 backend/uploads/

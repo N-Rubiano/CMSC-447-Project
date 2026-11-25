@@ -1,8 +1,23 @@
-import { defineConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
 import react from '@vitejs/plugin-react';
 import viteCompression from 'vite-plugin-compression';
 
+const logger = createLogger();
+const originalLoggerError = logger.error.bind(logger);
+logger.error = (msg, options) => {
+  // Suppress noisy transient ECONNREFUSED proxy logs while backend is starting or reloading
+  if (
+    options?.error?.code === 'ECONNREFUSED' &&
+    typeof msg === 'string' &&
+    (msg.includes('ws proxy error') || msg.includes('http proxy error'))
+  ) {
+    return;
+  }
+  originalLoggerError(msg, options);
+};
+
 export default defineConfig(({ mode }) => ({
+  customLogger: logger,
   plugins: [
     react(),
     viteCompression({

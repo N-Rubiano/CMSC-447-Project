@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
+import { ROLE_LABELS } from '../data/rbac';
 import './AppShell.css';
 
 /* ------------------------------------------------------------------ */
@@ -45,13 +46,9 @@ const getShortcutLabel = () =>
     ? '⌘K'
     : 'Ctrl K';
 
-const formatRoleLabel = (role = '') => {
-  const r = String(role || '').trim().toLowerCase();
-  if (r === 'admin') return 'Administrator';
-  if (r === 'general_contractor' || r === 'gc') return 'General Contractor';
-  if (r === 'subcontractor' || r === 'sub') return 'Subcontractor';
-  return role ? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Field Member';
-};
+const formatRoleLabel = (role = '') =>
+  ROLE_LABELS[String(role || '').trim().toLowerCase()]
+  ?? (role ? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Field Member');
 
 /** Calls onDismiss('outside' | 'escape') while `active` is true. */
 function useDismiss(ref, active, onDismiss) {

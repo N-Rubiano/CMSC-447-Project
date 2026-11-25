@@ -26,81 +26,10 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
+import { CANONICAL_ROLES, ROLE_LABELS, ROLE_TO_CATEGORY } from '../data/rbac';
 import { api } from '../services/api';
 
-
-// Canonical Project Roles Matrix
-export const CANONICAL_ROLES = [
-  {
-    key: 'admin',
-    label: 'Facility Administrator',
-    title: 'Project Director, Facility Owner',
-    description: 'Full System Authority: Provisions user accounts, manages sheet uploads, modifies system settings, and is the only role authorized to close or delete punch items.',
-    teamCategory: 'admin',
-    color: '#DC2626',
-    bg: '#FEE2E2',
-    border: '#FCA5A5'
-  },
-  {
-    key: 'general_contractor',
-    label: 'General Contractor',
-    title: 'Project Superintendent, GC Project Manager',
-    description: 'Field Coordination: Allocates items to trade subcontractors, approves or rejects subcontractor remediation submissions, and sponsors subcontractor accounts.',
-    teamCategory: 'contractor',
-    color: '#D97706',
-    bg: '#FEF3C7',
-    border: '#FCD34D'
-  },
-  {
-    key: 'sub_contractor',
-    label: 'Trade Subcontractor',
-    title: 'Mechanical, Electrical, Plumbing, Drywall Foremen',
-    description: 'Strictly Scoped: Can only view pins assigned to their trade/company. Can transition items (Open → In Progress → Contractor Review) and upload proof photos.',
-    teamCategory: 'subcontractor',
-    color: '#2563EB',
-    bg: '#DBEAFE',
-    border: '#93C5FD'
-  },
-  {
-    key: 'architect',
-    label: 'Architect / Engineer',
-    title: 'Design Team AIA, Structural Consultant',
-    description: 'Specification Compliance: Drops specification discrepancy pins, reviews drawing sets, and audits punch progress.',
-    teamCategory: 'admin',
-    color: '#7C3AED',
-    bg: '#EDE9FE',
-    border: '#C4B5FD'
-  },
-  {
-    key: 'owner',
-    label: 'Owner Representative',
-    title: 'Client Executive, Capital Asset Manager',
-    description: 'Executive Visibility: Read-only oversight across project milestones, punch progress gauges, and formal PDF export generation.',
-    teamCategory: 'admin',
-    color: '#059669',
-    bg: '#D1FAE5',
-    border: '#6EE7B7'
-  },
-  {
-    key: 'field_inspector',
-    label: 'Field Inspector',
-    title: 'Municipal Building Inspector, QA/QC Lead',
-    description: 'Inspection Capture: Walks jobsite floors, anchors punch pins with photos and priority tags.',
-    teamCategory: 'contractor',
-    color: '#EA580C',
-    bg: '#FFEDD5',
-    border: '#FDBA74'
-  }
-];
-
-export const ROLE_LABELS = {
-  admin: 'Facility Administrator',
-  general_contractor: 'General Contractor',
-  sub_contractor: 'Trade Subcontractor',
-  architect: 'Architect / Engineer',
-  owner: 'Owner Representative',
-  field_inspector: 'Field Inspector'
-};
+// CANONICAL_ROLES, ROLE_LABELS, and ROLE_TO_CATEGORY are imported from '../data/rbac'
 
 export const STANDARD_ORGANIZATIONS = [
   'UMBC Facility Operations',
@@ -195,27 +124,27 @@ export default function TeamPage({ currentUser, projects = [] }) {
     };
   });
 
-  // Team configurations
+  // Team configurations — 3 UI buckets mapping to the 6 canonical RBAC roles
   const TEAMS = [
     {
       key: 'admin',
       title: 'Admin Team',
-      subtitle: 'Project directors, platform administrators, and executive owners',
+      subtitle: 'Project directors, platform administrators, owner representatives, and executive owners',
       icon: Shield,
       color: '#DC2626',
       bg: '#FEE2E2',
       border: '#FCA5A5',
-      defaultRole: 'Project Executive'
+      defaultRole: 'admin'
     },
     {
       key: 'contractor',
       title: 'Contractor Team',
-      subtitle: 'General contractor management, field superintendents, and project engineers',
+      subtitle: 'General contractors, architects, engineers, and field inspectors',
       icon: HardHat,
       color: '#D97706',
       bg: '#FEF3C7',
       border: '#FCD34D',
-      defaultRole: 'Site Superintendent'
+      defaultRole: 'general_contractor'
     },
     {
       key: 'subcontractor',
@@ -225,18 +154,8 @@ export default function TeamPage({ currentUser, projects = [] }) {
       color: '#2563EB',
       bg: '#DBEAFE',
       border: '#93C5FD',
-      defaultRole: 'Trade Foreman'
+      defaultRole: 'sub_contractor'
     },
-    {
-      key: 'crew',
-      title: 'Crew Members',
-      subtitle: 'Field trade craft crews, journeymen, apprentices, and site technicians',
-      icon: Users,
-      color: '#16A34A',
-      bg: '#DCFCE7',
-      border: '#86EFAC',
-      defaultRole: 'Journeyman / Field Tech'
-    }
   ];
 
   // Open modal with specific target team pre-selected and all open projects assigned by default
@@ -290,22 +209,15 @@ export default function TeamPage({ currentUser, projects = [] }) {
     try {
       const data = await api.getTeam();
       if (Array.isArray(data)) {
-        const grouped = { admin: [], contractor: [], subcontractor: [], crew: [] };
+        const grouped = { admin: [], contractor: [], subcontractor: [] };
         data.forEach(m => {
-          let cat = m.teamCategory;
-          if (!cat) {
-            const r = (m.role || '').toLowerCase();
-            if (r === 'admin') cat = 'admin';
-            else if (r === 'general_contractor') cat = 'contractor';
-            else if (r === 'sub_contractor') cat = 'subcontractor';
-            else cat = 'crew';
-          } else if (cat === 'sub_contractor') {
-            cat = 'subcontractor';
-          }
-          if (grouped[cat]) {
-            grouped[cat].push(m);
+          // Use ROLE_TO_CATEGORY for authoritative grouping; fall back to 'subcontractor'
+          const cat = ROLE_TO_CATEGORY[m.role] ?? (m.teamCategory === 'sub_contractor' ? 'subcontractor' : (m.teamCategory || 'subcontractor'));
+          const bucket = cat === 'sub_contractor' ? 'subcontractor' : cat;
+          if (grouped[bucket]) {
+            grouped[bucket].push(m);
           } else {
-            grouped.crew.push(m);
+            grouped.subcontractor.push(m);
           }
         });
         _cachedTeamData = grouped;

@@ -18,6 +18,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { INITIAL_SETTINGS } from '../data/mockData';
+import { ROLE_PERMISSIONS } from '../data/rbac';
 
 const PRESET_AVATARS = [
   {
@@ -72,7 +73,8 @@ const PRESET_AVATARS = [
 
 export default function SettingsPage({ project, currentUser, onUpdateUser, onSaveProject }) {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'project' | 'notifications' | 'offline' | 'permissions' | 'defaults'
-  const [settings, setSettings] = useState(INITIAL_SETTINGS);
+  // Always seed permissions from ROLE_PERMISSIONS so all 6 roles are shown
+  const [settings, setSettings] = useState({ ...INITIAL_SETTINGS, permissions: ROLE_PERMISSIONS.map(r => ({ ...r })) });
   const [saveToast, setSaveToast] = useState(false);
 
   // Profile / Avatar states
@@ -956,6 +958,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   <thead>
                     <tr style={{ backgroundColor: 'var(--surface-muted)', borderBottom: '1px solid var(--border)', color: 'var(--ink)' }}>
                       <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Project Role</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Label</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center' }}>View Blueprints</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center' }}>Drop Pins</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center' }}>Approve Signoffs</th>
@@ -966,7 +969,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   <tbody>
                     {settings.permissions.map((row, idx) => (
                       <tr key={row.role} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--ink)' }}>{row.role}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--ink)', fontFamily: 'monospace', fontSize: 11 }}>{row.role}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12 }}>{row.label}</td>
                         <td style={{ textAlign: 'center' }}>
                           <input type="checkbox" checked={row.viewBlueprints} onChange={() => handlePermissionToggle(idx, 'viewBlueprints')} />
                         </td>

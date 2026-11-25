@@ -48,7 +48,6 @@ import {
   PROJECTS,
   SHEETS,
   INITIAL_PUNCH_ITEMS,
-  TEAM_MEMBERS,
   TRADE_PARTNERS,
   DOCUMENTS,
   FIELD_PHOTOS,
@@ -1131,7 +1130,7 @@ export default function App() {
               punchItems={punchItems}
               sheets={sheets}
               documents={DOCUMENTS}
-              teamMembers={TEAM_MEMBERS}
+              teamMembers={[]}
               onSelectPunch={handleSelectPunchFromAnywhere}
               onSelectSheet={(sheet) => {
                 setActiveSheet(sheet);
