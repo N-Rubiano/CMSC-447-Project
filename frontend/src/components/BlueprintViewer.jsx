@@ -188,8 +188,11 @@ export default function BlueprintViewer({
     handleFitToSheet();
   }, [activeSheet, handleFitToSheet]);
 
-  // Mouse wheel zoom
+  // Mouse wheel zoom (ignore scrolling inside drawer, backdrop, or HUD overlays)
   const handleWheel = (e) => {
+    if (e.target.closest('.slide-over-drawer, .drawer-backdrop, .floating-hud, .glass-hud, [data-no-canvas-zoom]')) {
+      return;
+    }
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
     setZoom(prevZoom => {
@@ -200,7 +203,7 @@ export default function BlueprintViewer({
 
   // Double click to zoom in
   const handleDoubleClick = (e) => {
-    if (e.target.closest('.cad-pin-wrapper')) return;
+    if (e.target.closest('.cad-pin-wrapper, .slide-over-drawer, .drawer-backdrop, .floating-hud, .glass-hud, [data-no-canvas-zoom]')) return;
     setZoom(prev => Math.min(prev * 1.4, 3.0));
   };
 
@@ -1187,8 +1190,17 @@ export default function BlueprintViewer({
           ------------------------------------------------------------- */}
       {selectedPin && (
         <>
-          <div className="drawer-backdrop" onClick={onCloseDrawer} />
-          <div className="slide-over-drawer">
+          <div
+            className="drawer-backdrop"
+            onClick={onCloseDrawer}
+            onWheel={(e) => e.stopPropagation()}
+          />
+          <div
+            className="slide-over-drawer"
+            data-no-canvas-zoom="true"
+            onWheel={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {/* Drawer Header */}
             <div style={{
               padding: '20px 24px',
