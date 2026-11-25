@@ -15,6 +15,8 @@ export default function NewPunchModal({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('High');
   const [room, setRoom] = useState('');
+  const defaultDeadline = () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [deadline, setDeadline] = useState(defaultDeadline);
   const [partners, setPartners] = useState(TRADE_PARTNERS);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
 
@@ -104,7 +106,8 @@ export default function NewPunchModal({
       assigned_to_company: assigneeCompany,
       assigneeRole: 'Trade Subcontractor',
       company: assigneeCompany,
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      dueDate: deadline || null,
+      due_date: deadline || null,
       createdAt: new Date().toISOString(),
       photos: [],
       comments: [],
@@ -118,6 +121,7 @@ export default function NewPunchModal({
     setTitle('');
     setDescription('');
     setRoom('');
+    setDeadline(defaultDeadline());
   };
 
   const sheetContextLabel = [
@@ -204,7 +208,7 @@ export default function NewPunchModal({
             />
           </div>
 
-          {/* Priority & Location */}
+          {/* Priority & Deadline */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label htmlFor="new-punch-priority" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
@@ -224,18 +228,32 @@ export default function NewPunchModal({
             </div>
 
             <div>
-              <label htmlFor="new-punch-room" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                Room / Location
+              <label htmlFor="new-punch-deadline" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Deadline
               </label>
               <input
-                id="new-punch-room"
-                type="text"
-                placeholder="eg: CORRIDOR 3-W"
-                value={room}
-                onChange={(e) => setRoom(e.target.value)}
+                id="new-punch-deadline"
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
                 className="input-field"
               />
             </div>
+          </div>
+
+          {/* Room / Location */}
+          <div>
+            <label htmlFor="new-punch-room" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+              Room / Location
+            </label>
+            <input
+              id="new-punch-room"
+              type="text"
+              placeholder="eg: CORRIDOR 3-W"
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              className="input-field"
+            />
           </div>
 
           {/* Subcontractor Foreman Assignee */}
