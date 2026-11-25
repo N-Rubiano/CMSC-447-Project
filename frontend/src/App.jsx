@@ -1008,6 +1008,7 @@ export default function App() {
         syncState={syncState}
         onToggleSyncState={handleToggleSyncState}
         onOpenQuickSearch={() => setIsQuickSearchOpen(true)}
+        onNewPunch={() => setIsNewPunchModalOpen(true)}
         onLogout={handleLogout}
       >
         {/* 4.2 Dashboard View */}

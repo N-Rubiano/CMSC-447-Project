@@ -9,15 +9,17 @@ import {
   Settings,
   ChevronDown,
   Search,
+  SlidersHorizontal,
   WifiOff,
   RefreshCw,
   Bell,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Menu,
+  Plus,
   LogOut,
   Building2,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
 import { ROLE_LABELS } from '../data/rbac';
@@ -90,22 +92,30 @@ function NavButton({ item, active, collapsed, onClick }) {
       aria-current={active ? 'page' : undefined}
       data-collapsed={collapsed || undefined}
     >
-      <Icon size={19} strokeWidth={active ? 2.4 : 2} aria-hidden="true" />
+      <span className="nav-btn__pill">
+        <Icon size={19} strokeWidth={active ? 2.3 : 1.9} aria-hidden="true" />
+        {collapsed && item.badge != null && (
+          <span className="nav-btn__dot" aria-label={`${item.badge} open items`} />
+        )}
+      </span>
       {!collapsed && <span className="nav-btn__label">{item.label}</span>}
       {!collapsed && item.badge != null && <span className="nav-btn__badge">{item.badge}</span>}
     </button>
   );
 }
 
-function Avatar({ user }) {
+function Avatar({ user, size = 34 }) {
   const [failed, setFailed] = useState(false);
   const avatarUrl = user?.avatar_url || user?.avatar;
   useEffect(() => setFailed(false), [avatarUrl]);
+
+  const style = { width: size, height: size };
 
   if (avatarUrl && !failed) {
     return (
       <img
         className="avatar"
+        style={style}
         src={avatarUrl}
         alt=""
         title={user?.name}
@@ -114,7 +124,7 @@ function Avatar({ user }) {
     );
   }
   return (
-    <div className="avatar avatar--fallback" title={user?.name} aria-hidden="true">
+    <div className="avatar avatar--fallback" style={style} title={user?.name} aria-hidden="true">
       {getInitials(user?.name) || '?'}
     </div>
   );
@@ -168,6 +178,7 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-haspopup="true"
         aria-expanded={open}
+        title="Notifications"
         style={{ position: 'relative' }}
       >
         <Bell size={19} aria-hidden="true" />
@@ -175,7 +186,7 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
       </button>
 
       {open && (
-        <div className="glass-hud notif__panel">
+        <div className="floating-hud notif__panel">
           <div className="notif__head">
             <span className="notif__title">Field Notifications</span>
             <button
@@ -201,6 +212,68 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserAccountMenu({ user, onOpenSettings, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useDismiss(ref, open, () => setOpen(false));
+
+  return (
+    <div className="user-menu" ref={ref}>
+      <button
+        type="button"
+        className="user-menu__trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`Account menu for ${user?.name || 'Field User'}`}
+        aria-haspopup="true"
+        aria-expanded={open}
+        title={`${user?.name || 'Field User'} (${formatRoleLabel(user?.role)})`}
+      >
+        <Avatar user={user} size={34} />
+      </button>
+
+      {open && (
+        <div className="floating-hud user-menu__panel" role="menu">
+          <div className="user-menu__profile">
+            <Avatar user={user} size={42} />
+            <div className="user-menu__info">
+              <div className="user-menu__name">{user?.name || 'Field User'}</div>
+              {user?.email && <div className="user-menu__email">{user.email}</div>}
+              <div className="user-menu__role">{formatRoleLabel(user?.role)}</div>
+            </div>
+          </div>
+
+          <div className="user-menu__actions">
+            <button
+              type="button"
+              className="user-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenSettings();
+              }}
+            >
+              <Settings size={15} aria-hidden="true" />
+              <span>Profile &amp; Settings</span>
+            </button>
+            <button
+              type="button"
+              className="user-menu__item user-menu__item--danger"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+            >
+              <LogOut size={15} aria-hidden="true" />
+              <span>Sign out</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -368,7 +441,7 @@ function BuildingFloorSelector({
 
       {open && (
         <div
-          className="glass-hud floating-hud sel-panel"
+          className="floating-hud sel-panel"
           role="dialog"
           aria-label="Building and level navigator"
         >
@@ -542,7 +615,7 @@ function BuildingFloorSelector({
 }
 
 /* ------------------------------------------------------------------ */
-/* AppShell                                                            */
+/* AppShell (Gmail-inspired full-width topbar + collapsible icon rail) */
 /* ------------------------------------------------------------------ */
 
 export default function AppShell({
@@ -559,11 +632,12 @@ export default function AppShell({
   queuedCount = 0,
   onToggleSyncState,
   onOpenQuickSearch,
+  onNewPunch,
   onLogout,
   initialNotifications = [],
   children
 }) {
-  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(true);
   const [notifications, setNotifications] = useState(initialNotifications);
 
   const shortcut = useMemo(getShortcutLabel, []);
@@ -584,149 +658,187 @@ export default function AppShell({
 
   const mobileItems = [...NAV_WORKSPACE, ...NAV_MANAGE];
 
+  const handleNewPunch = () => {
+    if (onNewPunch) onNewPunch();
+    else onNavigate('blueprints');
+  };
+
   return (
     <div className="app-shell">
-      {/* ---------------- Left rail ---------------- */}
-      <aside className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}>
-        <button
-          type="button"
-          className="rail__brand"
-          onClick={() => onNavigate('dashboard')}
-          title="Go to Dashboard"
-          aria-label="PunchList Pro — Go to Dashboard"
-        >
-          <div className="rail__logo">
-            <HardHat size={20} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
-          </div>
-          {!isRailCollapsed && (
-            <div className="rail__name">
-              PunchList <span>PRO</span>
-            </div>
-          )}
-        </button>
-
-        <nav className="rail__nav" aria-label="Main">
-          <div>
-            {!isRailCollapsed && <div className="rail__group-label">Workspace</div>}
-            <div className="rail__group">
-              {workspaceItems.map((item) => (
-                <NavButton
-                  key={item.id}
-                  item={item}
-                  active={activeModule === item.id}
-                  collapsed={isRailCollapsed}
-                  onClick={() => onNavigate(item.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            {!isRailCollapsed && <div className="rail__group-label">Manage</div>}
-            <div className="rail__group">
-              {NAV_MANAGE.map((item) => (
-                <NavButton
-                  key={item.id}
-                  item={item}
-                  active={activeModule === item.id}
-                  collapsed={isRailCollapsed}
-                  onClick={() => onNavigate(item.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </nav>
-
-        <div className="rail__footer">
-          <Avatar user={currentUser} />
-
-          {!isRailCollapsed && (
-            <div className="rail__user">
-              <div className="rail__user-name">{currentUser?.name || 'Field User'}</div>
-              <div className="rail__user-role">{formatRoleLabel(currentUser?.role)}</div>
-            </div>
-          )}
+      {/* ---------------- Full-width Topbar ---------------- */}
+      <header className="topbar">
+        <div className="topbar__left">
+          <button
+            type="button"
+            className="btn-icon topbar__menu-btn"
+            onClick={() => setIsRailCollapsed((c) => !c)}
+            title={isRailCollapsed ? 'Expand main menu' : 'Collapse main menu'}
+            aria-label={isRailCollapsed ? 'Expand main menu' : 'Collapse main menu'}
+            aria-expanded={!isRailCollapsed}
+          >
+            <Menu size={20} aria-hidden="true" />
+          </button>
 
           <button
             type="button"
-            className="btn-icon rail__toggle"
-            onClick={() => setIsRailCollapsed((c) => !c)}
-            title={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!isRailCollapsed}
+            className="topbar__brand"
+            onClick={() => onNavigate('dashboard')}
+            title="Go to Dashboard"
+            aria-label="PunchList Pro — Go to Dashboard"
           >
-            {isRailCollapsed ? (
-              <PanelLeftOpen size={18} aria-hidden="true" />
-            ) : (
-              <PanelLeftClose size={18} aria-hidden="true" />
-            )}
+            <div className="topbar__logo">
+              <HardHat size={19} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
+            </div>
+            <div className="topbar__name">
+              PunchList <span>PRO</span>
+            </div>
           </button>
         </div>
-      </aside>
 
-      {/* ---------------- Main column ---------------- */}
-      <div className="shell-main">
-        <header className="topbar">
+        <div className="topbar__center">
+          <button
+            type="button"
+            className="search-pill"
+            onClick={onOpenQuickSearch}
+            title="Quick search (Ctrl+K)"
+            aria-label="Search pins, sheets, and punch items"
+          >
+            <Search size={17} className="search-pill__icon" aria-hidden="true" />
+            <span className="search-pill__label">Search pins, sheets…</span>
+            <span className="search-pill__meta">
+              <kbd>{shortcut}</kbd>
+              <SlidersHorizontal size={15} className="search-pill__filter" aria-hidden="true" />
+            </span>
+          </button>
+
           <BuildingFloorSelector
             selectedBuildingId={selectedBuildingId}
             selectedFloorId={selectedFloorId}
             onSelectBuilding={onSelectUmbcBuilding}
             onSelectFloor={onSelectUmbcFloor}
           />
+        </div>
 
-          <div className="topbar__right">
+        <div className="topbar__right">
+          <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
+
+          <div className="topbar__actions">
+            <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
+
             <button
               type="button"
-              className="search-pill"
-              onClick={onOpenQuickSearch}
-              title="Quick search (Ctrl+K)"
+              className={`btn-icon${activeModule === 'settings' ? ' is-active' : ''}`}
+              onClick={() => onNavigate('settings')}
+              title="Settings"
+              aria-label="Settings"
             >
-              <Search size={14} color="var(--text-muted)" aria-hidden="true" />
-              <span className="search-pill__label">Search pins, sheets…</span>
-              <kbd>{shortcut}</kbd>
+              <Settings size={19} aria-hidden="true" />
             </button>
+          </div>
 
-            <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
+          <UserAccountMenu
+            user={currentUser}
+            onOpenSettings={() => onNavigate('settings')}
+            onLogout={onLogout}
+          />
+        </div>
+      </header>
 
-            <span className="topbar__divider" aria-hidden="true" />
+      {/* ---------------- Body: Left Rail + Framed Content ---------------- */}
+      <div className="shell-body">
+        <aside
+          className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}
+          aria-label="Sidebar navigation"
+        >
+          <div className="rail__compose-wrap">
+            <button
+              type="button"
+              className="rail__compose"
+              onClick={handleNewPunch}
+              title="New Punch Item"
+              aria-label="New Punch Item"
+            >
+              <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
+              {!isRailCollapsed && <span className="rail__compose-label">New Punch</span>}
+            </button>
+          </div>
 
-            <div className="topbar__actions">
-              <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
+          <nav className="rail__nav" aria-label="Main">
+            <div className="rail__section">
+              {!isRailCollapsed && <div className="rail__group-label">Workspace</div>}
+              <div className="rail__group">
+                {workspaceItems.map((item) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={activeModule === item.id}
+                    collapsed={isRailCollapsed}
+                    onClick={() => onNavigate(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
 
+            <div className="rail__divider" aria-hidden="true" />
+
+            <div className="rail__section">
+              {!isRailCollapsed && <div className="rail__group-label">Manage</div>}
+              <div className="rail__group">
+                {NAV_MANAGE.map((item) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={activeModule === item.id}
+                    collapsed={isRailCollapsed}
+                    onClick={() => onNavigate(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </nav>
+
+          {!isRailCollapsed && (
+            <div className="rail__footer">
+              <div className="rail__user">
+                <div className="rail__user-name">{currentUser?.name || 'Field User'}</div>
+                <div className="rail__user-role">{formatRoleLabel(currentUser?.role)}</div>
+              </div>
               <button
                 type="button"
-                className="btn-icon topbar__logout"
+                className="btn-icon rail__logout"
                 onClick={onLogout}
-                title="Sign out of PunchList Pro"
+                title="Sign out"
                 aria-label="Sign out"
               >
-                <LogOut size={17} aria-hidden="true" />
+                <LogOut size={16} aria-hidden="true" />
               </button>
             </div>
-          </div>
-        </header>
+          )}
+        </aside>
 
-        <main className="shell-content">{children}</main>
+        <div className="shell-main">
+          <main className="shell-content">{children}</main>
 
-        {/* Mobile bottom tab bar (<820px) */}
-        <nav className="mobile-tab-bar" aria-label="Main">
-          {mobileItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeModule === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`tab-btn${active ? ' is-active' : ''}`}
-                onClick={() => onNavigate(item.id)}
-                aria-current={active ? 'page' : undefined}
-              >
-                <Icon size={18} aria-hidden="true" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          {/* Mobile bottom tab bar (<820px) */}
+          <nav className="mobile-tab-bar" aria-label="Main">
+            {mobileItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeModule === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`tab-btn${active ? ' is-active' : ''}`}
+                  onClick={() => onNavigate(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon size={18} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </div>
   );
