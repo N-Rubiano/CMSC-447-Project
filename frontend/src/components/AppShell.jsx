@@ -45,6 +45,14 @@ const getShortcutLabel = () =>
     ? '⌘K'
     : 'Ctrl K';
 
+const formatRoleLabel = (role = '') => {
+  const r = String(role || '').trim().toLowerCase();
+  if (r === 'admin') return 'Administrator';
+  if (r === 'general_contractor' || r === 'gc') return 'General Contractor';
+  if (r === 'subcontractor' || r === 'sub') return 'Subcontractor';
+  return role ? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Field Member';
+};
+
 /** Calls onDismiss('outside' | 'escape') while `active` is true. */
 function useDismiss(ref, active, onDismiss) {
   const handler = useRef(onDismiss);
@@ -128,19 +136,19 @@ function SyncBadge({ state, queuedCount, onToggle }) {
       {state === 'synced' && (
         <>
           <span className="sync-badge__dot" />
-          <span>SYNCED</span>
+          <span>Synced</span>
         </>
       )}
       {state === 'syncing' && (
         <>
           <RefreshCw size={12} className="sync-badge__spin" aria-hidden="true" />
-          <span>SYNCING…</span>
+          <span>Syncing…</span>
         </>
       )}
       {state === 'offline' && (
         <>
           <WifiOff size={13} aria-hidden="true" />
-          <span>OFFLINE · {queuedCount} QUEUED</span>
+          <span>Offline · {queuedCount} queued</span>
         </>
       )}
     </button>
@@ -318,46 +326,48 @@ function BuildingFloorSelector({
 
   return (
     <div className="selector" ref={rootRef}>
-      <button
-        ref={buildingBtnRef}
-        type="button"
-        id="building-btn"
-        className={`sel-btn${selected ? ' has-value' : ''}${open ? ' is-open' : ''}`}
-        onClick={() => openAt('building')}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="Select building"
-      >
-        <span className="sel-btn__eyebrow">Building</span>
-        <span className="sel-btn__value">
-          <span>{selected ? selected.name : 'Select building'}</span>
-          <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
-        </span>
-      </button>
+      <div className="selector__group">
+        <button
+          ref={buildingBtnRef}
+          type="button"
+          id="building-btn"
+          className={`sel-btn${selected ? ' has-value' : ''}${open && step === 'building' ? ' is-open' : ''}`}
+          onClick={() => openAt('building')}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title="Select building"
+        >
+          <Building2 size={14} className="sel-btn__icon" aria-hidden="true" />
+          <span className="sel-btn__value">
+            <span>{selected ? selected.name : 'Select building'}</span>
+            <ChevronDown size={13} color="var(--text-muted)" aria-hidden="true" />
+          </span>
+        </button>
 
-      {selected && (
-        <>
-          <span className="selector__sep" aria-hidden="true">/</span>
-          <button
-            ref={floorBtnRef}
-            type="button"
-            id="floor-btn"
-            className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
-              open && step === 'floor' ? ' is-open' : ''
-            }`}
-            onClick={() => openAt('floor')}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            title={`Select level in ${selected.name}`}
-          >
-            <span className="sel-btn__eyebrow">Level</span>
-            <span className="sel-btn__value">
-              <span>{selectedFloorId || 'Select level'}</span>
-              <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
-            </span>
-          </button>
-        </>
-      )}
+        {selected && (
+          <>
+            <span className="selector__divider" aria-hidden="true" />
+            <button
+              ref={floorBtnRef}
+              type="button"
+              id="floor-btn"
+              className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
+                open && step === 'floor' ? ' is-open' : ''
+              }`}
+              onClick={() => openAt('floor')}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              title={`Select level in ${selected.name}`}
+            >
+              <Layers size={14} className="sel-btn__icon" aria-hidden="true" />
+              <span className="sel-btn__value">
+                <span>{selectedFloorId || 'Select level'}</span>
+                <ChevronDown size={13} color="var(--text-muted)" aria-hidden="true" />
+              </span>
+            </button>
+          </>
+        )}
+      </div>
 
       {open && (
         <div
@@ -635,8 +645,8 @@ export default function AppShell({
 
           {!isRailCollapsed && (
             <div className="rail__user">
-              <div className="rail__user-name">{currentUser?.name}</div>
-              <div className="rail__user-role">{currentUser?.role}</div>
+              <div className="rail__user-name">{currentUser?.name || 'Field User'}</div>
+              <div className="rail__user-role">{formatRoleLabel(currentUser?.role)}</div>
             </div>
           )}
 
@@ -672,26 +682,30 @@ export default function AppShell({
               type="button"
               className="search-pill"
               onClick={onOpenQuickSearch}
+              title="Quick search (Ctrl+K)"
             >
-              <Search size={15} color="var(--text-secondary)" aria-hidden="true" />
-              <span className="search-pill__label">Search field…</span>
+              <Search size={14} color="var(--text-muted)" aria-hidden="true" />
+              <span className="search-pill__label">Search pins, sheets…</span>
               <kbd>{shortcut}</kbd>
             </button>
 
             <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
 
-            <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
+            <span className="topbar__divider" aria-hidden="true" />
 
-            <button
-              type="button"
-              className="btn-icon"
-              onClick={onLogout}
-              title="Sign out of PunchList Pro"
-              aria-label="Sign out"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <LogOut size={18} aria-hidden="true" />
-            </button>
+            <div className="topbar__actions">
+              <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
+
+              <button
+                type="button"
+                className="btn-icon topbar__logout"
+                onClick={onLogout}
+                title="Sign out of PunchList Pro"
+                aria-label="Sign out"
+              >
+                <LogOut size={17} aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </header>
 
