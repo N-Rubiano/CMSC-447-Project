@@ -325,7 +325,7 @@ export default function PhotosPage({ project, sheets = [], punchItems = [], onSe
                 setSelectedPhotoIndex(index);
                 setLightboxZoom(1);
               }}
-              className="card"
+              className="card photo-card"
               style={{
                 borderRadius: 12,
                 overflow: 'hidden',
@@ -334,15 +334,34 @@ export default function PhotosPage({ project, sheets = [], punchItems = [], onSe
                 border: '1px solid var(--border)',
                 display: 'flex',
                 flexDirection: 'column',
-                transition: 'transform 140ms ease, box-shadow 140ms ease'
+                transition: 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease, border-color 160ms ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(24, 24, 27, 0.08)';
+                const img = e.currentTarget.querySelector('.photo-card__img');
+                if (img) img.style.transform = 'scale(1.025)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+                const img = e.currentTarget.querySelector('.photo-card__img');
+                if (img) img.style.transform = 'scale(1)';
               }}
             >
               {/* Image Frame */}
               <div style={{ position: 'relative', aspectRatio: '16 / 10', backgroundColor: 'var(--surface-muted)', overflow: 'hidden' }}>
                 <img
+                  className="photo-card__img"
                   src={photo.url}
                   alt={photo.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                    transition: 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)'
+                  }}
                 />
 
                 {/* Top Badges */}

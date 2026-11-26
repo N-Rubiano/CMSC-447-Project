@@ -154,12 +154,13 @@
   flex-direction: column;
   justify-content: space-between;
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 160ms ease, box-shadow 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dashboard-kpi-card:hover {
   border-color: #B5AEA0;
-  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.06));
+  box-shadow: 0 6px 16px rgba(24, 24, 27, 0.07), 0 2px 4px rgba(24, 24, 27, 0.04);
+  transform: translateY(-2px);
 }
 
 .dashboard-kpi-card--critical {
