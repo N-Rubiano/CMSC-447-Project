@@ -15,40 +15,53 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { TRADES } from '../data/mockData';
 import './Dashboard.css';
 
-/**
- * Clean SVG Trend Sparkline
- * Ultra-crisp vector line + subtle tint fill + terminating dot.
- */
-function Sparkline({ data, stroke = '#D97706', fill = 'rgba(217, 119, 6, 0.08)', width = 84, height = 28 }) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const paddingY = 3;
-  const availHeight = height - paddingY * 2;
+const DISCIPLINE_TO_TRADE = {
+  architectural: 'AC',
+  mechanical: 'MP',
+  plumbing: 'MP',
+  electrical: 'EL',
+  fire: 'FP',
+  'fire protection': 'FP',
+  structural: 'ST',
+  glazing: 'GL',
+  drywall: 'DW',
+  flooring: 'FL',
+};
 
-  const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * (width - 4) + 2;
-    const y = height - paddingY - ((val - min) / range) * availHeight;
-    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
-  });
+function resolveTradeInfo(punch) {
+  const raw = (punch?.trade || punch?.stamp_initials || '').toString().trim().toUpperCase();
+  if (raw && TRADES[raw]) return TRADES[raw];
+  const disc = (punch?.discipline || '').toString().trim().toLowerCase();
+  const mappedCode = DISCIPLINE_TO_TRADE[disc];
+  if (mappedCode && TRADES[mappedCode]) return TRADES[mappedCode];
+  if (raw) return { code: raw.slice(0, 2), name: raw, color: '#4F46E5' };
+  return TRADES.AC || { code: 'AC', name: 'Architectural', color: '#4F46E5' };
+}
 
-  const pathD = points.reduce((acc, [x, y], i) => (i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`), '');
-  const areaD = `${pathD} L ${points[points.length - 1][0]} ${height} L ${points[0][0]} ${height} Z`;
-  const [lastX, lastY] = points[points.length - 1];
+function formatAuditAction(raw = '') {
+  const s = String(raw || '').trim();
+  if (!s) return 'Field Update';
+  if (s === s.toUpperCase() && s.includes('_')) {
+    return s
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return s;
+}
 
-  return (
-    <svg width={width} height={height} aria-hidden="true" style={{ overflow: 'visible', display: 'block' }}>
-      {fill && <path d={areaD} fill={fill} />}
-      <path d={pathD} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lastX} cy={lastY} r="2.5" fill={stroke} />
-    </svg>
-  );
+function formatPunchId(punch) {
+  if (punch?.item_number != null) return `#${punch.item_number}`;
+  const id = String(punch?.id || '');
+  if (id.startsWith('pin-')) return `#${id.slice(4, 10).toUpperCase()}`;
+  return id || '—';
 }
 
 export default function Dashboard({
@@ -61,8 +74,10 @@ export default function Dashboard({
   onOpenBlueprint,
   onNewPunch,
   onUploadBlueprint,
+  onExportProject,
   onSelectPunch,
   onApprovePunch,
+  onSignIn,
   currentUser,
   selectedBuilding,
   selectedFloor
@@ -107,11 +122,25 @@ export default function Dashboard({
 
   const resolutionRate = totalPunches > 0 ? Math.round((resolvedPunches / totalPunches) * 100) : 0;
 
-  // Sparkline data series
-  const sparkOpen = useMemo(() => [openPunches + 4, openPunches + 3, openPunches + 5, openPunches + 2, openPunches + 1, openPunches + 2, openPunches], [openPunches]);
-  const sparkCritical = useMemo(() => [Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches + 2), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), Math.max(0, criticalPunches + 1), Math.max(0, criticalPunches), criticalPunches], [criticalPunches]);
-  const sparkReview = useMemo(() => [Math.max(1, reviewPunches - 2), Math.max(1, reviewPunches - 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), Math.max(1, reviewPunches), Math.max(1, reviewPunches + 1), reviewPunches], [reviewPunches]);
-  const sparkRate = useMemo(() => [Math.max(0, resolutionRate - 12), Math.max(0, resolutionRate - 8), Math.max(0, resolutionRate - 6), Math.max(0, resolutionRate - 4), Math.max(0, resolutionRate - 2), Math.max(0, resolutionRate - 1), resolutionRate], [resolutionRate]);
+  const inProgressPunches = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'in_progress' || (p.status || '').toLowerCase() === 'in progress').length;
+  }, [punchItems]);
+
+  const highPriorityPunches = useMemo(() => {
+    return punchItems.filter(p => {
+      const isHigh = (p.priority || '').toLowerCase() === 'high';
+      const isClosed = ['resolved', 'closed'].includes((p.status || '').toLowerCase());
+      return isHigh && !isClosed;
+    }).length;
+  }, [punchItems]);
+
+  const gcReviewCount = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'submitted_for_contractor_review').length;
+  }, [punchItems]);
+
+  const adminReviewCount = useMemo(() => {
+    return punchItems.filter(p => (p.status || '').toLowerCase() === 'submitted_for_admin_review').length;
+  }, [punchItems]);
 
   // Priority sorting weights
   const PRIORITY_WEIGHTS = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -141,12 +170,13 @@ export default function Dashboard({
           const q = searchQuery.toLowerCase();
           return (
             (item.id || '').toLowerCase().includes(q) ||
+            (item.item_number != null ? `#${item.item_number}` : '').toLowerCase().includes(q) ||
             (item.title || '').toLowerCase().includes(q) ||
             (item.assignee || '').toLowerCase().includes(q) ||
-            (item.company || '').toLowerCase().includes(q) ||
+            (item.company || item.assigned_to_company || '').toLowerCase().includes(q) ||
             (item.gridLocation || '').toLowerCase().includes(q) ||
             (item.room || item.room_location || '').toLowerCase().includes(q) ||
-            (item.trade || '').toLowerCase().includes(q)
+            (item.trade || item.stamp_initials || item.discipline || '').toLowerCase().includes(q)
           );
         }
         return true;
@@ -207,11 +237,26 @@ export default function Dashboard({
   // Recent Activity Feed
   // -------------------------------------------------------------
   const recentActivities = useMemo(() => {
+    if (Array.isArray(auditLogs) && auditLogs.length > 0) {
+      return auditLogs.slice(0, 6).map((log) => ({
+        action: log.action || log.details || 'Field update recorded',
+        by: log.actor || log.actor_name || 'Field User',
+        meta: log.time || log.timestamp || log.target || '',
+        color: log.color || '#D97706',
+      }));
+    }
     return punchItems
-      .flatMap((p) => (p.history || []).map((h) => ({ ...h, trade: p.trade, punchId: p.id })))
+      .flatMap((p) =>
+        (p.history || []).map((h) => ({
+          action: h.action,
+          by: h.by || 'Field User',
+          meta: formatPunchId(p),
+          color: resolveTradeInfo(p).color,
+        }))
+      )
       .slice(-6)
       .reverse();
-  }, [punchItems]);
+  }, [auditLogs, punchItems]);
 
   // Map status to badge style
   const getStatusBadge = (status = '') => {
@@ -250,22 +295,39 @@ export default function Dashboard({
           ------------------------------------------------------------- */}
       <header className="dashboard-header">
         <div className="dashboard-header__left">
-          <nav aria-label="Breadcrumbs" className="dashboard-breadcrumb">
-            <span className="dashboard-breadcrumb__item">{project?.name || 'Project'}</span>
-            {selectedBuilding && (
-              <>
-                <ChevronRight size={12} color="#A8A29E" />
-                <span className="dashboard-breadcrumb__item">{selectedBuilding.name}</span>
-              </>
+          {(selectedBuilding || selectedFloor) && (
+            <nav aria-label="Breadcrumbs" className="dashboard-breadcrumb">
+              <span className="dashboard-breadcrumb__item">{project?.name || 'Project'}</span>
+              {selectedBuilding && (
+                <>
+                  <ChevronRight size={12} color="#A8A29E" />
+                  <span className="dashboard-breadcrumb__item">{selectedBuilding.name}</span>
+                </>
+              )}
+              {selectedFloor && (
+                <>
+                  <ChevronRight size={12} color="#A8A29E" />
+                  <span className="dashboard-breadcrumb__item--active">Floor {selectedFloor}</span>
+                </>
+              )}
+            </nav>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 className="dashboard-title">Field Dashboard</h1>
+            {!selectedBuilding && !selectedFloor && (
+              <span style={{
+                padding: '3px 9px',
+                borderRadius: 999,
+                backgroundColor: 'var(--surface-muted)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--text-secondary)'
+              }}>
+                {project?.name || 'UMBC Campus'}
+              </span>
             )}
-            {selectedFloor && (
-              <>
-                <ChevronRight size={12} color="#A8A29E" />
-                <span className="dashboard-breadcrumb__item--active">Floor {selectedFloor}</span>
-              </>
-            )}
-          </nav>
-          <h1 className="dashboard-title">Field Dashboard</h1>
+          </div>
         </div>
 
         <div className="dashboard-actions">
@@ -293,6 +355,18 @@ export default function Dashboard({
             </button>
           )}
 
+          {onExportProject && (
+            <button
+              type="button"
+              onClick={onExportProject}
+              className="dashboard-btn-secondary"
+              title="Export Project Info & Punch List (.pdf / .xlsx)"
+            >
+              <Download size={15} color="#5C3A21" />
+              <span>Export</span>
+            </button>
+          )}
+
           {onNewPunch && (
             <button
               type="button"
@@ -308,48 +382,97 @@ export default function Dashboard({
       </header>
 
       {/* -------------------------------------------------------------
-          2. 4 KPI CARDS WITH REAL-TIME VECTOR TREND SPARKLINES
+          2. 4 KPI CARDS WITH DATA-DRIVEN STATUS METERS
           ------------------------------------------------------------- */}
       <section aria-label="Key Performance Indicators" className="dashboard-kpi-grid">
         {/* KPI 1: Open Punches */}
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Open Punches</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#E0F2FE', color: '#0369A1' }}>
-              <AlertOctagon size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--status-open-bg)', color: 'var(--status-open)' }}>
+              <AlertOctagon size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value">{openPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkOpen} stroke="#0284C7" fill="rgba(2, 132, 199, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {inProgressPunches} in progress
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((openPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--status-open)',
+              }}
+            />
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((inProgressPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--amber)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span className="dashboard-kpi-card__delta-good">↓ 2</span>
-            <span>vs last inspection walk</span>
+            <span>
+              {openPunches + inProgressPunches} active of {totalPunches} total items
+            </span>
           </div>
         </div>
 
         {/* KPI 2: Critical / Overdue */}
-        <div className="dashboard-kpi-card dashboard-kpi-card--critical">
+        <div className={`dashboard-kpi-card${criticalPunches > 0 ? ' dashboard-kpi-card--critical' : ''}`}>
           <div className="dashboard-kpi-card__head">
-            <span className="dashboard-kpi-card__label dashboard-kpi-card__label--critical">Critical / Overdue</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
-              <AlertTriangle size={16} />
+            <span className={`dashboard-kpi-card__label${criticalPunches > 0 ? ' dashboard-kpi-card__label--critical' : ''}`}>
+              Critical / Overdue
+            </span>
+            <div
+              className="dashboard-kpi-card__icon"
+              style={{
+                backgroundColor: criticalPunches > 0 ? 'var(--danger-bg)' : 'var(--success-light)',
+                color: criticalPunches > 0 ? 'var(--danger)' : 'var(--success)',
+              }}
+            >
+              <AlertTriangle size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
-            <div className="dashboard-kpi-card__value dashboard-kpi-card__value--critical">{criticalPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkCritical} stroke="#DC2626" fill="rgba(220, 38, 38, 0.08)" />
+            <div className={`dashboard-kpi-card__value${criticalPunches > 0 ? ' dashboard-kpi-card__value--critical' : ''}`}>
+              {criticalPunches}
             </div>
+            <span className="dashboard-kpi-pill">
+              {highPriorityPunches} high priority
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((criticalPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--danger)',
+              }}
+            />
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((highPriorityPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--amber)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span className="dashboard-kpi-card__delta-warn">
-              <AlertTriangle size={12} />
-              Requires life-safety clearance
-            </span>
+            {criticalPunches > 0 ? (
+              <span className="dashboard-kpi-card__delta-warn">
+                <AlertTriangle size={12} aria-hidden="true" />
+                Requires life-safety clearance
+              </span>
+            ) : (
+              <span className="dashboard-kpi-card__delta-good">
+                No critical life-safety items
+              </span>
+            )}
           </div>
         </div>
 
@@ -357,18 +480,27 @@ export default function Dashboard({
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Awaiting Review</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
-              <Clock size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--status-review-bg)', color: 'var(--status-review)' }}>
+              <Clock size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value">{reviewPunches}</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkReview} stroke="#7C3AED" fill="rgba(124, 58, 237, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {gcReviewCount} GC · {adminReviewCount} Admin
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: totalPunches > 0 ? `${Math.round((reviewPunches / totalPunches) * 100)}%` : '0%',
+                backgroundColor: 'var(--status-review)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
-            <span>Ready for GC field sign-off</span>
+            <span>{reviewPunches > 0 ? 'Ready for field sign-off' : 'No items pending review'}</span>
           </div>
         </div>
 
@@ -376,15 +508,24 @@ export default function Dashboard({
         <div className="dashboard-kpi-card">
           <div className="dashboard-kpi-card__head">
             <span className="dashboard-kpi-card__label">Resolution Rate</span>
-            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-              <TrendingUp size={16} />
+            <div className="dashboard-kpi-card__icon" style={{ backgroundColor: 'var(--amber-light)', color: 'var(--warning)' }}>
+              <TrendingUp size={16} aria-hidden="true" />
             </div>
           </div>
           <div className="dashboard-kpi-card__body">
             <div className="dashboard-kpi-card__value dashboard-kpi-card__value--amber">{resolutionRate}%</div>
-            <div className="dashboard-kpi-card__sparkline-wrap">
-              <Sparkline data={sparkRate} stroke="#B45309" fill="rgba(180, 83, 9, 0.08)" />
-            </div>
+            <span className="dashboard-kpi-pill">
+              {resolvedPunches} closed
+            </span>
+          </div>
+          <div className="dashboard-meter" aria-hidden="true">
+            <div
+              className="dashboard-meter__seg"
+              style={{
+                width: `${resolutionRate}%`,
+                backgroundColor: 'var(--success)',
+              }}
+            />
           </div>
           <div className="dashboard-kpi-card__footer">
             <span>
@@ -397,6 +538,38 @@ export default function Dashboard({
       {/* -------------------------------------------------------------
           3. MAIN LAYOUT: PRIMARY TABLE (LEFT) + SLIM RAIL (RIGHT)
           ------------------------------------------------------------- */}
+      {currentUser?.isDemo ? (
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: '28px 24px',
+            boxShadow: '0 1px 3px rgba(24, 24, 27, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+            Workspace Overview (Read-Only Demo)
+          </h2>
+          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', margin: 0, maxWidth: 640, lineHeight: 1.55 }}>
+            You are viewing a high-level summary of PunchList Pro. Project blueprints, field punch items, documents, and inspection photos are hidden in demo preview.
+          </p>
+          {onSignIn && (
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="dashboard-btn-primary"
+              style={{ marginTop: 6 }}
+            >
+              Sign In for Full Access
+            </button>
+          )}
+        </div>
+      ) : (
       <div className="dashboard-main-grid">
         {/* Left: Primary Field Punch Items Table Card */}
         <div className="dashboard-table-card">
@@ -528,7 +701,10 @@ export default function Dashboard({
               </thead>
               <tbody>
                 {filteredPunches.map((punch) => {
-                  const tr = TRADES[punch.trade] || TRADES.AC || { code: punch.trade || 'GN', color: '#D97706' };
+                  const tr = resolveTradeInfo(punch);
+                  const roomLabel = punch.room || punch.room_location || 'Field Location';
+                  const companyLabel = punch.company || punch.assigned_to_company || 'Trade Partner';
+                  const dueLabel = punch.dueDate || punch.due_date || '—';
                   return (
                     <tr
                       key={punch.id}
@@ -537,33 +713,37 @@ export default function Dashboard({
                       onKeyDown={(e) => e.key === 'Enter' && onSelectPunch && onSelectPunch(punch)}
                     >
                       <td>
-                        <span className="punch-id-mono">{punch.id}</span>
+                        <span className="punch-id-mono">{formatPunchId(punch)}</span>
                       </td>
                       <td>
                         <span
                           className="trade-stamp"
                           style={{ backgroundColor: tr.color }}
-                          title={tr.name || punch.trade}
+                          title={tr.name || tr.code}
                         >
-                          {punch.trade}
+                          {tr.code}
                         </span>
                       </td>
                       <td className="punch-issue-cell">
                         <div className="punch-issue-title">{punch.title}</div>
                         <div className="punch-issue-location">
-                          <span className="punch-issue-grid">Grid {punch.gridLocation || '—'}</span>
-                          <span>•</span>
-                          <span>{punch.room || punch.room_location || 'Field Location'}</span>
+                          {punch.gridLocation && (
+                            <>
+                              <span className="punch-issue-grid">Grid {punch.gridLocation}</span>
+                              <span>•</span>
+                            </>
+                          )}
+                          <span>{roomLabel}</span>
                         </div>
                       </td>
                       <td>{getPriorityBadge(punch.priority)}</td>
                       <td>{getStatusBadge(punch.status)}</td>
                       <td>
                         <div className="punch-assignee-name">{punch.assignee || 'Unassigned'}</div>
-                        <div className="punch-assignee-company">{punch.company || 'Trade Partner'}</div>
+                        <div className="punch-assignee-company">{companyLabel}</div>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span className="punch-due-date">{punch.dueDate || '—'}</span>
+                        <span className="punch-due-date">{dueLabel}</span>
                       </td>
                     </tr>
                   );
@@ -622,10 +802,12 @@ export default function Dashboard({
                 {reviewQueue.map((item) => (
                   <div key={item.id} className="approval-item-card">
                     <div className="approval-item-card__top">
-                      <span className="punch-id-mono">{item.id}</span>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: '#78716C' }}>
-                        Grid {item.gridLocation || '—'}
-                      </span>
+                      <span className="punch-id-mono">{formatPunchId(item)}</span>
+                      {(item.gridLocation || item.room_location) && (
+                        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: '#78716C' }}>
+                          {item.gridLocation ? `Grid ${item.gridLocation}` : item.room_location}
+                        </span>
+                      )}
                     </div>
 
                     <div className="approval-item-card__title">{item.title}</div>
@@ -672,20 +854,17 @@ export default function Dashboard({
 
             {recentActivities.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentActivities.map((act, idx) => {
-                  const tr = TRADES[act.trade] || TRADES.AC || { color: '#D97706' };
-                  return (
-                    <div key={idx} className="activity-item">
-                      <div className="activity-node" style={{ backgroundColor: tr.color }} />
-                      <div className="activity-content">
-                        <div className="activity-action">{act.action}</div>
-                        <div className="activity-meta">
-                          {act.by} • {act.punchId}
-                        </div>
+                {recentActivities.map((act, idx) => (
+                  <div key={idx} className="activity-item">
+                    <div className="activity-node" style={{ backgroundColor: act.color || '#D97706' }} />
+                    <div className="activity-content">
+                      <div className="activity-action">{formatAuditAction(act.action)}</div>
+                      <div className="activity-meta">
+                        {act.by}{act.meta ? ` • ${act.meta}` : ''}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '16px 8px', color: '#78716C', fontSize: 12 }}>
@@ -695,6 +874,7 @@ export default function Dashboard({
           </div>
         </aside>
       </div>
+      )}
     </div>
   );
 }

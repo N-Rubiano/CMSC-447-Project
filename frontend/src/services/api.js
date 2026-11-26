@@ -98,7 +98,7 @@ export const api = {
   async login(email, password) {
     if (isSupabaseConfigured) {
       try {
-        const { session, user: supaUser, error } = await signInWithPassword(email, password);
+        const { session, error } = await signInWithPassword(email, password);
 
         if (session && !error) {
           // Exchange the Supabase token for our local user profile (role, company, etc.)
@@ -111,14 +111,18 @@ export const api = {
           });
 
           if (!res.ok) {
-            console.warn('Could not fetch local user profile from backend, using Supabase claims.');
-            return { token: session.access_token, user: supaUser };
+            await supabaseSignOut().catch(() => {});
+            const errData = await res.json().catch(() => ({}));
+            const authErr = new Error(errData.detail || 'Account is not authorized for this workspace.');
+            authErr.isAuthRejection = true;
+            throw authErr;
           }
 
           const userProfile = await res.json();
           return { token: session.access_token, user: userProfile };
         }
       } catch (supaErr) {
+        if (supaErr?.isAuthRejection) throw supaErr;
         console.warn('Supabase sign-in skipped or failed, trying backend login:', supaErr);
       }
     }
@@ -136,7 +140,15 @@ export const api = {
         if (data.token) setToken(data.token);
         return data;
       }
+
+      if (backendRes.status === 403) {
+        const errData = await backendRes.json().catch(() => ({}));
+        const authErr = new Error(errData.detail || 'Account access denied.');
+        authErr.isAuthRejection = true;
+        throw authErr;
+      }
     } catch (backendErr) {
+      if (backendErr?.isAuthRejection) throw backendErr;
       console.warn('Backend login unavailable:', backendErr);
     }
 
@@ -794,7 +806,62 @@ export const api = {
     return await res.json();
   },
 
-  // SYNC QUEUE PROCESSOR
+  // OFFLINE CACHE & SYNC QUEUE
+  getOfflineSyncPrefs() {
+    try {
+      const raw = localStorage.getItem('punchlist_offline_prefs');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          autoSyncCellular: Boolean(parsed.autoSyncCellular),
+          backgroundSync: parsed.backgroundSync !== false
+        };
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return { autoSyncCellular: false, backgroundSync: true };
+  },
+
+  saveOfflineSyncPrefs(prefs) {
+    try {
+      localStorage.setItem('punchlist_offline_prefs', JSON.stringify({
+        autoSyncCellular: Boolean(prefs.autoSyncCellular),
+        backgroundSync: prefs.backgroundSync !== false
+      }));
+    } catch {
+      // ignore storage errors
+    }
+  },
+
+  async getOfflineCacheStats() {
+    try {
+      const [sheetsCount, pinsCount, queuedCount] = await Promise.all([
+        localDb.sheets.count(),
+        localDb.pins.count(),
+        localDb.syncQueue.count()
+      ]);
+      return { sheetsCount, pinsCount, queuedCount };
+    } catch (err) {
+      console.warn('Could not read IndexedDB cache stats:', err);
+      return { sheetsCount: 0, pinsCount: 0, queuedCount: 0 };
+    }
+  },
+
+  async purgeOfflineCache() {
+    try {
+      await Promise.all([
+        localDb.sheets.clear(),
+        localDb.pins.clear(),
+        localDb.markups.clear(),
+        localDb.projects.clear()
+      ]);
+    } catch (err) {
+      console.warn('Failed to purge IndexedDB cache:', err);
+    }
+    return this.getOfflineCacheStats();
+  },
+
   async processSyncQueue() {
     if (!navigator.onLine) return { synced: 0 };
     const queue = await localDb.syncQueue.toArray();
@@ -808,8 +875,13 @@ export const api = {
       });
       if (res.ok) {
         const result = await res.json();
-        await localDb.syncQueue.clear();
-        return { synced: result.syncedCount };
+        const ids = queue.map((item) => item.id).filter((id) => id !== undefined);
+        if (ids.length > 0) {
+          await localDb.syncQueue.bulkDelete(ids);
+        } else {
+          await localDb.syncQueue.clear();
+        }
+        return { synced: result.syncedCount ?? queue.length };
       }
     } catch (err) {
       console.error('Failed to sync offline queue:', err);

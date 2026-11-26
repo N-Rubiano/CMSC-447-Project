@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 // ── Critical path: load these synchronously (needed for first paint) ────────
 import { api, getSocket } from './services/api';
 import { supabase } from './services/supabase';
+import { hasCapability } from './data/rbac';
 
 // ── Lazy-loaded pages: each becomes its own JS chunk ───────────────────────
 // Chunks only download when the user first visits that section.
@@ -19,10 +20,11 @@ const TermsAndConditions    = lazy(() => import('./components/TermsAndConditions
 const OnboardingPage        = lazy(() => import('./components/OnboardingPage'));
 const LandingPage           = lazy(() => import('./components/LandingPage'));
 
-// ── Lazy-loaded modals: framer-motion + MailSlotUpload only load when modal opens ──
+// ── Lazy-loaded modals: only load when modal opens ──
 const QuickSearchModal      = lazy(() => import('./components/QuickSearchModal'));
 const NewPunchModal         = lazy(() => import('./components/NewPunchModal'));
 const BlueprintUploadModal  = lazy(() => import('./components/BlueprintUploadModal'));
+const ExportModal           = lazy(() => import('./components/ExportModal'));
 
 // ── Lightweight full-screen loader shown while any chunk is downloading ─────
 function PageLoader() {
@@ -47,15 +49,24 @@ import {
   PROJECTS,
   SHEETS,
   INITIAL_PUNCH_ITEMS,
-  TEAM_MEMBERS,
   TRADE_PARTNERS,
   DOCUMENTS,
-  FIELD_PHOTOS,
-  CURRENT_USER
+  FIELD_PHOTOS
 } from './data/mockData';
 import { umbcBuildings, getBuildingById, sheetMatchesBuildingAndFloor } from './data/umbcBuildings';
 
 import './styles/theme.css';
+
+const DEMO_USER = {
+  id: 'demo-visitor',
+  name: 'Demo Visitor',
+  email: 'demo@punchlistpro.demo',
+  role: 'owner',
+  company: 'Guest Walkthrough (Read-Only)',
+  avatar: 'https://ui-avatars.com/api/?name=Demo+Visitor&background=64748B&color=fff&bold=true',
+  avatar_url: 'https://ui-avatars.com/api/?name=Demo+Visitor&background=64748B&color=fff&bold=true',
+  isDemo: true,
+};
 
 
 export default function App() {
@@ -110,25 +121,27 @@ export default function App() {
           parsed.avatar = av;
           parsed.avatar_url = av;
         }
+        parsed.isDemo = Boolean(parsed.isDemo && parsed.email === 'demo@punchlistpro.demo');
         return parsed;
       }
-      return CURRENT_USER;
+      return DEMO_USER;
     } catch {
-      return CURRENT_USER;
+      return DEMO_USER;
     }
   });
 
   // Internal helper: map any user object (Supabase or local) to app state & persist
   const _handleLoginUser = useCallback((userInfo) => {
     if (!userInfo) return;
-    const resolvedAvatar = userInfo.avatar_url || userInfo.avatar || CURRENT_USER.avatar_url || CURRENT_USER.avatar;
+    const isDemoUser = Boolean(userInfo.isDemo && userInfo.email === 'demo@punchlistpro.demo');
+    const resolvedAvatar = userInfo.avatar_url || userInfo.avatar || DEMO_USER.avatar_url;
     const finalUser = {
-      ...CURRENT_USER,
       ...userInfo,
+      isDemo: isDemoUser,
       avatar: resolvedAvatar,
       avatar_url: resolvedAvatar,
-      name: userInfo.name || userInfo.email?.split('@')[0] || CURRENT_USER.name,
-      company: userInfo.company || userInfo.organization || CURRENT_USER.company,
+      name: userInfo.name || userInfo.email?.split('@')[0] || 'Field User',
+      company: userInfo.company || userInfo.organization || 'UMBC Facility Operations',
     };
     setCurrentUser(finalUser);
     try {
@@ -141,7 +154,7 @@ export default function App() {
     setIsAuthenticated(false);
     setPublicView('landing');
     setSelectedPinId(null);
-    setCurrentUser(CURRENT_USER);
+    setCurrentUser(DEMO_USER);
     try {
       localStorage.removeItem('punchlist_user');
       localStorage.removeItem('punchlist_auth_token');
@@ -193,7 +206,8 @@ export default function App() {
       return 'dashboard';
     }
   });
-  const [syncState, setSyncState] = useState('synced'); // 'synced' | 'syncing' | 'offline'
+  const [syncState, setSyncState] = useState(() => (typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'synced')); // 'synced' | 'syncing' | 'offline'
+  const [queuedCount, setQueuedCount] = useState(0);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('modal') === 'search';
@@ -218,6 +232,16 @@ export default function App() {
       return false;
     }
   });
+  const [isExportModalOpen, setIsExportModalOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('modal') === 'export';
+    } catch (_) {
+      return false;
+    }
+  });
+  const canExportProject = ['admin', 'general_contractor', 'architect', 'owner'].includes(
+    (currentUser?.role || '').toLowerCase()
+  );
   const [blueprintModalMode, setBlueprintModalMode] = useState('new'); // 'new' | 'version'
   const [blueprintTargetSheet, setBlueprintTargetSheet] = useState(null);
 
@@ -240,12 +264,14 @@ export default function App() {
     }
   });
 
-  // Fetch persisted logs from Supabase database on mount
+  // Fetch persisted logs from Supabase database when authenticated (never in demo mode)
   useEffect(() => {
+    if (!isAuthenticated || currentUser?.isDemo) return;
+    let active = true;
     async function loadAuditLogs() {
       try {
         const dbLogs = await api.getAuditLogs();
-        if (Array.isArray(dbLogs)) {
+        if (active && Array.isArray(dbLogs)) {
           setAuditLogs(dbLogs);
         }
       } catch (err) {
@@ -253,14 +279,15 @@ export default function App() {
       }
     }
     loadAuditLogs();
-  }, []);
+    return () => { active = false; };
+  }, [isAuthenticated, currentUser?.isDemo]);
 
   // -----------------------------------------------------------------
   // Fetch projects from the database on first mount.
   // Falls back to static mock data if the API is unreachable.
   // -----------------------------------------------------------------
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || currentUser?.isDemo) return;
     async function loadProjects() {
       try {
         const dbProjects = await api.getProjects();
@@ -279,52 +306,45 @@ export default function App() {
     }
     loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser?.isDemo]);
 
   // -----------------------------------------------------------------
-  // Fetch sheets for the active project from the DB on project change.
+  // Fetch sheets and punch pins for the active project in parallel.
   // -----------------------------------------------------------------
   useEffect(() => {
-    if (!isAuthenticated || !activeProject?.id) return;
-    async function loadSheets() {
-      try {
-        const pId = activeProject.id;
-        const dbSheets = await api.getSheets(pId);
+    if (!isAuthenticated || currentUser?.isDemo || !activeProject?.id) return;
+    let active = true;
+    async function loadProjectWorkspace() {
+      const pId = activeProject.id;
+      const [sheetsRes, pinsRes] = await Promise.allSettled([
+        api.getSheets(pId),
+        api.getAllProjectPins(pId),
+      ]);
+      if (!active) return;
+
+      if (sheetsRes.status === 'fulfilled') {
+        const dbSheets = sheetsRes.value;
         if (Array.isArray(dbSheets) && dbSheets.length > 0) {
           setSheets(prev => {
             const dbIds = new Set(dbSheets.map(s => s.id));
             const remaining = prev.filter(s => !dbIds.has(s.id));
             return [...dbSheets, ...remaining];
           });
-          // If the current activeSheet belongs to a different project, clear it
           setActiveSheet(prev => {
             if (prev && !dbSheets.some(s => s.id === prev.id)) return dbSheets[0] || null;
             return prev;
           });
         } else {
-          // No sheets in DB for this project — clear the sheet view
           setSheets([]);
           setActiveSheet(null);
         }
-      } catch (err) {
-        console.warn('Could not load sheets from database:', err);
+      } else {
+        console.warn('Could not load sheets from database:', sheetsRes.reason);
       }
-    }
-    loadSheets();
-  }, [isAuthenticated, activeProject?.id]);
 
-  // -----------------------------------------------------------------
-  // Fetch all punch pins for the active project from the DB.
-  // This is the primary fix for data disappearing on refresh.
-  // -----------------------------------------------------------------
-  useEffect(() => {
-    if (!isAuthenticated || !activeProject?.id) return;
-    async function loadPins() {
-      try {
-        const dbPins = await api.getAllProjectPins(activeProject.id);
+      if (pinsRes.status === 'fulfilled') {
+        const dbPins = pinsRes.value;
         if (Array.isArray(dbPins)) {
-          // Replace state entirely with DB truth. Filter out any offline-only
-          // optimistic pins that haven't been synced yet.
           setPunchItems(prev => {
             const dbIds = new Set(dbPins.map(p => p.id));
             const offlinePending = prev.filter(
@@ -333,11 +353,12 @@ export default function App() {
             return [...dbPins, ...offlinePending];
           });
         }
-      } catch (err) {
-        console.warn('Could not load punch items from database:', err);
+      } else {
+        console.warn('Could not load punch items from database:', pinsRes.reason);
       }
     }
-    loadPins();
+    loadProjectWorkspace();
+    return () => { active = false; };
   }, [isAuthenticated, activeProject?.id]);
 
 
@@ -539,36 +560,48 @@ export default function App() {
                 'Authorization': `Bearer ${data.session.access_token}`,
               },
             });
-            const userProfile = res.ok ? await res.json() : null;
-            const merged = { ...data.session.user, ...(userProfile || {}) };
+            if (!res.ok) {
+              await supabase.auth.signOut().catch(() => {});
+              localStorage.removeItem('punchlist_user');
+              localStorage.removeItem('punchlist_auth_token');
+              if (isMounted) setAuthInitializing(false);
+              return;
+            }
+            const userProfile = await res.json();
+            const merged = { ...data.session.user, ...userProfile };
             if (isMounted) _handleLoginUser(merged);
           } catch (_) {
-            if (isMounted) _handleLoginUser(data.session.user);
+            if (navigator.onLine === false) {
+              try {
+                const cached = JSON.parse(localStorage.getItem('punchlist_user') || 'null');
+                if (cached && isMounted) _handleLoginUser(cached);
+              } catch (__) {}
+            }
           }
           if (isMounted) setAuthInitializing(false);
           return;
         }
 
-        // 2. Fallback: check stored local token & cached user profile (demo or legacy token)
+        // 2. Fallback: check stored local token & cached user profile
         const localUserStr = localStorage.getItem('punchlist_user');
         const token = localStorage.getItem('punchlist_auth_token');
         if (token && localUserStr) {
           try {
             const me = await api.getMe();
             if (isMounted) _handleLoginUser(me);
-          } catch {
-            try {
-              const cached = JSON.parse(localUserStr);
-              if (cached && isMounted) _handleLoginUser(cached);
-            } catch (_) {}
+          } catch (err) {
+            if (navigator.onLine === false) {
+              try {
+                const cached = JSON.parse(localUserStr);
+                if (cached && isMounted) _handleLoginUser(cached);
+              } catch (_) {}
+            } else {
+              localStorage.removeItem('punchlist_user');
+              localStorage.removeItem('punchlist_auth_token');
+            }
           }
         } else if (localUserStr) {
-          try {
-            const cached = JSON.parse(localUserStr);
-            if (cached && cached.email && isMounted) {
-              _handleLoginUser(cached);
-            }
-          } catch (_) {}
+          localStorage.removeItem('punchlist_user');
         }
       } catch (err) {
         console.warn('Auth restoration encountered error:', err);
@@ -597,16 +630,24 @@ export default function App() {
                 'Authorization': `Bearer ${session.access_token}`,
               },
             });
-            const userProfile = res.ok ? await res.json() : null;
-            const merged = { ...session.user, ...(userProfile || {}) };
+            if (!res.ok) {
+              await supabase.auth.signOut().catch(() => {});
+              try {
+                localStorage.removeItem('punchlist_user');
+                localStorage.removeItem('punchlist_auth_token');
+              } catch (_) {}
+              return;
+            }
+            const userProfile = await res.json();
+            const merged = { ...session.user, ...userProfile };
             _handleLoginUser(merged);
           } catch (_) {
-            _handleLoginUser(session.user);
+            // Do not auto-login with unverified Supabase claims on callback failure
           }
         }
         if (event === 'SIGNED_OUT') {
           setIsAuthenticated(false);
-          setCurrentUser(CURRENT_USER);
+          setCurrentUser(DEMO_USER);
           try {
             localStorage.removeItem('punchlist_user');
             localStorage.removeItem('punchlist_auth_token');
@@ -629,8 +670,50 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isAuthenticated]);
 
-  // Cycle sync state on click: synced -> syncing -> offline -> synced
-  const handleToggleSyncState = () => {
+  // Sync online/offline status & IndexedDB queue count
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    let active = true;
+
+    const refreshQueue = async () => {
+      const stats = await api.getOfflineCacheStats();
+      if (active) setQueuedCount(stats.queuedCount || 0);
+    };
+    refreshQueue();
+
+    const onOnline = async () => {
+      const prefs = api.getOfflineSyncPrefs();
+      if (prefs.backgroundSync) {
+        setSyncState('syncing');
+        await api.processSyncQueue();
+      }
+      await refreshQueue();
+      if (active) setSyncState('synced');
+    };
+    const onOffline = () => {
+      if (active) setSyncState('offline');
+      refreshQueue();
+    };
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      active = false;
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [isAuthenticated]);
+
+  // Trigger manual sync or cycle state
+  const handleToggleSyncState = async () => {
+    if (syncState === 'offline' && navigator.onLine) {
+      setSyncState('syncing');
+      await api.processSyncQueue();
+      const stats = await api.getOfflineCacheStats();
+      setQueuedCount(stats.queuedCount || 0);
+      setSyncState('synced');
+      return;
+    }
     setSyncState(prev => {
       if (prev === 'synced') return 'syncing';
       if (prev === 'syncing') return 'offline';
@@ -804,12 +887,46 @@ export default function App() {
     });
   };
 
+  const handleUploadPinPhoto = async (pinId, file, { type = 'progress', caption = '' } = {}) => {
+    if (!pinId || !file) return null;
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('type', type);
+    formData.append('caption', caption || `${type === 'progress' ? 'Progress' : type === 'resolved' ? 'Completion' : 'Inspection'} photo`);
+
+    const uploaded = await api.uploadPhoto(pinId, formData);
+    setPunchItems((prev) =>
+      prev.map((p) => {
+        if (p.id !== pinId) return p;
+        const existing = Array.isArray(p.photos) ? p.photos : [];
+        if (uploaded?.id && existing.some((ph) => typeof ph === 'object' && ph.id === uploaded.id)) {
+          return p;
+        }
+        return { ...p, photos: [...existing, uploaded] };
+      })
+    );
+
+    addAuditLog({
+      category: 'Photos',
+      action: 'Progress Photo Uploaded',
+      details: caption || `Attached ${type} photo to punch item`,
+      target: pinId,
+      actor: currentUser?.name || 'Field Inspector',
+      role: currentUser?.role || 'Operations',
+      projectId: activeProject?.id,
+      pinId
+    });
+    return uploaded;
+  };
+
   const handleCreatePinAtCoords = (coords) => {
+    if (!canDropPins) return;
     setNewPunchCoords(coords);
     setIsNewPunchModalOpen(true);
   };
 
   const handleAddNewPunch = (newPunch) => {
+    if (!canDropPins) return;
     // Optimistic insert with a temporary local ID
     const tempId = newPunch.id || `tmp-${Date.now()}`;
     const optimisticPin = { ...newPunch, id: tempId, is_offline_pending: true };
@@ -822,8 +939,6 @@ export default function App() {
       sheet_id: activeSheet?.id || newPunch.sheetId
     }).then(persistedPin => {
       if (persistedPin && persistedPin.id) {
-        // Replace the temporary optimistic pin with the real DB-persisted pin
-        // (the server assigns the canonical ID and item_number)
         setPunchItems(prev => prev.map(p =>
           p.id === tempId ? { ...p, ...persistedPin, is_offline_pending: false } : p
         ));
@@ -831,10 +946,9 @@ export default function App() {
       }
     }).catch(err => {
       console.warn('Could not persist new punch to DB:', err);
-      // Mark pin as still pending so the sync queue can retry it
-      setPunchItems(prev => prev.map(p =>
-        p.id === tempId ? { ...p, is_offline_pending: true } : p
-      ));
+      // Roll back optimistic pin if server rejected or offline storage failed
+      setPunchItems(prev => prev.filter(p => p.id !== tempId));
+      setSelectedPinId(prev => (prev === tempId ? null : prev));
     });
 
     addAuditLog({
@@ -874,11 +988,30 @@ export default function App() {
     if (target) {
       setActiveSheet(target);
     }
-    setActiveModule('blueprints');
+    if (!currentUser?.isDemo) {
+      setActiveModule('blueprints');
+    }
   };
 
+  // RBAC live capability flags (reactive to SettingsPage RBAC matrix saves)
+  const isDemoMode = Boolean(currentUser?.isDemo);
+  const [rbacVersion, setRbacVersion] = React.useState(0);
+  useEffect(() => {
+    const onRbacUpdate = () => setRbacVersion((v) => v + 1);
+    window.addEventListener('punchlist:rbac-updated', onRbacUpdate);
+    return () => window.removeEventListener('punchlist:rbac-updated', onRbacUpdate);
+  }, []);
+  const canDropPins = React.useMemo(
+    () => !isDemoMode && hasCapability(currentUser?.role, 'dropPins'),
+    [isDemoMode, currentUser?.role, rbacVersion]
+  );
+  const canEditDocs = React.useMemo(
+    () => !isDemoMode && hasCapability(currentUser?.role, 'editDocs'),
+    [isDemoMode, currentUser?.role, rbacVersion]
+  );
+
   // Open punch count for badges
-  const openPunchCount = punchItems.filter(p => p.status !== 'Resolved').length;
+  const openPunchCount = isDemoMode ? 0 : punchItems.filter(p => p.status !== 'Resolved').length;
 
   // -------------------------------------------------------------
   // RENDER LOGIN SCREEN IF NOT AUTHENTICATED
@@ -932,7 +1065,7 @@ export default function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <LandingPage
-          onLaunchWorkspace={() => { _handleLoginUser(CURRENT_USER); }}
+          onLaunchWorkspace={() => { _handleLoginUser(DEMO_USER); }}
           onOpenLogin={() => setPublicView('login')}
           onLegalPage={(page) => setLegalPage(page)}
         />
@@ -967,11 +1100,13 @@ export default function App() {
         currentUser={currentUser}
         openPunchCount={openPunchCount}
         syncState={syncState}
+        queuedCount={queuedCount}
         onToggleSyncState={handleToggleSyncState}
-        onOpenQuickSearch={() => setIsQuickSearchOpen(true)}
+        onOpenQuickSearch={isDemoMode ? undefined : () => setIsQuickSearchOpen(true)}
+        onNewPunch={canDropPins ? () => setIsNewPunchModalOpen(true) : undefined}
         onLogout={handleLogout}
       >
-        {/* 4.2 Dashboard View */}
+        {/* 4.2 Dashboard View (or Basic Overview in Demo Mode) */}
         {activeModule === 'dashboard' && (
           <Suspense fallback={<PageLoader />}>
             <Dashboard
@@ -980,24 +1115,65 @@ export default function App() {
               floor={activeFloor}
               selectedBuilding={getBuildingById(selectedBuildingId)}
               selectedFloor={selectedFloorId}
-              punchItems={punchItems}
-              auditLogs={auditLogs}
-              onClearLogs={handleClearLogs}
-              onOpenBlueprint={() => setActiveModule('blueprints')}
-              onNewPunch={() => {
+              punchItems={isDemoMode ? [] : punchItems}
+              auditLogs={isDemoMode ? [] : auditLogs}
+              onClearLogs={isDemoMode ? undefined : handleClearLogs}
+              onOpenBlueprint={isDemoMode ? undefined : () => setActiveModule('blueprints')}
+              onNewPunch={canDropPins ? () => {
                 setNewPunchCoords({ x_pct: 50.0, y_pct: 50.0, gridLocation: 'D-3' });
                 setIsNewPunchModalOpen(true);
-              }}
-              onUploadBlueprint={() => handleOpenUploadBlueprint('new')}
-              onSelectPunch={handleSelectPunchFromAnywhere}
-              onApprovePunch={handleApprovePunch}
+              } : undefined}
+              onUploadBlueprint={canEditDocs ? () => handleOpenUploadBlueprint('new') : undefined}
+              onExportProject={isDemoMode ? undefined : (canExportProject ? () => setIsExportModalOpen(true) : undefined)}
+              onSelectPunch={isDemoMode ? undefined : handleSelectPunchFromAnywhere}
+              onApprovePunch={isDemoMode ? undefined : handleApprovePunch}
+              onSignIn={isDemoMode ? () => { handleLogout(); setPublicView('login'); } : undefined}
               currentUser={currentUser}
             />
           </Suspense>
         )}
 
+        {/* Demo Mode Restriction for Blueprints, Documents, Photos, Team, Settings */}
+        {isDemoMode && activeModule !== 'dashboard' && (
+          <div className="page-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+              maxWidth: 460,
+              width: '100%',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: '28px 24px',
+              textAlign: 'center',
+              boxShadow: '0 2px 10px rgba(24, 24, 27, 0.05)'
+            }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 8px' }}>
+                Basic Overview Only
+              </h2>
+              <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 }}>
+                Demo preview does not grant access to project blueprints, punch items, documents, or field photos. Sign in with an authorized account to view project records.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setActiveModule('dashboard')}
+                >
+                  Back to Overview
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => { handleLogout(); setPublicView('login'); }}
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 4.3 Blueprint Viewer (Full-Bleed Centerpiece) */}
-        {activeModule === 'blueprints' && (
+        {!isDemoMode && activeModule === 'blueprints' && (
           <Suspense fallback={<PageLoader />}>
             <BlueprintViewer
               sheets={sheets}
@@ -1011,44 +1187,49 @@ export default function App() {
               onCloseDrawer={() => setSelectedPinId(null)}
               onUpdatePunchStatus={handleUpdatePunchStatus}
               onAddComment={handleAddComment}
+              onUploadPinPhoto={handleUploadPinPhoto}
               onOpenPhotoLightbox={(photoMeta) => {
                 setActiveModule('photos');
               }}
-              onCreatePinAtCoords={handleCreatePinAtCoords}
-              onOpenUploadModal={(mode, target) => handleOpenUploadBlueprint(mode, target)}
+              onCreatePinAtCoords={canDropPins ? handleCreatePinAtCoords : undefined}
+              onOpenUploadModal={canEditDocs ? (mode, target) => handleOpenUploadBlueprint(mode, target) : undefined}
+              onExportProject={canExportProject ? () => setIsExportModalOpen(true) : undefined}
               currentUser={currentUser}
             />
           </Suspense>
         )}
 
         {/* 4.4 Documents View */}
-        {activeModule === 'documents' && (
+        {!isDemoMode && activeModule === 'documents' && (
           <Suspense fallback={<PageLoader />}>
             <DocumentsPage
               onNavigateBlueprintWithSheet={handleNavigateBlueprintWithSheet}
-              onUploadBlueprint={() => handleOpenUploadBlueprint('new')}
+              onUploadBlueprint={canEditDocs ? () => handleOpenUploadBlueprint('new') : undefined}
             />
           </Suspense>
         )}
 
         {/* 4.5 Photos View */}
-        {activeModule === 'photos' && (
+        {!isDemoMode && activeModule === 'photos' && (
           <Suspense fallback={<PageLoader />}>
             <PhotosPage
+              project={activeProject}
+              sheets={sheets}
+              punchItems={punchItems}
               onSelectPunchById={handleSelectPunchById}
             />
           </Suspense>
         )}
 
         {/* 4.6 Team View */}
-        {activeModule === 'team' && (
+        {!isDemoMode && activeModule === 'team' && (
           <Suspense fallback={<PageLoader />}>
             <TeamPage currentUser={currentUser} projects={projects} />
           </Suspense>
         )}
 
         {/* 4.7 Settings View */}
-        {activeModule === 'settings' && (
+        {!isDemoMode && activeModule === 'settings' && (
           <Suspense fallback={<PageLoader />}>
             <SettingsPage
               project={activeProject}
@@ -1085,7 +1266,7 @@ export default function App() {
               punchItems={punchItems}
               sheets={sheets}
               documents={DOCUMENTS}
-              teamMembers={TEAM_MEMBERS}
+              teamMembers={[]}
               onSelectPunch={handleSelectPunchFromAnywhere}
               onSelectSheet={(sheet) => {
                 setActiveSheet(sheet);
@@ -1097,7 +1278,7 @@ export default function App() {
         )}
 
         {/* New Punch Creation Modal */}
-        {isNewPunchModalOpen && (
+        {canDropPins && isNewPunchModalOpen && (
           <Suspense fallback={null}>
             <NewPunchModal
               isOpen={isNewPunchModalOpen}
@@ -1112,8 +1293,8 @@ export default function App() {
           </Suspense>
         )}
 
-        {/* Blueprint Upload Modal — framer-motion only loads here */}
-        {isBlueprintUploadOpen && (
+        {/* Blueprint Upload Modal */}
+        {canEditDocs && isBlueprintUploadOpen && (
           <Suspense fallback={null}>
             <BlueprintUploadModal
               projectId={activeProject?.id}
@@ -1130,6 +1311,20 @@ export default function App() {
               initialFloorLevel={selectedFloorId || activeFloor?.name || ''}
               onClose={() => setIsBlueprintUploadOpen(false)}
               onUploaded={handleSheetsUploaded}
+            />
+          </Suspense>
+        )}
+
+        {/* Export Project Deliverables Modal (.pdf / .xlsx / .csv) */}
+        {isExportModalOpen && (
+          <Suspense fallback={null}>
+            <ExportModal
+              project={activeProject}
+              sheets={sheets}
+              activeSheet={activeSheet}
+              selectedBuildingId={selectedBuildingId}
+              selectedFloorId={selectedFloorId}
+              onClose={() => setIsExportModalOpen(false)}
             />
           </Suspense>
         )}

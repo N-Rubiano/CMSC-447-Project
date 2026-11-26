@@ -1,6 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PunchList logo mark">
-  <path fill="#168BFF" d="M8 18 34 4 48 12 22 27 22 58 8 50Z"/>
-  <path fill="#0877E8" d="M34 4 48 12 22 27 8 18Z"/>
-  <path fill="#35B7FF" d="M8 18 22 27 22 58 8 50Z"/>
-  <path fill="#FFFFFF" d="M22 34 30 41 51 20 59 28 30 56 14 42Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PunchList Pro logo mark">
+  <defs>
+    <linearGradient id="pinAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#18181B" />
+  <path fill="url(#pinAmber)" d="M32 9c-10.5 0-19 8.5-19 19 0 11.4 13.6 23.8 17.6 27.2a2.2 2.2 0 0 0 2.8 0C37.4 51.8 51 39.4 51 28c0-10.5-8.5-19-19-19Z" />
+  <circle cx="32" cy="27" r="11.5" fill="#18181B" />
+  <path fill="none" stroke="#F8F7F4" stroke-width="4.2" stroke-linecap="square" stroke-linejoin="miter" d="M25.5 27.5 30 32l9-9" />
 </svg>

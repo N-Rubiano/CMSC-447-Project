@@ -214,17 +214,20 @@ def validate_status_transition(user: dict, pin: dict, target_status: str) -> dic
             return {"valid": False, "message": "Only Facility Admin can formally close a punch item."}
         return {"valid": True}
 
-    if user.get("role") == "field_inspector":
+    if user.get("role") in ("field_inspector", "architect"):
         if not can_user_access_pin(user, pin):
-            return {"valid": False, "message": "Inspector cannot update pins outside their project."}
+            return {"valid": False, "message": "User cannot update pins outside their project."}
         if is_current_open and is_next_in_progress:
             return {"valid": True}
         if is_current_in_progress and is_next_contractor_review:
             return {"valid": True}
         return {
             "valid": False,
-            "message": "Field Inspectors can move items to In Progress or Contractor Review.",
+            "message": "Field Inspectors and Architects can move items to In Progress or Contractor Review.",
         }
+
+    if user.get("role") == "owner":
+        return {"valid": False, "message": "Owner Representatives have read-only access."}
 
     if user.get("role") == "admin":
         return {"valid": True}

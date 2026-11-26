@@ -1,8 +1,23 @@
-import { defineConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
 import react from '@vitejs/plugin-react';
 import viteCompression from 'vite-plugin-compression';
 
+const logger = createLogger();
+const originalLoggerError = logger.error.bind(logger);
+logger.error = (msg, options) => {
+  // Suppress noisy transient ECONNREFUSED proxy logs while backend is starting or reloading
+  if (
+    options?.error?.code === 'ECONNREFUSED' &&
+    typeof msg === 'string' &&
+    (msg.includes('ws proxy error') || msg.includes('http proxy error'))
+  ) {
+    return;
+  }
+  originalLoggerError(msg, options);
+};
+
 export default defineConfig(({ mode }) => ({
+  customLogger: logger,
   plugins: [
     react(),
     viteCompression({
@@ -79,7 +94,7 @@ export default defineConfig(({ mode }) => ({
               id.includes('node_modules/scheduler/')) {
             return 'vendor-react';
           }
-          // Framer Motion — large animation lib, only needed for MailSlotUpload
+          // Framer Motion — animation library chunk
           if (id.includes('node_modules/framer-motion') ||
               id.includes('node_modules/motion-dom') ||
               id.includes('node_modules/motion-utils')) {

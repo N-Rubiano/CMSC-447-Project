@@ -231,7 +231,7 @@ def me(current_user: dict = Depends(get_current_user)):
         "id": str(user.get("id")),
         "email": user.get("email"),
         "name": user.get("name") or (user.get("email", "").split("@")[0] if user.get("email") else "User"),
-        "role": user.get("role", "admin"),
+        "role": user.get("role") or "sub_contractor",
         "company": user.get("company"),
         "company_id": user.get("company_id"),
         "company_type": company.get("type") if company else user.get("role"),
@@ -303,8 +303,17 @@ def update_profile(body: ProfileUpdatePayload, current_user: dict = Depends(get_
                     data = base64.b64decode(match.group(2))
                     avatar_dir = Path(__file__).parent.parent.parent / "uploads" / "avatars"
                     avatar_dir.mkdir(parents=True, exist_ok=True)
-                    target_fname = f"{user_id or uuid.uuid4()}.{ext}"
-                    (avatar_dir / target_fname).write_bytes(data)
+                    target_fname = f"{user_id or uuid.uuid4()}.jpg"
+                    target_path = avatar_dir / target_fname
+                    try:
+                        from io import BytesIO
+                        from PIL import Image, ImageOps
+                        img = ImageOps.exif_transpose(Image.open(BytesIO(data))).convert("RGB")
+                        img.thumbnail((256, 256), Image.Resampling.LANCZOS)
+                        img.save(target_path, format="JPEG", quality=82, optimize=True)
+                    except Exception:
+                        target_fname = f"{user_id or uuid.uuid4()}.{ext}"
+                        (avatar_dir / target_fname).write_bytes(data)
                     raw_avatar = f"/uploads/avatars/{target_fname}"
                 except Exception as ex:
                     print(f"Failed to persist avatar file: {ex}")

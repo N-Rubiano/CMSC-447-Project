@@ -4,6 +4,7 @@ services/export.py — PDF and CSV export services.
 Replaces Node.js exportService.js (pdfkit / pdf-lib).
 Uses reportlab for punch list report PDF generation and pypdf for annotated plan sets.
 """
+import base64
 import csv
 import io
 import json
@@ -38,6 +39,163 @@ def format_status_label(st: str) -> str:
     }.get(st, (st or "OPEN").upper())
 
 
+def _norm_pct(val, default: float = 0.5) -> float:
+    """Normalize coordinates stored as either 0..1 or 0..100 into 0.0..1.0."""
+    try:
+        num = float(val)
+    except (TypeError, ValueError):
+        return default
+    if num > 1.0:
+        num = num / 100.0
+    return max(0.0, min(1.0, num))
+
+
+def _resolve_upload_path(raw_path: str | None) -> Path | None:
+    if not raw_path:
+        return None
+    p = Path(raw_path)
+    if p.exists():
+        return p
+    if raw_path.startswith("/uploads/"):
+        rel = raw_path.lstrip("/")
+        candidate = Path(__file__).parent.parent.parent / rel
+        if candidate.exists():
+            return candidate
+        tmp_candidate = Path("/tmp") / rel
+        if tmp_candidate.exists():
+            return tmp_candidate
+    return None
+
+
+def _load_sheet_pil_image(sheet: dict, target_w: int = 1400, target_h: int = 900):
+    """Load actual PDF/raster blueprint image if available, else draw CAD grid canvas."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    image_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
+    # 1. Try local image_path, image_url (/uploads/...), or file_path if raster
+    for candidate_key in ("image_path", "image_url", "file_path"):
+        val = sheet.get(candidate_key)
+        if not val or not isinstance(val, str):
+            continue
+        if val.startswith("data:image/"):
+            try:
+                _, b64 = val.split(",", 1)
+                return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+            except Exception:
+                continue
+        resolved = _resolve_upload_path(val)
+        if resolved and resolved.suffix.lower() in image_exts:
+            try:
+                return Image.open(resolved).convert("RGB")
+            except Exception:
+                continue
+
+    # 2. Render actual uploaded PDF blueprint page via pypdfium2
+    for candidate_key in ("file_path", "pdf_url", "image_url"):
+        val = sheet.get(candidate_key)
+        if not val or not isinstance(val, str):
+            continue
+        resolved = _resolve_upload_path(val)
+        if resolved and resolved.suffix.lower() == ".pdf":
+            try:
+                import pypdfium2 as pdfium
+                pdf_doc = pdfium.PdfDocument(str(resolved))
+                page_idx = int(sheet.get("page_index") or 0)
+                page_idx = max(0, min(page_idx, len(pdf_doc) - 1))
+                page = pdf_doc[page_idx]
+                pw, ph = page.get_size()
+                scale = max(1.5, min(3.0, 1600.0 / max(1.0, float(pw))))
+                bitmap = page.render(scale=scale)
+                pil_img = bitmap.to_pil().convert("RGB")
+                pdf_doc.close()
+                return pil_img
+            except Exception:
+                continue
+
+    # 2. Fallback: crisp architectural drafting grid matching BlueprintViewer
+    img = Image.new("RGB", (target_w, target_h), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    # Outer border & inner drafting frame
+    draw.rectangle([20, 20, target_w - 20, target_h - 20], outline=(24, 24, 27), width=3)
+    draw.rectangle([28, 28, target_w - 28, target_h - 28], outline=(92, 58, 33), width=1)
+
+    # Subtle grid
+    cols = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    rows = ["1", "2", "3", "4", "5", "6"]
+    font = ImageFont.load_default()
+
+    for idx, col in enumerate(cols):
+        x = int((idx + 0.5) / len(cols) * (target_w - 80)) + 40
+        draw.line([(x, 40), (x, target_h - 90)], fill=(228, 224, 214), width=1)
+        draw.text((x - 4, 26), col, fill=(92, 58, 33), font=font)
+
+    for idx, row_lbl in enumerate(rows):
+        y = int((idx + 0.5) / len(rows) * (target_h - 140)) + 50
+        draw.line([(40, y), (target_w - 40, y)], fill=(228, 224, 214), width=1)
+        draw.text((26, y - 5), row_lbl, fill=(92, 58, 33), font=font)
+
+    # Title block bottom right
+    tb_x1, tb_y1, tb_x2, tb_y2 = target_w - 390, target_h - 92, target_w - 32, target_h - 32
+    draw.rectangle([tb_x1, tb_y1, tb_x2, tb_y2], fill=(248, 247, 244), outline=(24, 24, 27), width=2)
+    s_num = sheet.get("sheet_number") or sheet.get("number") or "SHEET"
+    s_name = (sheet.get("name") or sheet.get("title") or "Architectural Plan")[:38]
+    s_loc = " / ".join(filter(None, [sheet.get("building_name"), sheet.get("floor_level")])) or "Active Floor"
+    draw.text((tb_x1 + 12, tb_y1 + 10), f"{s_num} — {s_name}", fill=(24, 24, 27), font=font)
+    draw.text((tb_x1 + 12, tb_y1 + 32), f"{s_loc}  |  {sheet.get('version', 'Rev 1')}", fill=(92, 58, 33), font=font)
+
+    return img
+
+
+def _render_sheet_with_pins_png(sheet: dict, pins: list, max_width: int = 1400) -> bytes:
+    """Render a blueprint sheet image with numbered, color-coded punch pins overlaid."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = _load_sheet_pil_image(sheet)
+    w, h = img.size
+    if w > max_width:
+        scale = max_width / float(w)
+        img = img.resize((max_width, max(1, int(h * scale))), Image.Resampling.LANCZOS)
+        w, h = img.size
+
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default()
+    radius = max(14, min(24, int(w * 0.015)))
+
+    for pin in pins:
+        px = int(_norm_pct(pin.get("x_pct"), 0.5) * w)
+        py = int(_norm_pct(pin.get("y_pct"), 0.5) * h)
+        px = max(radius + 4, min(w - radius - 4, px))
+        py = max(radius + 4, min(h - radius - 4, py))
+
+        rgb_float = STATUS_COLORS_RGB.get(pin.get("status", "open"), (0.86, 0.15, 0.15))
+        fill_rgb = tuple(int(c * 255) for c in rgb_float)
+
+        # Outer white rim + colored circle
+        draw.ellipse(
+            [px - radius - 2, py - radius - 2, px + radius + 2, py + radius + 2],
+            fill=(255, 255, 255),
+            outline=(24, 24, 27),
+            width=1,
+        )
+        draw.ellipse(
+            [px - radius, py - radius, px + radius, py + radius],
+            fill=fill_rgb,
+        )
+
+        # Label: item number or stamp initials
+        item_num = pin.get("item_number")
+        label = f"#{item_num}" if item_num else (pin.get("stamp_initials") or pin.get("trade") or "PL")[:3]
+        bbox = draw.textbbox((0, 0), str(label), font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        draw.text((px - tw / 2, py - th / 2 - 1), str(label), fill=(255, 255, 255), font=font)
+
+    out = io.BytesIO()
+    img.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Annotated Plan Set PDF (embed uploaded PDFs + draw pin circles)
 # ---------------------------------------------------------------------------
@@ -63,33 +221,37 @@ def generate_annotated_pdf(project: dict, sheets: list, pins: list, markups: lis
             h = float(sheet.get("height_pts") or 816)
             fp = sheet.get("file_path")
 
-            if fp and Path(fp).exists():
+            if fp and Path(fp).exists() and Path(fp).suffix.lower() == ".pdf":
                 try:
                     reader = PdfReader(fp)
                     page_idx = sheet.get("page_index") or 0
                     page_idx = min(page_idx, len(reader.pages) - 1)
                     src_page = reader.pages[page_idx]
                     writer.add_page(src_page)
-                    page = writer.pages[-1]
                     w = float(src_page.mediabox.width)
                     h = float(src_page.mediabox.height)
                 except Exception:
-                    pass
+                    from pypdf import PageObject
+                    writer.add_page(PageObject.create_blank_page(width=w, height=h))
             else:
-                # Blank sheet
-                from pypdf import PageObject
-                from pypdf.generic import RectangleObject
-                blank = PageObject.create_blank_page(width=w, height=h)
-                writer.add_page(blank)
+                # Render raster image or CAD grid sheet into a PDF page
+                sheet_png = _render_sheet_with_pins_png(sheet, [])
+                img_pdf_buf = io.BytesIO()
+                c_img = rl_canvas.Canvas(img_pdf_buf, pagesize=(w, h))
+                from reportlab.lib.utils import ImageReader
+                c_img.drawImage(ImageReader(io.BytesIO(sheet_png)), 0, 0, width=w, height=h, preserveAspectRatio=True)
+                c_img.save()
+                img_pdf_buf.seek(0)
+                writer.add_page(PdfReader(img_pdf_buf).pages[0])
 
             # Overlay pin markers using reportlab on a temp PDF then merge
             if sheet_pins:
                 overlay_buf = io.BytesIO()
                 c = rl_canvas.Canvas(overlay_buf, pagesize=(w, h))
                 for pin in sheet_pins:
-                    x = float(pin.get("x_pct") or 0.5) * w
+                    x = _norm_pct(pin.get("x_pct"), 0.5) * w
                     # PDF y-axis is bottom-up
-                    y = h - float(pin.get("y_pct") or 0.5) * h
+                    y = h - _norm_pct(pin.get("y_pct"), 0.5) * h
                     rgb = STATUS_COLORS_RGB.get(pin.get("status", "open"), (0.86, 0.15, 0.15))
                     c.setFillColorRGB(*rgb)
                     c.setStrokeColorRGB(1, 1, 1)
@@ -150,9 +312,9 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
 
         # Stats
         total = len(pins)
-        closed = sum(1 for p in pins if p.get("status") == "closed")
-        open_count = sum(1 for p in pins if p.get("status") in ("open", "assigned"))
-        in_review = sum(1 for p in pins if "review" in (p.get("status") or ""))
+        closed = sum(1 for p in pins if (p.get("status") or "").lower() in ("closed", "resolved"))
+        open_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("open", "assigned"))
+        in_review = sum(1 for p in pins if "review" in (p.get("status") or "").lower())
         resolution_rate = round(closed / total * 100, 1) if total > 0 else 0
 
         stat_data = [
@@ -188,8 +350,8 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
                     format_status_label(pin.get("status", "open")),
                     (pin.get("priority") or "medium").upper(),
                     (pin.get("discipline") or "").capitalize(),
-                    (pin.get("room_location") or sheet.get("name") or "")[:25],
-                    (pin.get("assigned_to_company") or "")[:20],
+                    (pin.get("room_location") or sheet.get("name") or "")[:18],
+                    (pin.get("assigned_to_company") or "")[:18],
                     (sheet.get("sheet_number") or "")[:10],
                     str(pin.get("created_at") or "")[:10],
                 ])
@@ -209,6 +371,34 @@ def generate_punch_list_report(project: dict, pins: list, sheets: list, audit_lo
                 ("ROWHEIGHT", (0, 0), (-1, -1), 16),
             ]))
             elements.append(pin_table)
+
+        # Blueprint Pin Map Snapshots
+        if sheets:
+            from reportlab.platypus import Image as RLImage, PageBreak, KeepTogether
+            from PIL import Image as PILImage
+
+            elements.append(PageBreak())
+            section_style = ParagraphStyle("Section", parent=styles["Heading2"], fontSize=14, spaceAfter=8)
+            elements.append(Paragraph("BLUEPRINT PIN MAPS", section_style))
+
+            for sheet in sheets:
+                sheet_pins = [p for p in pins if p.get("sheet_id") == sheet.get("id")]
+                png_bytes = _render_sheet_with_pins_png(sheet, sheet_pins, max_width=1400)
+                pil_dim = PILImage.open(io.BytesIO(png_bytes))
+                pw, ph = pil_dim.size
+                display_w = 9.0 * inch
+                display_h = min(5.2 * inch, display_w * (ph / float(pw or 1)))
+                s_num = sheet.get("sheet_number") or sheet.get("number") or "Sheet"
+                s_name = sheet.get("name") or sheet.get("title") or ""
+                elements.append(KeepTogether([
+                    Paragraph(
+                        f"<b>{s_num}</b> — {s_name} ({len(sheet_pins)} pinned items)",
+                        styles["Normal"]
+                    ),
+                    Spacer(1, 0.08 * inch),
+                    RLImage(io.BytesIO(png_bytes), width=display_w, height=display_h),
+                    Spacer(1, 0.2 * inch),
+                ]))
 
         doc.build(elements)
         return buf.getvalue()
@@ -249,6 +439,214 @@ def generate_punch_list_csv(pins: list, sheets: list) -> str:
             pin.get("stamp_initials", ""),
         ])
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Excel (.xlsx) Export
+# ---------------------------------------------------------------------------
+
+def generate_project_excel(
+    project: dict,
+    pins: list,
+    sheets: list,
+    members: list | None = None,
+) -> bytes:
+    """Generate a multi-sheet Excel (.xlsx) workbook with Project Info, Punch Items, and Team."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+
+    header_fill = PatternFill(start_color="18181B", end_color="18181B", fill_type="solid")
+    amber_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    stripe_fill = PatternFill(start_color="F8F7F4", end_color="F8F7F4", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    section_font = Font(name="Calibri", size=12, bold=True, color="18181B")
+    bold_font = Font(name="Calibri", size=11, bold=True, color="18181B")
+    body_font = Font(name="Calibri", size=11, color="18181B")
+    thin_side = Side(style="thin", color="DCD5C8")
+    cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+    total = len(pins)
+    closed_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("closed", "resolved"))
+    open_count = sum(1 for p in pins if (p.get("status") or "").lower() in ("open", "assigned"))
+    in_progress_count = sum(1 for p in pins if (p.get("status") or "").lower() == "in_progress")
+    in_review_count = sum(1 for p in pins if "review" in (p.get("status") or "").lower())
+    resolution_rate = round((closed_count / total) * 100, 1) if total > 0 else 0.0
+
+    # ── Sheet 1: Project Overview ────────────────────────────────────────
+    ws_overview = wb.active
+    ws_overview.title = "Project Overview"
+    ws_overview.append(["PunchList Pro — Project Deliverable Summary"])
+    ws_overview["A1"].font = Font(name="Calibri", size=15, bold=True, color="D97706")
+    ws_overview.append([])
+
+    info_rows = [
+        ("Project Name", project.get("name", "Project")),
+        ("Project Code", project.get("code", "PRJ")),
+        ("Client / Owner", project.get("client_name") or "—"),
+        ("Site Address", project.get("address") or "—"),
+        ("Status", (project.get("status") or "active").upper()),
+        ("Target Completion", str(project.get("target_completion") or "—")[:10]),
+        ("Exported At", datetime.now().strftime("%Y-%m-%d %H:%M")),
+    ]
+    ws_overview.append(["Field", "Value"])
+    for cell in ws_overview[3]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+    for label, val in info_rows:
+        ws_overview.append([label, val])
+        row = ws_overview[ws_overview.max_row]
+        row[0].font = bold_font
+        row[1].font = body_font
+        for c in row:
+            c.border = cell_border
+
+    ws_overview.append([])
+    ws_overview.append(["KPI Summary", "Count"])
+    for cell in ws_overview[ws_overview.max_row]:
+        cell.fill = header_fill
+        cell.font = header_font
+    kpi_rows = [
+        ("Total Punch Items", total),
+        ("Open / Assigned", open_count),
+        ("In Progress", in_progress_count),
+        ("In Review", in_review_count),
+        ("Closed / Resolved", closed_count),
+        ("Resolution Rate", f"{resolution_rate}%"),
+        ("Total Blueprint Sheets", len(sheets)),
+    ]
+    for label, val in kpi_rows:
+        ws_overview.append([label, val])
+        row = ws_overview[ws_overview.max_row]
+        row[0].font = bold_font
+        row[1].font = body_font
+        if label == "Resolution Rate":
+            row[1].fill = amber_fill
+        for c in row:
+            c.border = cell_border
+
+    ws_overview.column_dimensions["A"].width = 28
+    ws_overview.column_dimensions["B"].width = 48
+
+    # ── Sheet 2: Punch Items ─────────────────────────────────────────────
+    ws_pins = wb.create_sheet(title="Punch Items")
+    sheet_map = {s["id"]: s for s in sheets}
+    pin_headers = [
+        "Item #", "Title", "Status", "Priority", "Discipline",
+        "Location / Room", "Assigned To", "Sheet Number", "Sheet Name",
+        "X (%)", "Y (%)", "Due Date", "Created At", "Stamp Initials",
+    ]
+    ws_pins.append(pin_headers)
+    ws_pins.freeze_panes = "A2"
+    for cell in ws_pins[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    for idx, pin in enumerate(sorted(pins, key=lambda p: p.get("item_number", 0)), start=2):
+        sheet = sheet_map.get(pin.get("sheet_id", ""), {})
+        ws_pins.append([
+            pin.get("item_number", ""),
+            pin.get("title", ""),
+            format_status_label(pin.get("status", "open")),
+            (pin.get("priority") or "medium").upper(),
+            (pin.get("discipline") or "architectural").capitalize(),
+            pin.get("room_location") or pin.get("room") or "",
+            pin.get("assigned_to_company") or pin.get("assignee") or "",
+            sheet.get("sheet_number") or sheet.get("number") or "",
+            sheet.get("name") or sheet.get("title") or "",
+            pin.get("x_pct", ""),
+            pin.get("y_pct", ""),
+            str(pin.get("due_date") or "")[:10],
+            str(pin.get("created_at") or "")[:10],
+            pin.get("stamp_initials", ""),
+        ])
+        for cell in ws_pins[idx]:
+            cell.font = body_font
+            cell.border = cell_border
+            if idx % 2 == 1:
+                cell.fill = stripe_fill
+
+    pin_widths = [10, 38, 18, 12, 16, 22, 24, 14, 26, 10, 10, 14, 14, 14]
+    for i, w in enumerate(pin_widths, start=1):
+        col_letter = ws_pins.cell(row=1, column=i).column_letter
+        ws_pins.column_dimensions[col_letter].width = w
+
+    # ── Sheet 3: Team & Assignments ──────────────────────────────────────
+    ws_team = wb.create_sheet(title="Team & Assignments")
+    team_headers = ["Name", "Email", "Role", "Company", "Assigned Items", "Open Items", "Closed Items"]
+    ws_team.append(team_headers)
+    ws_team.freeze_panes = "A2"
+    for cell in ws_team[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    for idx, m in enumerate(members or [], start=2):
+        uid = m.get("id")
+        cid = m.get("company_id")
+        assigned = [
+            p for p in pins
+            if (uid and p.get("assigned_to_user_id") == uid)
+            or (cid and p.get("assigned_subcontractor_id") == cid)
+        ]
+        m_closed = sum(1 for p in assigned if (p.get("status") or "").lower() in ("closed", "resolved"))
+        m_open = len(assigned) - m_closed
+        ws_team.append([
+            m.get("name", ""),
+            m.get("email", ""),
+            (m.get("role") or "").replace("_", " ").title(),
+            m.get("company") or m.get("company_name") or "",
+            len(assigned),
+            m_open,
+            m_closed,
+        ])
+        for cell in ws_team[idx]:
+            cell.font = body_font
+            cell.border = cell_border
+            if idx % 2 == 1:
+                cell.fill = stripe_fill
+
+    for i, w in enumerate([24, 30, 22, 26, 16, 14, 14], start=1):
+        col_letter = ws_team.cell(row=1, column=i).column_letter
+        ws_team.column_dimensions[col_letter].width = w
+
+    # ── Sheet 4: Blueprint Maps (Embedded PNGs with Pins Overlaid) ───────
+    ws_maps = wb.create_sheet(title="Blueprint Maps")
+    ws_maps.append(["Blueprint Sheet Pin Maps"])
+    ws_maps["A1"].font = Font(name="Calibri", size=14, bold=True, color="D97706")
+    ws_maps.column_dimensions["A"].width = 24
+    ws_maps.column_dimensions["B"].width = 40
+    ws_maps.column_dimensions["C"].width = 20
+
+    if sheets:
+        from openpyxl.drawing.image import Image as XLImage
+        from PIL import Image as PILImage
+
+        current_row = 3
+        for sheet in sheets:
+            sheet_pins = [p for p in pins if p.get("sheet_id") == sheet.get("id")]
+            s_num = sheet.get("sheet_number") or sheet.get("number") or "Sheet"
+            s_name = sheet.get("name") or sheet.get("title") or ""
+            ws_maps.cell(row=current_row, column=1, value=s_num).font = bold_font
+            ws_maps.cell(row=current_row, column=2, value=s_name).font = body_font
+            ws_maps.cell(row=current_row, column=3, value=f"{len(sheet_pins)} pins").font = body_font
+
+            png_bytes = _render_sheet_with_pins_png(sheet, sheet_pins, max_width=1000)
+            pil_img = PILImage.open(io.BytesIO(png_bytes))
+            xl_img = XLImage(io.BytesIO(png_bytes))
+            xl_img.width = 760
+            xl_img.height = max(240, int(760 * (pil_img.height / float(pil_img.width or 1))))
+            ws_maps.add_image(xl_img, f"A{current_row + 1}")
+            current_row += max(22, int(xl_img.height / 18) + 4)
+    else:
+        ws_maps.cell(row=3, column=1, value="No blueprint sheets uploaded for this project yet.").font = body_font
+
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
 
 
 # ---------------------------------------------------------------------------

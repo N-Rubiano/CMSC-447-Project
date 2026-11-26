@@ -119,15 +119,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
   const drawingSetsCount = documents.filter(d => d.category === 'Drawing Sets').length;
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
+    <div className="page-container">
       {/* Hidden file picker */}
       <input
         type="file"
@@ -137,83 +129,92 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
       />
 
       {/* Header & Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
+      <div className="page-header" style={{ alignItems: 'flex-end' }}>
         <div>
-          <div className="eyebrow" style={{ marginBottom: 4 }}>
-            Field Documentation &amp; Compliance
-          </div>
-          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)' }}>
+          <h1 className="page-title" style={{ letterSpacing: '-0.02em', margin: 0 }}>
             Project Documents &amp; Sets
           </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, marginBottom: 0 }}>
+            Centralized drawing sets, RFIs, submittals, specifications, and closeout packages.
+          </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn btn-primary"
-            style={{ height: 38 }}
-          >
-            <Upload size={16} strokeWidth={2} />
-            <span>Upload Document</span>
-          </button>
-          {onUploadBlueprint && (
+        {onUploadBlueprint && (
+          <div className="documents-header-actions">
             <button
-              onClick={onUploadBlueprint}
-              className="btn btn-ghost"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn btn-primary"
               style={{ height: 38 }}
             >
-              <Layers size={16} color="var(--amber)" />
+              <Upload size={16} strokeWidth={2} />
+              <span>Upload Document</span>
+            </button>
+            <button
+              type="button"
+              onClick={onUploadBlueprint}
+              className="btn btn-secondary"
+              style={{ height: 38 }}
+            >
+              <Layers size={16} color="var(--amber-hover)" />
               <span>Upload Drawing Set</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Small Stat Cards Up Top (Calm 4px scale, tabular figures) */}
+      {/* Unified Summary Strip (tabular figures, no nested/repetitive cards) */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 16
+        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        backgroundColor: '#FFFFFF',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        overflow: 'hidden',
+        boxShadow: '0 1px 2px rgba(24, 24, 27, 0.04)'
       }}>
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
-            <FileText size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{totalDocsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Total Documents</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--status-review-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-review)' }}>
-            <Clock size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{pendingRFIsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Active RFIs</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'var(--status-resolved-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--status-resolved)' }}>
-            <FileCheck size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{approvedSubmittalsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Approved Submittals</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
-            <Layers size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{drawingSetsCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>Drawing Sets</div>
-          </div>
-        </div>
+        {[
+          { label: 'Total Documents', value: totalDocsCount, icon: FileText, color: 'var(--amber-hover)', bg: 'var(--amber-light)' },
+          { label: 'Active RFIs', value: pendingRFIsCount, icon: Clock, color: 'var(--status-review)', bg: 'var(--status-review-bg)' },
+          { label: 'Approved Submittals', value: approvedSubmittalsCount, icon: FileCheck, color: 'var(--status-resolved)', bg: 'var(--status-resolved-bg)' },
+          { label: 'Drawing Sets', value: drawingSetsCount, icon: Layers, color: 'var(--info)', bg: 'var(--info-bg)' },
+        ].map((stat, idx) => {
+          const StatIcon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              style={{
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                borderRight: idx < 3 ? '1px solid var(--border-subtle)' : 'none'
+              }}
+            >
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                backgroundColor: stat.bg,
+                color: stat.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <StatIcon size={18} aria-hidden="true" />
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
+                  {stat.value}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginTop: 2 }}>
+                  {stat.label}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Main Container */}
@@ -230,7 +231,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
           paddingBottom: 16
         }}>
           {/* Folder Pills */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="documents-filter-pills">
             {folders.map(folder => {
               const isActive = activeFolder === folder;
               return (
@@ -242,11 +243,13 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
                     borderRadius: 20,
                     fontSize: 13,
                     fontWeight: 600,
-                    backgroundColor: isActive ? 'var(--amber)' : 'var(--surface-muted)',
+                    backgroundColor: isActive ? 'var(--ink)' : 'var(--surface-muted)',
                     color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
                     border: '1px solid',
-                    borderColor: isActive ? 'var(--amber)' : 'var(--border)',
+                    borderColor: isActive ? 'var(--ink)' : 'var(--border)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     transition: 'all 150ms ease'
                   }}
                 >
@@ -257,7 +260,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
           </div>
 
           {/* Search Box */}
-          <div style={{ position: 'relative', minWidth: 260 }}>
+          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 0, maxWidth: '100%' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} />
             <input
               type="text"
@@ -279,8 +282,8 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
         </div>
 
         {/* Documents Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
             <thead>
               <tr style={{
                 borderBottom: '1.5px solid var(--border)',
@@ -453,10 +456,12 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
 
             <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label htmlFor="doc-title-input" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   Document Title
+                  <span className="required-asterisk" aria-hidden="true">*</span>
                 </label>
                 <input
+                  id="doc-title-input"
                   type="text"
                   value={docName}
                   onChange={(e) => setDocName(e.target.value)}

@@ -1,16 +1,6 @@
 /**
  * BlueprintUploadModal.jsx
- * Dedicated blueprint / architectural plan upload modal for PunchList Pro.
- *
- * Supports:
- *  - Mode 1: New Blueprint Ingestion (PDF drawing sets or single image blueprints)
- *  - Mode 2: Latest Version / Revision Upload for an existing building blueprint
- *            (preserves all pins, inspections, and markups while updating the background drawing)
- *  - PDF architectural drawing sets (auto-split into sheets)
- *  - Image blueprints: PNG, JPG, TIFF, WebP
- *  - Drag-and-drop and multi-file queue
- *  - Building name, floor/level, discipline, and revision metadata
- *  - Animated progress bar and post-upload confirmation
+ * Architectural blueprint & revision ingestion modal for PunchList Pro.
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -23,41 +13,34 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
-  File,
-  ChevronDown,
   RefreshCw,
-  Sparkles,
   Info,
-  History
+  Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
-import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
 import { renderPdfToDataUrl } from '../services/pdfRenderer';
-import MailSlotUpload from './MailSlotUpload';
-import '../styles/MailSlotUpload.css';
 import './BlueprintUploadModal.css';
 
-// ── Supported file types ─────────────────────────────────────────────────────
 const ACCEPTED_TYPES = {
-  'application/pdf':  { label: 'PDF Drawing Set', icon: FileText, color: '#D97706' },
-  'image/png':        { label: 'PNG Blueprint',    icon: ImageIcon, color: '#3B82F6' },
-  'image/jpeg':       { label: 'JPEG Blueprint',   icon: ImageIcon, color: '#3B82F6' },
-  'image/tiff':       { label: 'TIFF Blueprint',   icon: ImageIcon, color: '#3B82F6' },
-  'image/webp':       { label: 'WebP Blueprint',   icon: ImageIcon, color: '#3B82F6' },
+  'application/pdf': { label: 'PDF', icon: FileText, color: '#B45309' },
+  'image/png':       { label: 'PNG', icon: ImageIcon, color: '#1D4ED8' },
+  'image/jpeg':      { label: 'JPEG', icon: ImageIcon, color: '#1D4ED8' },
+  'image/tiff':      { label: 'TIFF', icon: ImageIcon, color: '#1D4ED8' },
+  'image/webp':      { label: 'WebP', icon: ImageIcon, color: '#1D4ED8' },
 };
 const ACCEPT_STRING = Object.keys(ACCEPTED_TYPES).join(',');
 const MAX_FILE_SIZE_MB = 200;
+const MAX_FILE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-// ── Disciplines ──────────────────────────────────────────────────────────────
 const DISCIPLINES = [
-  { value: 'architectural', label: 'Architectural',  prefix: 'A' },
-  { value: 'structural',    label: 'Structural',     prefix: 'S' },
-  { value: 'mep',           label: 'MEP / HVAC',     prefix: 'M' },
-  { value: 'electrical',    label: 'Electrical',     prefix: 'E' },
-  { value: 'plumbing',      label: 'Plumbing',       prefix: 'P' },
-  { value: 'civil',         label: 'Civil / Site',   prefix: 'C' },
+  { value: 'architectural', label: 'Architectural',   prefix: 'A' },
+  { value: 'structural',    label: 'Structural',      prefix: 'S' },
+  { value: 'mep',           label: 'MEP / HVAC',      prefix: 'M' },
+  { value: 'electrical',    label: 'Electrical',      prefix: 'E' },
+  { value: 'plumbing',      label: 'Plumbing',        prefix: 'P' },
+  { value: 'civil',         label: 'Civil / Site',    prefix: 'C' },
   { value: 'fire',          label: 'Fire Protection', prefix: 'FP' },
-  { value: 'landscape',     label: 'Landscape',      prefix: 'L' },
+  { value: 'landscape',     label: 'Landscape',       prefix: 'L' },
 ];
 
 function getNextVersion(currentVersion) {
@@ -69,24 +52,28 @@ function getNextVersion(currentVersion) {
   return `${currentVersion} - Rev 2`;
 }
 
+function formatBytes(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function BlueprintUploadModal({
   projectId,
   projectName,
   existingSheets = [],
   initialSheetId = null,
-  initialMode = 'new', // 'new' | 'version'
+  initialMode = 'new',
   initialBuildingId = '',
   initialBuildingName = '',
   initialFloorLevel = '',
   onClose,
   onUploaded,
 }) {
-  // Mode: 'new' (new sheet) | 'version' (upload latest revision for existing sheet)
   const [mode, setMode] = useState(initialMode === 'version' ? 'version' : 'new');
-
-  // File state — MailSlotUpload drives collection; we keep a plain File[] for the upload handler
-  const [files, setFiles] = useState([]); // array of { file, preview, error, id }
-  const mailSlotRef = useRef(null);
+  const [files, setFiles] = useState([]); // { id, file, preview, error }
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
   // New Blueprint Metadata
   const [buildingId, setBuildingId]       = useState(initialBuildingId || '');
@@ -96,20 +83,17 @@ export default function BlueprintUploadModal({
   const [sheetPrefix, setSheetPrefix]     = useState('A');
   const [revisionLabel, setRevisionLabel] = useState('Rev 1');
 
-  // Sync props if modal re-opens with new building/floor
   useEffect(() => {
     if (initialBuildingId !== undefined) setBuildingId(initialBuildingId);
   }, [initialBuildingId]);
-
   useEffect(() => {
     if (initialBuildingName) setBuildingName(initialBuildingName);
   }, [initialBuildingName]);
-
   useEffect(() => {
     if (initialFloorLevel) setFloorLevel(initialFloorLevel);
   }, [initialFloorLevel]);
 
-  // Latest Version Mode States
+  // Revision Mode States
   const [selectedSheetId, setSelectedSheetId] = useState(initialSheetId || existingSheets[0]?.id || '');
   const [newVersionLabel, setNewVersionLabel] = useState('');
   const [changeNotes, setChangeNotes]         = useState('');
@@ -121,50 +105,77 @@ export default function BlueprintUploadModal({
   const [uploadError, setUploadError]         = useState('');
   const [uploadDone, setUploadDone]           = useState(false);
 
-  // (file input is owned by MailSlotUpload; use mailSlotRef.current.open() if needed)
+  const currentSheet = existingSheets.find((s) => s.id === selectedSheetId) || existingSheets[0];
 
-  // Find currently selected sheet for version mode
-  const currentSheet = existingSheets.find(s => s.id === selectedSheetId) || existingSheets[0];
-
-  // Auto-sync sheet prefix when discipline changes (in 'new' mode)
   useEffect(() => {
-    const disc = DISCIPLINES.find(d => d.value === discipline);
+    const disc = DISCIPLINES.find((d) => d.value === discipline);
     if (disc) setSheetPrefix(disc.prefix);
   }, [discipline]);
 
-  // When selectedSheet changes in version mode, suggest next revision
   useEffect(() => {
     if (currentSheet) {
-      setNewVersionLabel(getNextVersion(currentSheet.version));
+      setNewVersionLabel(getNextVersion(currentSheet.version || currentSheet.revision));
     }
   }, [selectedSheetId, currentSheet]);
 
-  // ── MailSlotUpload onChange handler ────────────────────────────────────────
-  // Maps MailSlotUpload's item format back to the format the upload handler expects.
-  const handleMailSlotChange = useCallback((mailItems) => {
-    // Keep only queued or uploading items so we don't re-process done/error rows
-    const pending = mailItems.filter(it => it.status === 'queued' || it.status === 'uploading' || it.status === 'done');
-    setFiles(pending.map(it => ({
-      id: it.id,
-      file: it.file,
-      preview: it.file.type.startsWith('image/') ? URL.createObjectURL(it.file) : null,
-      error: it.status === 'error' ? it.error : null,
-    })));
-  }, []);
+  // Revoke object URLs on unmount
+  useEffect(() => {
+    return () => {
+      files.forEach((f) => {
+        if (f.preview && f.preview.startsWith('blob:')) URL.revokeObjectURL(f.preview);
+      });
+    };
+  }, [files]);
 
-  // ── Upload Handler ─────────────────────────────────────────────────────────
+  const addFiles = useCallback((incomingList) => {
+    const incoming = Array.from(incomingList || []);
+    if (incoming.length === 0) return;
+
+    const maxFiles = mode === 'version' ? 1 : 20;
+    const mapped = incoming.slice(0, maxFiles).map((file, idx) => {
+      const isValidType =
+        Boolean(ACCEPTED_TYPES[file.type]) ||
+        /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(file.name || '');
+      let error = null;
+      if (!isValidType) {
+        error = 'Unsupported file format (use PDF, PNG, JPEG, TIFF, or WebP).';
+      } else if (file.size > MAX_FILE_BYTES) {
+        error = `File exceeds ${MAX_FILE_SIZE_MB} MB limit.`;
+      }
+      return {
+        id: `${Date.now()}-${idx}-${file.name}`,
+        file,
+        preview: !error && file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        error,
+      };
+    });
+
+    setUploadError('');
+    setFiles((prev) => {
+      if (mode === 'version') return mapped.slice(0, 1);
+      return [...prev, ...mapped].slice(0, maxFiles);
+    });
+  }, [mode]);
+
+  const removeFile = (id) => {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    addFiles(e.dataTransfer?.files);
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
-    const validFiles = files.filter(f => !f.error);
+    const validFiles = files.filter((f) => !f.error);
     if (validFiles.length === 0) return;
 
     setIsUploading(true);
     setUploadError('');
     setUploadProgress(0);
 
-    // ─────────────────────────────────────────────────────────────
-    // BRANCH 1: UPLOAD LATEST VERSION OF EXISTING BLUEPRINT
-    // ─────────────────────────────────────────────────────────────
     if (mode === 'version') {
       if (!selectedSheetId) {
         setUploadError('Please select which building blueprint to update.');
@@ -202,14 +213,13 @@ export default function BlueprintUploadModal({
             version: updatedVersion,
             revision: updatedVersion,
             image_url: filePreview || entry?.preview || currentSheet?.image_url,
-            changeNotes: changeNotes.trim() || 'Latest revision uploaded'
+            changeNotes: changeNotes.trim() || 'Latest revision uploaded',
           };
         }
 
-        // Always guarantee image_url is populated with the uploaded file preview
         updatedSheet = {
           ...updatedSheet,
-          image_url: updatedSheet.image_url || filePreview || entry?.preview || currentSheet?.image_url
+          image_url: updatedSheet.image_url || filePreview || entry?.preview || currentSheet?.image_url,
         };
 
         setUploadProgress(100);
@@ -224,9 +234,6 @@ export default function BlueprintUploadModal({
       return;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // BRANCH 2: UPLOAD NEW BLUEPRINT(S)
-    // ─────────────────────────────────────────────────────────────
     const allSheets = [];
     const step = 100 / validFiles.length;
 
@@ -293,15 +300,14 @@ export default function BlueprintUploadModal({
           image_url: filePreview || entry.preview || null,
           building_id: buildingId.trim() || null,
           building_name: buildingName.trim() || projectName || 'Tower A',
-          floor_level: floorLevel.trim() || 'Level 03'
+          floor_level: floorLevel.trim() || 'Level 03',
         }];
       } else {
-        // Ensure image_url is populated from preview if backend only returned file_path (e.g. PDF drawing set)
-        created = created.map(s => ({
+        created = created.map((s) => ({
           ...s,
           image_url: s.image_url || filePreview || entry.preview || null,
           number: s.number || s.sheet_number,
-          dimensions: s.dimensions || { width: s.width_pts || 1400, height: s.height_pts || 900 }
+          dimensions: s.dimensions || { width: s.width_pts || 1400, height: s.height_pts || 900 },
         }));
       }
 
@@ -316,110 +322,197 @@ export default function BlueprintUploadModal({
     if (onUploaded) onUploaded(allSheets);
   };
 
-  const validCount   = files.filter(f => !f.error).length;
-  const canSubmit    = validCount > 0 && !isUploading;
-
-  // MailSlotUpload onUpload: called per-file, with progress + AbortSignal support
-  const handleMailSlotUpload = useCallback((file, { onProgress, signal }) => {
-    return new Promise((resolve, reject) => {
-      signal?.addEventListener('abort', () => reject(new DOMException('Upload cancelled', 'AbortError')));
-      // Files are collected here; actual API call fires when user clicks "Upload Blueprints"
-      // We just resolve immediately so the row lands in the tray
-      onProgress(1);
-      resolve({ file, queued: true });
-    });
-  }, []);
+  const validCount = files.filter((f) => !f.error).length;
+  const errorCount = files.filter((f) => f.error).length;
+  const canSubmit = validCount > 0 && !isUploading;
 
   return (
-    <div className="bp-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="bp-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === 'version' ? 'Upload Latest Blueprint Version' : 'Upload Building Blueprint'}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
       <div className="bp-modal">
-
         {/* ── Header ── */}
         <div className="bp-header">
           <div className="bp-header-left">
             <div className="bp-header-icon">
-              <Building2 size={20} />
+              <Building2 size={20} aria-hidden="true" />
             </div>
             <div>
               <h2 className="bp-title">
                 {mode === 'version' ? 'Upload Latest Blueprint Version' : 'Upload Building Blueprint'}
               </h2>
-              <p className="bp-subtitle">{projectName || 'Project'} — Architectural Plan Ingestion</p>
+              <p className="bp-subtitle">
+                {projectName || 'Project'} · Architectural Plan Ingestion
+              </p>
             </div>
           </div>
-          <button className="bp-close-btn" onClick={onClose} aria-label="Close">
-            <X size={18} />
+
+          <button type="button" className="bp-close-btn" onClick={onClose} aria-label="Close">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        {/* ── Mode Switcher Tabs ── */}
+        {/* ── Mode Switcher ── */}
         {!uploadDone && (
-          <div className="bp-mode-bar">
+          <div className="bp-mode-bar" role="tablist" aria-label="Upload mode">
             <button
               type="button"
-              className={`bp-mode-btn ${mode === 'new' ? 'bp-mode-btn--active' : ''}`}
+              role="tab"
+              aria-selected={mode === 'new'}
+              className={`bp-mode-btn${mode === 'new' ? ' bp-mode-btn--active' : ''}`}
               onClick={() => { setMode('new'); setFiles([]); }}
             >
-              <Upload size={14} /> New Blueprint / Sheet
+              <Upload size={14} aria-hidden="true" />
+              <span>New Blueprint / Sheet</span>
             </button>
             <button
               type="button"
-              className={`bp-mode-btn ${mode === 'version' ? 'bp-mode-btn--active' : ''}`}
+              role="tab"
+              aria-selected={mode === 'version'}
+              className={`bp-mode-btn${mode === 'version' ? ' bp-mode-btn--active' : ''}`}
               onClick={() => { setMode('version'); setFiles([]); }}
             >
-              <RefreshCw size={14} /> Upload Latest Version (Revision)
+              <RefreshCw size={14} aria-hidden="true" />
+              <span>Upload Latest Version (Revision)</span>
             </button>
           </div>
         )}
 
-        {/* Version Mode Callout Banner */}
+        {/* Version Mode Callout */}
         {mode === 'version' && !uploadDone && (
           <div className="bp-version-banner">
-            <Info size={16} color="#D97706" style={{ flexShrink: 0 }} />
+            <Info size={15} color="#B45309" style={{ flexShrink: 0 }} aria-hidden="true" />
             <span>
-              Uploading a new revision updates the underlying plan for this building while <strong>automatically preserving all existing punch-list pins, statuses, and field markups</strong>.
+              Uploading a new revision updates the underlying plan while <strong>preserving all existing punch pins, statuses, and field markups</strong>.
             </span>
           </div>
         )}
 
         <div className="bp-body">
-
-          {/* ── LEFT: Drop zone + file list ── */}
+          {/* ── LEFT: Dropzone + File Queue ── */}
           <div className="bp-left">
-
-            {/* ── MailSlotUpload: Letterbox drop zone + mail tray queue ── */}
             {!uploadDone && (
-              <MailSlotUpload
-                ref={mailSlotRef}
-                accept={ACCEPT_STRING}
-                maxSize={MAX_FILE_SIZE_MB * 1024 * 1024}
-                maxFiles={mode === 'version' ? 1 : 20}
-                multiple={mode !== 'version'}
-                concurrency={2}
-                onUpload={handleMailSlotUpload}
-                onChange={handleMailSlotChange}
-                labels={{
-                  slot: mode === 'version' ? 'Choose blueprint revision file' : 'Choose blueprint files to upload',
-                  hint: 'Drop files through the slot, or',
-                  hintTouch: 'Tap the letterbox to choose blueprint files',
-                  flap: 'PLANS',
-                  stamp: 'RECEIVED',
-                  returnStamp: ['RETURN TO', 'SENDER'],
-                  tray: 'Blueprint Queue',
-                  empty: 'No blueprints queued yet',
-                }}
-              />
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPT_STRING}
+                  multiple={mode !== 'version'}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    addFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`bp-dropzone${isDragging ? ' bp-dropzone--active' : ''}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  aria-label="Drop blueprint files here or click to browse"
+                >
+                  <div className="bp-dropzone-inner">
+                    <div className={`bp-dropzone-icon${isDragging ? ' bp-dropzone-icon--active' : ''}`}>
+                      <Upload size={22} aria-hidden="true" />
+                    </div>
+                    <p className="bp-dropzone-primary">
+                      {mode === 'version'
+                        ? 'Drop revised blueprint here, or click to browse'
+                        : 'Drop blueprint files here, or click to browse'}
+                    </p>
+                    <p className="bp-dropzone-secondary">
+                      PDF drawing sets (auto-split into sheets) or high-res plan images
+                    </p>
+                    <div className="bp-dropzone-types">
+                      <span className="bp-type-tag bp-type-pdf">PDF</span>
+                      <span className="bp-type-tag bp-type-img">PNG</span>
+                      <span className="bp-type-tag bp-type-img">JPEG</span>
+                      <span className="bp-type-tag bp-type-img">TIFF</span>
+                      <span className="bp-type-tag bp-type-img">WEBP</span>
+                    </div>
+                    <p className="bp-dropzone-limit">
+                      Up to {MAX_FILE_SIZE_MB} MB each · {mode === 'version' ? '1 file' : '20 files max'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* File Queue */}
+                {files.length > 0 && (
+                  <div className="bp-file-list">
+                    <div className="bp-file-list-header">
+                      <span>Queued Files ({validCount})</span>
+                      {errorCount > 0 && (
+                        <span className="bp-file-error-count">{errorCount} invalid</span>
+                      )}
+                    </div>
+
+                    {files.map((entry) => {
+                      const typeMeta = ACCEPTED_TYPES[entry.file.type];
+                      const IconComp = typeMeta?.icon || FileText;
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`bp-file-item${entry.error ? ' bp-file-item--error' : ''}`}
+                        >
+                          <div className="bp-file-thumb">
+                            {entry.preview ? (
+                              <img src={entry.preview} alt="" />
+                            ) : (
+                              <IconComp size={18} color={typeMeta?.color || '#78716C'} aria-hidden="true" />
+                            )}
+                          </div>
+                          <div className="bp-file-info">
+                            <div className="bp-file-name">{entry.file.name}</div>
+                            <div className={`bp-file-meta${entry.error ? ' bp-file-meta--error' : ''}`}>
+                              {entry.error ? entry.error : `${formatBytes(entry.file.size)} · Ready`}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="bp-file-remove"
+                            onClick={() => removeFile(entry.id)}
+                            aria-label={`Remove ${entry.file.name}`}
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Progress indicator */}
+            {/* Progress Indicator */}
             {isUploading && (
-              <div className="bp-progress-card">
-                <div className="bp-progress-header">
-                  <div className="bp-progress-label">
-                    <span className="bp-spinner" />
-                    <span>{mode === 'version' ? 'Archiving previous revision & deploying latest blueprint...' : 'Ingesting & rasterizing blueprint...'}</span>
-                  </div>
-                  <span className="bp-progress-pct">{uploadProgress}%</span>
+              <div className="bp-progress-wrap">
+                <div className="bp-progress-label">
+                  <span>
+                    {mode === 'version'
+                      ? 'Archiving previous revision & deploying latest blueprint…'
+                      : 'Ingesting & rasterizing blueprint…'}
+                  </span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{uploadProgress}%</span>
                 </div>
                 <div className="bp-progress-track">
                   <div className="bp-progress-fill" style={{ width: `${uploadProgress}%` }} />
@@ -427,265 +520,263 @@ export default function BlueprintUploadModal({
               </div>
             )}
 
-            {/* Upload Error Banner */}
+            {/* Error Banner */}
             {uploadError && (
-              <div className="bp-error-banner">
-                <AlertCircle size={16} />
+              <div className="bp-error-banner" role="alert">
+                <AlertCircle size={16} aria-hidden="true" />
                 <span>{uploadError}</span>
               </div>
             )}
 
             {/* Success Summary */}
             {uploadDone && (
-              <div className="bp-success-card">
+              <div className="bp-success">
                 <div className="bp-success-icon">
-                  <CheckCircle2 size={36} color="#10B981" />
+                  <CheckCircle2 size={36} color="#15803D" aria-hidden="true" />
                 </div>
                 <h3 className="bp-success-title">
-                  {mode === 'version' ? 'Latest Revision Uploaded Successfully!' : 'Blueprints Ingested Successfully!'}
+                  {mode === 'version' ? 'Latest Revision Uploaded' : 'Blueprints Ingested'}
                 </h3>
                 <p className="bp-success-sub">
                   {mode === 'version'
-                    ? `Sheet ${currentSheet?.sheet_number} is now active at revision "${uploadedSheets[0]?.version || newVersionLabel}". All pins and field annotations remain intact.`
-                    : `${uploadedSheets.length} sheet(s) have been added to the architectural drawing set.`}
+                    ? `Sheet ${currentSheet?.sheet_number || ''} is now active at ${uploadedSheets[0]?.version || newVersionLabel}.`
+                    : `${uploadedSheets.length} sheet(s) added to the drawing set.`}
                 </p>
 
                 <div className="bp-success-sheets">
-                  {uploadedSheets.map(s => (
-                    <div key={s.id} className="bp-sheet-chip">
-                      <FileText size={14} color="#D97706" />
-                      <span className="bp-chip-number">{s.sheet_number}</span>
-                      <span className="bp-chip-name">{s.name}</span>
-                      <span className="bp-chip-rev">{s.version || 'Rev 1'}</span>
+                  {uploadedSheets.map((s) => (
+                    <div key={s.id} className="bp-success-sheet">
+                      <FileText size={14} color="#D97706" aria-hidden="true" />
+                      <span className="bp-chip-number">{s.sheet_number || s.number}</span>
+                      <span className="bp-success-sheet-name">{s.name || s.title}</span>
+                      <span className="bp-badge-rev">{s.version || 'Rev 1'}</span>
                     </div>
                   ))}
                 </div>
 
                 <button
-                  className="bp-btn-primary"
-                  style={{ width: '100%', marginTop: 16 }}
+                  type="button"
+                  className="bp-btn bp-btn--primary"
+                  style={{ width: '100%', marginTop: 12 }}
                   onClick={onClose}
                 >
                   Open in Plan Viewer
                 </button>
               </div>
             )}
-
           </div>
 
           {/* ── RIGHT: Metadata Form ── */}
           {!uploadDone && (
             <div className="bp-right">
               <form onSubmit={handleUpload} className="bp-form">
+                <div className="bp-form-fields">
+                  {mode === 'version' ? (
+                    <>
+                      <div className="bp-form-section-title">
+                        <RefreshCw size={14} color="#D97706" aria-hidden="true" />
+                        <span>Target Blueprint</span>
+                      </div>
 
-                {/* ────────────────────────────────────────────────────────── */}
-                {/* MODE = VERSION: Target Sheet Selection & Next Revision     */}
-                {/* ────────────────────────────────────────────────────────── */}
-                {mode === 'version' ? (
-                  <>
-                    <div className="bp-form-section-title">
-                      <RefreshCw size={14} color="#D97706" />
-                      <span>Target Blueprint for Revision</span>
-                    </div>
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-target-sheet">
+                          Select Blueprint to Update
+                        </label>
+                        <select
+                          id="bp-target-sheet"
+                          value={selectedSheetId}
+                          onChange={(e) => setSelectedSheetId(e.target.value)}
+                          className="bp-select"
+                          required
+                        >
+                          {existingSheets.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.number || s.sheet_number} — {s.title || s.name} [{s.revision || s.version || 'Rev 1'}]
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {/* Target Sheet dropdown */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-target-sheet">Select Blueprint to Update *</label>
-                      <select
-                        id="bp-target-sheet"
-                        value={selectedSheetId}
-                        onChange={(e) => setSelectedSheetId(e.target.value)}
-                        className="bp-select"
-                        required
-                      >
-                        {existingSheets.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.number || s.sheet_number} — {s.title || s.name} [{s.revision || s.version || 'Rev 1'}]
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Selected Sheet Current Status Card */}
-                    {currentSheet && (
-                      <div className="bp-current-sheet-card">
-                        <div className="bp-csc-row">
-                          <span className="bp-csc-label">Sheet Number:</span>
-                          <span className="bp-csc-val font-mono">{currentSheet.number || currentSheet.sheet_number}</span>
-                        </div>
-                        <div className="bp-csc-row">
-                          <span className="bp-csc-label">Current Version:</span>
-                          <span className="bp-csc-val bp-badge-rev">{currentSheet.revision || currentSheet.version || 'Rev 1'}</span>
-                        </div>
-                        {(currentSheet.building_name || currentSheet.buildingName) && (
+                      {currentSheet && (
+                        <div className="bp-current-sheet-card">
                           <div className="bp-csc-row">
-                            <span className="bp-csc-label">Building:</span>
-                            <span className="bp-csc-val">{currentSheet.building_name || currentSheet.buildingName}</span>
+                            <span className="bp-csc-label">Sheet Number</span>
+                            <span className="bp-csc-val bp-input--mono">{currentSheet.number || currentSheet.sheet_number}</span>
                           </div>
-                        )}
-                        <div className="bp-csc-row">
-                          <span className="bp-csc-label">Open Pins:</span>
-                          <span className="bp-csc-val">{currentSheet.open_pin_count || 0} items active</span>
+                          <div className="bp-csc-row">
+                            <span className="bp-csc-label">Current Version</span>
+                            <span className="bp-csc-val bp-badge-rev">{currentSheet.revision || currentSheet.version || 'Rev 1'}</span>
+                          </div>
+                          {(currentSheet.building_name || currentSheet.buildingName) && (
+                            <div className="bp-csc-row">
+                              <span className="bp-csc-label">Building</span>
+                              <span className="bp-csc-val">{currentSheet.building_name || currentSheet.buildingName}</span>
+                            </div>
+                          )}
+                          <div className="bp-csc-row">
+                            <span className="bp-csc-label">Open Pins</span>
+                            <span className="bp-csc-val">{currentSheet.open_pin_count || 0} active</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-new-version">
+                          New Revision Label
+                        </label>
+                        <input
+                          id="bp-new-version"
+                          type="text"
+                          value={newVersionLabel}
+                          onChange={(e) => setNewVersionLabel(e.target.value)}
+                          placeholder="e.g. Rev 2, Addendum 2"
+                          className="bp-input bp-input--mono"
+                          required
+                        />
+                      </div>
+
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-change-notes">
+                          Revision Notes
+                        </label>
+                        <textarea
+                          id="bp-change-notes"
+                          rows={3}
+                          value={changeNotes}
+                          onChange={(e) => setChangeNotes(e.target.value)}
+                          placeholder="e.g. Relocated conduits per RFI #45"
+                          className="bp-input"
+                          style={{ resize: 'vertical' }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bp-form-section-title">
+                        <Building2 size={14} color="#D97706" aria-hidden="true" />
+                        <span>Building &amp; Floor Assignment</span>
+                      </div>
+
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-building-name">
+                          Building Name / Identifier
+                        </label>
+                        <input
+                          id="bp-building-name"
+                          type="text"
+                          value={buildingName}
+                          onChange={(e) => setBuildingName(e.target.value)}
+                          placeholder="e.g. Administration Building"
+                          className="bp-input"
+                        />
+                      </div>
+
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-floor-level">
+                          Floor / Level
+                        </label>
+                        <input
+                          id="bp-floor-level"
+                          type="text"
+                          value={floorLevel}
+                          onChange={(e) => setFloorLevel(e.target.value)}
+                          placeholder="e.g. 1st Floor, Level 2, Roof"
+                          className="bp-input"
+                        />
+                      </div>
+
+                      <div className="bp-form-section-divider" />
+
+                      <div className="bp-form-section-title">
+                        <Layers size={14} color="#D97706" aria-hidden="true" />
+                        <span>Plan Sheet Classification</span>
+                      </div>
+
+                      <div className="bp-field">
+                        <label className="bp-label" htmlFor="bp-discipline">
+                          Discipline
+                        </label>
+                        <select
+                          id="bp-discipline"
+                          value={discipline}
+                          onChange={(e) => setDiscipline(e.target.value)}
+                          className="bp-select"
+                        >
+                          {DISCIPLINES.map((d) => (
+                            <option key={d.value} value={d.value}>
+                              {d.label} ({d.prefix}-Series)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="bp-field-row">
+                        <div className="bp-field" style={{ flex: 1 }}>
+                          <label className="bp-label" htmlFor="bp-sheet-prefix">
+                            Prefix
+                          </label>
+                          <input
+                            id="bp-sheet-prefix"
+                            type="text"
+                            value={sheetPrefix}
+                            onChange={(e) => setSheetPrefix(e.target.value.toUpperCase())}
+                            placeholder="A"
+                            maxLength={4}
+                            className="bp-input bp-input--mono"
+                          />
+                        </div>
+                        <div className="bp-field" style={{ flex: 1.4 }}>
+                          <label className="bp-label" htmlFor="bp-revision-label">
+                            Initial Revision
+                          </label>
+                          <input
+                            id="bp-revision-label"
+                            type="text"
+                            value={revisionLabel}
+                            onChange={(e) => setRevisionLabel(e.target.value)}
+                            placeholder="Rev 1"
+                            className="bp-input bp-input--mono"
+                          />
                         </div>
                       </div>
-                    )}
+                    </>
+                  )}
+                </div>
 
-                    {/* Next Revision Label */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-new-version">New Revision Label *</label>
-                      <input
-                        id="bp-new-version"
-                        type="text"
-                        value={newVersionLabel}
-                        onChange={(e) => setNewVersionLabel(e.target.value)}
-                        placeholder="e.g. Rev 2, Rev 3 (IFC), Addendum 2"
-                        className="bp-input bp-mono"
-                        required
-                      />
-                    </div>
-
-                    {/* Change / Addendum Notes */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-change-notes">Revision Summary / Addendum Notes</label>
-                      <textarea
-                        id="bp-change-notes"
-                        rows={3}
-                        value={changeNotes}
-                        onChange={(e) => setChangeNotes(e.target.value)}
-                        placeholder="e.g. Relocated electrical conduits per RFI #45; updated core wall opening"
-                        className="bp-input"
-                        style={{ resize: 'vertical' }}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  /* ────────────────────────────────────────────────────────── */
-                  /* MODE = NEW: Full Building & Discipline Metadata Form       */
-                  /* ────────────────────────────────────────────────────────── */
-                  <>
-                    <div className="bp-form-section-title">
-                      <Building2 size={14} color="#D97706" />
-                      <span>Building & Floor Assignment</span>
-                    </div>
-
-                    {/* Building Name */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-building-name">Building Name / Identifier</label>
-                      <input
-                        id="bp-building-name"
-                        type="text"
-                        value={buildingName}
-                        onChange={(e) => setBuildingName(e.target.value)}
-                        placeholder="e.g. Building A, Science Complex, North Tower"
-                        className="bp-input"
-                      />
-                    </div>
-
-                    {/* Floor Level */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-floor-level">Floor / Level</label>
-                      <input
-                        id="bp-floor-level"
-                        type="text"
-                        value={floorLevel}
-                        onChange={(e) => setFloorLevel(e.target.value)}
-                        placeholder="e.g. Ground Floor, Level 2, Roof, Basement"
-                        className="bp-input"
-                      />
-                    </div>
-
-                    <div className="bp-form-section-title" style={{ marginTop: 8 }}>
-                      <Layers size={14} color="#D97706" />
-                      <span>Plan Sheet Classification</span>
-                    </div>
-
-                    {/* Discipline */}
-                    <div className="bp-field">
-                      <label htmlFor="bp-discipline">Discipline</label>
-                      <select
-                        id="bp-discipline"
-                        value={discipline}
-                        onChange={(e) => setDiscipline(e.target.value)}
-                        className="bp-select"
-                      >
-                        {DISCIPLINES.map(d => (
-                          <option key={d.value} value={d.value}>
-                            {d.label} ({d.prefix}-Series)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Sheet prefix and revision inline */}
-                    <div className="bp-field-row">
-                      <div className="bp-field" style={{ flex: 1 }}>
-                        <label htmlFor="bp-sheet-prefix">Prefix</label>
-                        <input
-                          id="bp-sheet-prefix"
-                          type="text"
-                          value={sheetPrefix}
-                          onChange={(e) => setSheetPrefix(e.target.value.toUpperCase())}
-                          placeholder="e.g. A"
-                          maxLength={4}
-                          className="bp-input bp-mono"
-                        />
-                      </div>
-                      <div className="bp-field" style={{ flex: 1 }}>
-                        <label htmlFor="bp-revision-label">Initial Revision</label>
-                        <input
-                          id="bp-revision-label"
-                          type="text"
-                          value={revisionLabel}
-                          onChange={(e) => setRevisionLabel(e.target.value)}
-                          placeholder="e.g. Rev 1"
-                          className="bp-input bp-mono"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Submit Action */}
+                {/* Pinned Footer Actions */}
                 <div className="bp-form-actions">
                   <button
-                    type="submit"
-                    className="bp-btn-primary"
-                    disabled={!canSubmit}
-                  >
-                    {isUploading ? (
-                      <>
-                        <span className="bp-spinner" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : mode === 'version' ? (
-                      <>
-                        <RefreshCw size={15} />
-                        <span>Upload {newVersionLabel || 'Latest Revision'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={15} />
-                        <span>Ingest {validCount > 0 ? `${validCount} Blueprint(s)` : 'Blueprint'}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
                     type="button"
-                    className="bp-btn-ghost"
+                    className="bp-btn bp-btn--ghost"
                     onClick={onClose}
                     disabled={isUploading}
                   >
                     Cancel
                   </button>
+                  <button
+                    type="submit"
+                    className={`bp-btn bp-btn--primary${!canSubmit ? ' bp-btn--disabled' : ''}`}
+                    disabled={!canSubmit}
+                  >
+                    {isUploading ? (
+                      <span>Uploading…</span>
+                    ) : mode === 'version' ? (
+                      <>
+                        <RefreshCw size={14} aria-hidden="true" />
+                        <span>Upload {newVersionLabel || 'Revision'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={14} aria-hidden="true" />
+                        <span>Ingest {validCount > 0 ? `${validCount} Blueprint${validCount > 1 ? 's' : ''}` : 'Blueprint'}</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-
               </form>
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );

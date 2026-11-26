@@ -9,17 +9,20 @@ import {
   Settings,
   ChevronDown,
   Search,
+  SlidersHorizontal,
   WifiOff,
   RefreshCw,
   Bell,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Menu,
+  Plus,
   LogOut,
   Building2,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { umbcBuildings, getBuildingById } from '../data/umbcBuildings';
+import { ROLE_LABELS } from '../data/rbac';
 import './AppShell.css';
 
 /* ------------------------------------------------------------------ */
@@ -44,6 +47,10 @@ const getShortcutLabel = () =>
   typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
     ? '⌘K'
     : 'Ctrl K';
+
+const formatRoleLabel = (role = '') =>
+  ROLE_LABELS[String(role || '').trim().toLowerCase()]
+  ?? (role ? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Field Member');
 
 /** Calls onDismiss('outside' | 'escape') while `active` is true. */
 function useDismiss(ref, active, onDismiss) {
@@ -85,22 +92,30 @@ function NavButton({ item, active, collapsed, onClick }) {
       aria-current={active ? 'page' : undefined}
       data-collapsed={collapsed || undefined}
     >
-      <Icon size={19} strokeWidth={active ? 2.4 : 2} aria-hidden="true" />
+      <span className="nav-btn__pill">
+        <Icon size={19} strokeWidth={active ? 2.3 : 1.9} aria-hidden="true" />
+        {collapsed && item.badge != null && (
+          <span className="nav-btn__dot" aria-label={`${item.badge} open items`} />
+        )}
+      </span>
       {!collapsed && <span className="nav-btn__label">{item.label}</span>}
       {!collapsed && item.badge != null && <span className="nav-btn__badge">{item.badge}</span>}
     </button>
   );
 }
 
-function Avatar({ user }) {
+function Avatar({ user, size = 34 }) {
   const [failed, setFailed] = useState(false);
   const avatarUrl = user?.avatar_url || user?.avatar;
   useEffect(() => setFailed(false), [avatarUrl]);
+
+  const style = { width: size, height: size };
 
   if (avatarUrl && !failed) {
     return (
       <img
         className="avatar"
+        style={style}
         src={avatarUrl}
         alt=""
         title={user?.name}
@@ -109,7 +124,7 @@ function Avatar({ user }) {
     );
   }
   return (
-    <div className="avatar avatar--fallback" title={user?.name} aria-hidden="true">
+    <div className="avatar avatar--fallback" style={style} title={user?.name} aria-hidden="true">
       {getInitials(user?.name) || '?'}
     </div>
   );
@@ -128,19 +143,19 @@ function SyncBadge({ state, queuedCount, onToggle }) {
       {state === 'synced' && (
         <>
           <span className="sync-badge__dot" />
-          <span>SYNCED</span>
+          <span className="sync-badge__text">Synced</span>
         </>
       )}
       {state === 'syncing' && (
         <>
           <RefreshCw size={12} className="sync-badge__spin" aria-hidden="true" />
-          <span>SYNCING…</span>
+          <span className="sync-badge__text">Syncing…</span>
         </>
       )}
       {state === 'offline' && (
         <>
           <WifiOff size={13} aria-hidden="true" />
-          <span>OFFLINE · {queuedCount} QUEUED</span>
+          <span className="sync-badge__text">Offline · {queuedCount} queued</span>
         </>
       )}
     </button>
@@ -163,6 +178,7 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-haspopup="true"
         aria-expanded={open}
+        title="Notifications"
         style={{ position: 'relative' }}
       >
         <Bell size={19} aria-hidden="true" />
@@ -170,7 +186,7 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
       </button>
 
       {open && (
-        <div className="glass-hud notif__panel">
+        <div className="floating-hud notif__panel">
           <div className="notif__head">
             <span className="notif__title">Field Notifications</span>
             <button
@@ -196,6 +212,68 @@ function NotificationsMenu({ notifications, onMarkAllRead }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserAccountMenu({ user, onOpenSettings, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useDismiss(ref, open, () => setOpen(false));
+
+  return (
+    <div className="user-menu" ref={ref}>
+      <button
+        type="button"
+        className="user-menu__trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`Account menu for ${user?.name || 'Field User'}`}
+        aria-haspopup="true"
+        aria-expanded={open}
+        title={`${user?.name || 'Field User'} (${formatRoleLabel(user?.role)})`}
+      >
+        <Avatar user={user} size={34} />
+      </button>
+
+      {open && (
+        <div className="floating-hud user-menu__panel" role="menu">
+          <div className="user-menu__profile">
+            <Avatar user={user} size={42} />
+            <div className="user-menu__info">
+              <div className="user-menu__name">{user?.name || 'Field User'}</div>
+              {user?.email && <div className="user-menu__email">{user.email}</div>}
+              <div className="user-menu__role">{formatRoleLabel(user?.role)}</div>
+            </div>
+          </div>
+
+          <div className="user-menu__actions">
+            <button
+              type="button"
+              className="user-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenSettings();
+              }}
+            >
+              <Settings size={15} aria-hidden="true" />
+              <span>Profile &amp; Settings</span>
+            </button>
+            <button
+              type="button"
+              className="user-menu__item user-menu__item--danger"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+            >
+              <LogOut size={15} aria-hidden="true" />
+              <span>Sign out</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -244,7 +322,7 @@ function BuildingFloorSelector({
   useDismiss(rootRef, open, (reason) => close(reason === 'escape'));
 
   const openAt = (nextStep) => {
-    if (open) {
+    if (open && step === nextStep) {
       close();
       return;
     }
@@ -264,6 +342,13 @@ function BuildingFloorSelector({
     close(true);
   };
 
+  const clearSelection = () => {
+    onSelectBuilding(null);
+    setHoveredId(umbcBuildings[0]?.id || null);
+    setStep('building');
+    searchRef.current?.focus();
+  };
+
   /* Keyboard: search -> buildings -> floors */
   const buildingButtons = () => [...(buildingsRef.current?.querySelectorAll('[data-building]') || [])];
   const floorButtons = () => [...(floorsRef.current?.querySelectorAll('[data-floor]') || [])];
@@ -279,6 +364,13 @@ function BuildingFloorSelector({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       buildingButtons()[0]?.focus();
+    } else if (e.key === 'Enter' && filtered.length === 1) {
+      e.preventDefault();
+      const target = filtered[0];
+      pickBuilding(target.id);
+      if (target.floors.length > 0) {
+        requestAnimationFrame(() => floorButtons()[0]?.focus());
+      }
     }
   };
 
@@ -318,50 +410,52 @@ function BuildingFloorSelector({
 
   return (
     <div className="selector" ref={rootRef}>
-      <button
-        ref={buildingBtnRef}
-        type="button"
-        id="building-btn"
-        className={`sel-btn${selected ? ' has-value' : ''}${open ? ' is-open' : ''}`}
-        onClick={() => openAt('building')}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="Select building"
-      >
-        <span className="sel-btn__eyebrow">Building</span>
-        <span className="sel-btn__value">
-          <span>{selected ? selected.name : 'Select building'}</span>
-          <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
-        </span>
-      </button>
+      <div className="selector__group">
+        <button
+          ref={buildingBtnRef}
+          type="button"
+          id="building-btn"
+          className={`sel-btn${selected ? ' has-value' : ''}${open && step === 'building' ? ' is-open' : ''}`}
+          onClick={() => openAt('building')}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title="Select building"
+        >
+          <Building2 size={14} className="sel-btn__icon" aria-hidden="true" />
+          <span className="sel-btn__value">
+            <span>{selected ? selected.name : 'Select building'}</span>
+            <ChevronDown size={13} className="sel-btn__chevron" color="var(--text-muted)" aria-hidden="true" />
+          </span>
+        </button>
 
-      {selected && (
-        <>
-          <span className="selector__sep" aria-hidden="true">/</span>
-          <button
-            ref={floorBtnRef}
-            type="button"
-            id="floor-btn"
-            className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
-              open && step === 'floor' ? ' is-open' : ''
-            }`}
-            onClick={() => openAt('floor')}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            title={`Select level in ${selected.name}`}
-          >
-            <span className="sel-btn__eyebrow">Level</span>
-            <span className="sel-btn__value">
-              <span>{selectedFloorId || 'Select level'}</span>
-              <ChevronDown size={14} color="var(--text-muted)" aria-hidden="true" />
-            </span>
-          </button>
-        </>
-      )}
+        {selected && (
+          <>
+            <span className="selector__divider" aria-hidden="true" />
+            <button
+              ref={floorBtnRef}
+              type="button"
+              id="floor-btn"
+              className={`sel-btn sel-btn--floor${selectedFloorId ? ' has-value' : ''}${
+                open && step === 'floor' ? ' is-open' : ''
+              }`}
+              onClick={() => openAt('floor')}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              title={`Select level in ${selected.name}`}
+            >
+              <Layers size={14} className="sel-btn__icon" aria-hidden="true" />
+              <span className="sel-btn__value">
+                <span>{selectedFloorId || 'Select level'}</span>
+                <ChevronDown size={13} className="sel-btn__chevron" color="var(--text-muted)" aria-hidden="true" />
+              </span>
+            </button>
+          </>
+        )}
+      </div>
 
       {open && (
         <div
-          className="glass-hud floating-hud sel-panel"
+          className="floating-hud sel-panel"
           role="dialog"
           aria-label="Building and level navigator"
         >
@@ -371,14 +465,26 @@ function BuildingFloorSelector({
                 <Building2 size={16} color="var(--amber)" aria-hidden="true" />
                 <span>Building &amp; Level Navigator</span>
               </div>
-              <div className="sel-panel__path">
-                {selected ? (
-                  <>
-                    <strong>{selected.name}</strong>
-                    {selectedFloorId && <em> · {selectedFloorId}</em>}
-                  </>
-                ) : (
-                  'Choose a building'
+              <div className="sel-panel__path-wrap">
+                <div className="sel-panel__path">
+                  {selected ? (
+                    <>
+                      <strong>{selected.name}</strong>
+                      {selectedFloorId && <em> · {selectedFloorId}</em>}
+                    </>
+                  ) : (
+                    'Choose a building'
+                  )}
+                </div>
+                {selected && (
+                  <button
+                    type="button"
+                    className="sel-panel__clear"
+                    onClick={clearSelection}
+                    aria-label="Clear selected building and level"
+                  >
+                    Clear
+                  </button>
                 )}
               </div>
             </div>
@@ -388,7 +494,7 @@ function BuildingFloorSelector({
               <input
                 ref={searchRef}
                 type="text"
-                className="input-field"
+                className="sel-search__input"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKeyDown}
@@ -396,6 +502,16 @@ function BuildingFloorSelector({
                 aria-label="Search buildings"
                 autoFocus
               />
+              {query && (
+                <button
+                  type="button"
+                  className="sel-search__clear"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear building search"
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             <div className="mobile-step-tabs" style={{ display: 'flex', gap: 6 }}>
@@ -491,14 +607,10 @@ function BuildingFloorSelector({
                             aria-pressed={isFloorSelected}
                           >
                             <span className="f-row__label">
-                              <Layers
-                                size={14}
-                                color={isFloorSelected ? '#FFFFFF' : 'var(--amber)'}
-                                aria-hidden="true"
-                              />
+                              <span className="f-row__dot" aria-hidden="true" />
                               <span>{floor}</span>
                             </span>
-                            {isFloorSelected && <CheckCircle2 size={15} color="#FFFFFF" aria-hidden="true" />}
+                            {isFloorSelected && <CheckCircle2 size={14} color="#FFFFFF" aria-hidden="true" />}
                           </button>
                         );
                       })}
@@ -522,6 +634,13 @@ function BuildingFloorSelector({
               )}
             </div>
           </div>
+
+          <div className="sel-panel__foot" aria-hidden="true">
+            <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+            <span><kbd>→</kbd> Floors</span>
+            <span><kbd>Enter</kbd> Select</span>
+            <span><kbd>Esc</kbd> Close</span>
+          </div>
         </div>
       )}
     </div>
@@ -529,7 +648,7 @@ function BuildingFloorSelector({
 }
 
 /* ------------------------------------------------------------------ */
-/* AppShell                                                            */
+/* AppShell (Gmail-inspired full-width topbar + collapsible icon rail) */
 /* ------------------------------------------------------------------ */
 
 export default function AppShell({
@@ -546,11 +665,12 @@ export default function AppShell({
   queuedCount = 0,
   onToggleSyncState,
   onOpenQuickSearch,
+  onNewPunch,
   onLogout,
   initialNotifications = [],
   children
 }) {
-  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(true);
   const [notifications, setNotifications] = useState(initialNotifications);
 
   const shortcut = useMemo(getShortcutLabel, []);
@@ -571,139 +691,189 @@ export default function AppShell({
 
   const mobileItems = [...NAV_WORKSPACE, ...NAV_MANAGE];
 
+  const handleNewPunch = () => {
+    if (onNewPunch) onNewPunch();
+    else onNavigate('blueprints');
+  };
+
   return (
     <div className="app-shell">
-      {/* ---------------- Left rail ---------------- */}
-      <aside className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}>
-        <div className="rail__brand">
-          <div className="rail__logo">
-            <HardHat size={20} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
-          </div>
-          {!isRailCollapsed && (
-            <div className="rail__name">
-              PunchList <span>PRO</span>
-            </div>
-          )}
-        </div>
-
-        <nav className="rail__nav" aria-label="Main">
-          <div>
-            {!isRailCollapsed && <div className="rail__group-label">Workspace</div>}
-            <div className="rail__group">
-              {workspaceItems.map((item) => (
-                <NavButton
-                  key={item.id}
-                  item={item}
-                  active={activeModule === item.id}
-                  collapsed={isRailCollapsed}
-                  onClick={() => onNavigate(item.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            {!isRailCollapsed && <div className="rail__group-label">Manage</div>}
-            <div className="rail__group">
-              {NAV_MANAGE.map((item) => (
-                <NavButton
-                  key={item.id}
-                  item={item}
-                  active={activeModule === item.id}
-                  collapsed={isRailCollapsed}
-                  onClick={() => onNavigate(item.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </nav>
-
-        <div className="rail__footer">
-          <Avatar user={currentUser} />
-
-          {!isRailCollapsed && (
-            <div className="rail__user">
-              <div className="rail__user-name">{currentUser?.name}</div>
-              <div className="rail__user-role">{currentUser?.role}</div>
-            </div>
-          )}
+      {/* ---------------- Full-width Topbar ---------------- */}
+      <header className="topbar">
+        <div className="topbar__left">
+          <button
+            type="button"
+            className="btn-icon topbar__menu-btn"
+            onClick={() => setIsRailCollapsed((c) => !c)}
+            title={isRailCollapsed ? 'Expand main menu' : 'Collapse main menu'}
+            aria-label={isRailCollapsed ? 'Expand main menu' : 'Collapse main menu'}
+            aria-expanded={!isRailCollapsed}
+          >
+            <Menu size={20} aria-hidden="true" />
+          </button>
 
           <button
             type="button"
-            className="btn-icon rail__toggle"
-            onClick={() => setIsRailCollapsed((c) => !c)}
-            title={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={isRailCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!isRailCollapsed}
+            className="topbar__brand"
+            onClick={() => onNavigate('dashboard')}
+            title="Go to Dashboard"
+            aria-label="PunchList Pro — Go to Dashboard"
           >
-            {isRailCollapsed ? (
-              <PanelLeftOpen size={18} aria-hidden="true" />
-            ) : (
-              <PanelLeftClose size={18} aria-hidden="true" />
-            )}
+            <div className="topbar__logo">
+              <HardHat size={19} color="#FFFFFF" strokeWidth={2.4} aria-hidden="true" />
+            </div>
+            <div className="topbar__name">
+              PunchList <span>PRO</span>
+            </div>
           </button>
         </div>
-      </aside>
 
-      {/* ---------------- Main column ---------------- */}
-      <div className="shell-main">
-        <header className="topbar">
+        <div className="topbar__center">
+          <button
+            type="button"
+            className="search-pill"
+            onClick={onOpenQuickSearch}
+            title="Quick search (Ctrl+K)"
+            aria-label="Search pins, sheets, and punch items"
+          >
+            <Search size={17} className="search-pill__icon" aria-hidden="true" />
+            <span className="search-pill__label">Search pins, sheets…</span>
+            <span className="search-pill__meta">
+              <kbd>{shortcut}</kbd>
+              <SlidersHorizontal size={15} className="search-pill__filter" aria-hidden="true" />
+            </span>
+          </button>
+
           <BuildingFloorSelector
             selectedBuildingId={selectedBuildingId}
             selectedFloorId={selectedFloorId}
             onSelectBuilding={onSelectUmbcBuilding}
             onSelectFloor={onSelectUmbcFloor}
           />
+        </div>
 
-          <div className="topbar__right">
-            <button
-              type="button"
-              className="search-pill"
-              onClick={onOpenQuickSearch}
-            >
-              <Search size={15} color="var(--text-secondary)" aria-hidden="true" />
-              <span className="search-pill__label">Search field…</span>
-              <kbd>{shortcut}</kbd>
-            </button>
+        <div className="topbar__right">
+          <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
 
-            <SyncBadge state={syncState} queuedCount={queuedCount} onToggle={onToggleSyncState} />
-
+          <div className="topbar__actions">
             <NotificationsMenu notifications={notifications} onMarkAllRead={markAllRead} />
 
             <button
               type="button"
-              className="btn-icon"
-              onClick={onLogout}
-              title="Sign out of PunchList Pro"
-              aria-label="Sign out"
-              style={{ color: 'var(--text-muted)' }}
+              className={`btn-icon topbar__settings-btn${activeModule === 'settings' ? ' is-active' : ''}`}
+              onClick={() => onNavigate('settings')}
+              title="Settings"
+              aria-label="Settings"
             >
-              <LogOut size={18} aria-hidden="true" />
+              <Settings size={19} aria-hidden="true" />
             </button>
           </div>
-        </header>
 
-        <main className="shell-content">{children}</main>
+          <UserAccountMenu
+            user={currentUser}
+            onOpenSettings={() => onNavigate('settings')}
+            onLogout={onLogout}
+          />
+        </div>
+      </header>
 
-        {/* Mobile bottom tab bar (<820px) */}
-        <nav className="mobile-tab-bar" aria-label="Main">
-          {mobileItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeModule === item.id;
-            return (
+      {/* ---------------- Body: Left Rail + Framed Content ---------------- */}
+      <div className="shell-body">
+        <aside
+          className={`desktop-rail rail${isRailCollapsed ? ' is-collapsed' : ''}`}
+          aria-label="Sidebar navigation"
+        >
+          {onNewPunch && (
+            <div className="rail__compose-wrap">
               <button
-                key={item.id}
                 type="button"
-                className={`tab-btn${active ? ' is-active' : ''}`}
-                onClick={() => onNavigate(item.id)}
-                aria-current={active ? 'page' : undefined}
+                className="rail__compose"
+                onClick={handleNewPunch}
+                title="New Punch Item"
+                aria-label="New Punch Item"
               >
-                <Icon size={18} aria-hidden="true" />
-                <span>{item.label}</span>
+                <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
+                {!isRailCollapsed && <span className="rail__compose-label">New Punch</span>}
               </button>
-            );
-          })}
-        </nav>
+            </div>
+          )}
+
+          <nav className="rail__nav" aria-label="Main">
+            <div className="rail__section">
+              {!isRailCollapsed && <div className="rail__group-label">Workspace</div>}
+              <div className="rail__group">
+                {workspaceItems.map((item) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={activeModule === item.id}
+                    collapsed={isRailCollapsed}
+                    onClick={() => onNavigate(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="rail__divider" aria-hidden="true" />
+
+            <div className="rail__section">
+              {!isRailCollapsed && <div className="rail__group-label">Manage</div>}
+              <div className="rail__group">
+                {NAV_MANAGE.map((item) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={activeModule === item.id}
+                    collapsed={isRailCollapsed}
+                    onClick={() => onNavigate(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </nav>
+
+          {!isRailCollapsed && (
+            <div className="rail__footer">
+              <div className="rail__user">
+                <div className="rail__user-name">{currentUser?.name || 'Field User'}</div>
+                <div className="rail__user-role">{formatRoleLabel(currentUser?.role)}</div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon rail__logout"
+                onClick={onLogout}
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut size={16} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+        </aside>
+
+        <div className="shell-main">
+          <main className="shell-content">{children}</main>
+
+          {/* Mobile bottom tab bar (<820px) */}
+          <nav className="mobile-tab-bar" aria-label="Main">
+            {mobileItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeModule === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`tab-btn${active ? ' is-active' : ''}`}
+                  onClick={() => onNavigate(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon size={18} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </div>
   );

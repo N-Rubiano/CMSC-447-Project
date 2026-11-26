@@ -3,6 +3,7 @@
  * All dates set in September 2026.
  * Typed entities for Enterprise Construction Field Operations.
  */
+import { ROLE_PERMISSIONS } from './rbac';
 
 export const TRADES = {
   MP: { code: 'MP', name: 'Mechanical / Plumbing', color: '#0284C7', bg: '#E0F2FE', text: '#0369A1' },
@@ -19,7 +20,7 @@ export const PROJECTS = [
   {
     id: 'proj-1',
     code: 'UMBC-2026',
-    name: 'UMBC Campus & Harbor Point',
+    name: 'UMBC Campus',
     contractor: 'UMBC Facility Operations',
     timezone: 'America/New_York (EST)',
     address: '1000 Hilltop Circle, Baltimore, MD 21250',
@@ -46,19 +47,8 @@ export const SHEETS = [];
 // Punch items start empty — created by users via the New Punch modal on uploaded blueprints
 export const INITIAL_PUNCH_ITEMS = [];
 
-export const TEAM_MEMBERS = [
-  {
-    id: 'usr-admin-1',
-    name: 'Satya Thakur',
-    email: 'uw61778@umbc.edu',
-    phone: '+1 (410) 455-1000',
-    role: 'admin',
-    organization: 'UMBC Facility Operations',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-    presence: 'on_site',
-    presenceText: 'Active'
-  }
-];
+// No mock users — roster is loaded exclusively from the backend API
+export const TEAM_MEMBERS = [];
 
 export const TRADE_PARTNERS = [];
 
@@ -87,7 +77,7 @@ export const PRODUCT_STATS = {
 };
 
 export const INITIAL_SETTINGS = {
-  projectName: 'UMBC Campus & Harbor Point',
+  projectName: 'UMBC Campus',
   projectCode: 'UMBC-2026',
   generalContractor: 'UMBC Facility Operations',
   timezone: 'America/New_York (EST)',
@@ -100,9 +90,7 @@ export const INITIAL_SETTINGS = {
   },
   offlineSync: {
     autoSyncCellular: false,
-    backgroundSync: true,
-    cachedSheetsCount: 14,
-    queuedChangesCount: 0
+    backgroundSync: true
   },
   fieldDefaults: {
     defaultPriority: 'Medium',
@@ -110,10 +98,6 @@ export const INITIAL_SETTINGS = {
     gpsCapture: true,
     autoTradeStamp: true
   },
-  permissions: [
-    { role: 'Project Executive', viewBlueprints: true, dropPins: true, approvePunches: true, editDocs: true, adminSettings: true },
-    { role: 'Superintendent', viewBlueprints: true, dropPins: true, approvePunches: true, editDocs: true, adminSettings: false },
-    { role: 'Project Engineer', viewBlueprints: true, dropPins: true, approvePunches: false, editDocs: true, adminSettings: false },
-    { role: 'Trade Subcontractor', viewBlueprints: true, dropPins: false, approvePunches: false, editDocs: false, adminSettings: false }
-  ]
+  // 6 canonical roles — single source of truth from rbac.js
+  permissions: ROLE_PERMISSIONS
 };

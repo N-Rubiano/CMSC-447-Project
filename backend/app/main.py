@@ -58,6 +58,8 @@ async def security_headers(request: Request, call_next):
         response.headers.setdefault(
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
         )
+    if request.url.path.startswith("/uploads/"):
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
     return response
 
 # ---------------------------------------------------------------------------

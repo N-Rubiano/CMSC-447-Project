@@ -44,6 +44,21 @@
   /* Semantic Status Colors */
   --success: #15803D;            /* Accessible delta/positive indicator (4.61:1 on #FFFFFF) */
   --success-light: #DCFCE7;
+  --success-border: #86EFAC;
+  --info: #1D4ED8;
+  --info-bg: #EFF6FF;
+  --info-border: #BFDBFE;
+  --warning: #B45309;
+  --warning-bg: #FEF3C7;
+  --warning-border: #FCD34D;
+  --danger: #B91C1C;
+  --danger-bg: #FEE2E2;
+  --danger-border: #FCA5A5;
+
+  /* Responsive Page Spacing */
+  --page-px: 28px;
+  --page-py: 24px;
+  --page-gap: 24px;
 
   /* Trade Colors (Distinct stamps, pins, bars, and tags) */
   --trade-mp: #0284C7; /* Mechanical/Plumbing */
@@ -696,19 +711,37 @@ button:disabled {
 .select-field {
   width: 100%;
   height: 42px;
-  padding: 0 14px;
+  padding: 0 36px 0 14px;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--border);
-  background: #FFFFFF;
+  background-color: #FFFFFF;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 15px 15px;
+  appearance: none;
+  -webkit-appearance: none;
   font-size: 14px;
   color: var(--text-main);
   outline: none;
   cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.select-field:hover:not(:disabled) {
+  border-color: #D4CFC4;
+  background-color: #FCFCFA;
 }
 
 .select-field:focus {
   border-color: var(--amber);
   box-shadow: 0 0 0 3px var(--amber-tint);
+}
+
+.select-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--surface);
 }
 
 /* Custom Toggle Switch */
@@ -851,6 +884,12 @@ button:disabled {
     display: flex !important;
   }
   .slide-over-drawer {
+    width: min(460px, 92vw);
+  }
+}
+
+@media (max-width: 600px) {
+  .slide-over-drawer {
     width: 100vw;
   }
 }
@@ -885,174 +924,158 @@ button:disabled {
 }
 
 /* ==========================================================================
-   MailSlotUpload — PunchList Pro Token Integration
-   Fonts served from /public/fonts (Geist + Geist Mono, OFL license).
-   Colors remapped to the PunchList Pro amber/timber/ink palette.
+   Shared Page Layout Primitives & Semantic Status Pills
    ========================================================================== */
-
-/* Self-hosted Geist fonts for MailSlotUpload */
-@font-face {
-  font-family: "PunchList Sans";
-  src: url('/fonts/Geist-Variable.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PunchList Mono";
-  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
+.page-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--page-py) var(--page-px);
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-gap);
 }
 
-/* Light mode: timber/amber painted door, nickel letterbox, warm paper */
-.mail-slot-root {
-  --ms-max-width: 640px;
-
-  /* Accent = amber focus ring */
-  --accent-primary: #D97706;
-
-  /* Surfaces */
-  --bg-elevated-1: #FFFFFF;
-  --border-default: #DCD5C8;
-  --border-strong: #C4BAA8;
-  --text-primary: #18181B;
-  --text-secondary: #44403C;
-  --text-tertiary: #78716C;
-
-  /* Door: warm timber/olive — construction-site painted wood */
-  --ms-door-hi: #C8B89A;
-  --ms-door-lo: #B5A082;
-  --ms-door-sheen: 0.35;
-  --ms-grain-rgb: 92, 58, 33;
-  --ms-door-shadow:
-    inset 0 0 0 1px rgba(92, 58, 33, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 1px 2px rgba(92, 58, 33, 0.08),
-    0 26px 50px -30px rgba(92, 58, 33, 0.45);
-  --ms-field-hi: #C2AC8E;
-  --ms-field-lo: #B09A7A;
-  --ms-bevel-top: rgba(255, 255, 255, 0.75);
-  --ms-bevel-left: rgba(255, 255, 255, 0.38);
-  --ms-bevel-bottom: rgba(92, 58, 33, 0.16);
-  --ms-bevel-right: rgba(92, 58, 33, 0.08);
-  --ms-groove: rgba(92, 58, 33, 0.16);
-  --ms-groove-light: rgba(255, 255, 255, 0.65);
-
-  /* Letterbox: amber-tinted nickel */
-  --ms-metal-hi: #FDFDFE;
-  --ms-metal-mid: #D6CAB0;
-  --ms-metal-lo: #A8956E;
-  --ms-metal-edge: rgba(92, 58, 33, 0.28);
-  --ms-metal-rim: 0.92;
-  --ms-metal-glint: 0.55;
-  --ms-plate-shadow: 0.32;
-  --ms-engrave: #8B7355;
-  --ms-slot: #1A0E05;
-  --ms-slot-deep: #070301;
-  /* Inner glow = warm amber light when flap lifts */
-  --ms-glow-rgb: 253, 230, 138;
-  --ms-halo: rgba(217, 119, 6, 0.18);
-  --ms-halo-glow: rgba(217, 119, 6, 0.28);
-
-  /* Paper: warm off-white to match --bg-canvas */
-  --ms-paper: #F8F5EF;
-  --ms-paper-hi: #FDFCF9;
-  --ms-paper-lo: #EDE8DE;
-  --ms-paper-edge: rgba(92, 58, 33, 0.10);
-  --ms-postage: #EDE0C8;
-  --ms-paper-text: #18181B;
-  --ms-paper-text-2: #5C3A21;
-  --ms-paper-text-3: #78716C;
-  --ms-paper-error: #DC2626;
-  --ms-env-shadow: 0.28;
-  --ms-row-shadow: 0.20;
-
-  /* Ink: dark charcoal; RETURN TO SENDER = crimson */
-  --ms-ink-rgb: 24, 24, 27;
-  --ms-return-ink-rgb: 185, 28, 28;
-
-  /* Stamp tool: amber-tinted rubber */
-  --ms-tool-hi: #92400E;
-  --ms-tool-lo: #451A03;
-  --ms-knob-hi: #D97706;
-  --ms-knob-lo: #78350F;
-
-  /* Tray: paper-bag warmth */
-  --ms-tray: #EDE8DE;
-  --ms-tray-edge: rgba(92, 58, 33, 0.08);
-  --ms-tray-inset: 0.06;
-
-  /* Shape + motion tokens */
-  --radius-pill: 9999px;
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-
-  /* Type (Geist, self-hosted) */
-  --font-sans: "PunchList Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: "PunchList Mono", 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
-  --tr-tight: -0.015em;
-  --tr-base: -0.005em;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
-/* Dark mode for MailSlotUpload: matches the dark glassmorphic HUD palette */
-[data-theme="dark"] .mail-slot-root {
-  --accent-primary: #FEF3C7;
-  --bg-elevated-1: #1C1410;
-  --border-default: rgba(254, 243, 199, 0.10);
-  --border-strong: rgba(254, 243, 199, 0.20);
-  --text-primary: #F5EFE7;
-  --text-secondary: #D6C9B4;
-  --text-tertiary: #A1957F;
+.page-title {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+}
 
-  --ms-door-hi: #2A1F14;
-  --ms-door-lo: #1C1410;
-  --ms-door-sheen: 0.04;
-  --ms-grain-rgb: 245, 239, 231;
-  --ms-door-shadow:
-    inset 0 0 0 1px rgba(245, 239, 231, 0.06),
-    inset 0 1px 0 rgba(245, 239, 231, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 30px 60px -30px rgba(0, 0, 0, 0.9);
-  --ms-field-hi: #271C10;
-  --ms-field-lo: #1F160C;
-  --ms-bevel-top: rgba(245, 239, 231, 0.07);
-  --ms-bevel-left: rgba(245, 239, 231, 0.04);
-  --ms-bevel-bottom: rgba(0, 0, 0, 0.55);
-  --ms-bevel-right: rgba(0, 0, 0, 0.30);
-  --ms-groove: rgba(0, 0, 0, 0.6);
-  --ms-groove-light: rgba(245, 239, 231, 0.05);
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
 
-  --ms-metal-hi: #F5EFE7;
-  --ms-metal-mid: #B8A882;
-  --ms-metal-lo: #6B5A3E;
-  --ms-metal-edge: rgba(0, 0, 0, 0.55);
-  --ms-metal-rim: 0.75;
-  --ms-metal-glint: 0.45;
-  --ms-plate-shadow: 0.80;
-  --ms-engrave: #6B5A3E;
-  --ms-slot: #0A0603;
-  --ms-slot-deep: #000000;
-  --ms-glow-rgb: 253, 230, 138;
-  --ms-halo: rgba(217, 119, 6, 0.15);
-  --ms-halo-glow: rgba(217, 119, 6, 0.32);
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.status-pill--active {
+  background-color: var(--success-light);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+.status-pill--warning {
+  background-color: var(--warning-bg);
+  color: var(--warning);
+  border-color: var(--warning-border);
+}
+.status-pill--info {
+  background-color: var(--info-bg);
+  color: var(--info);
+  border-color: var(--info-border);
+}
+.status-pill--danger {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+.status-pill--muted {
+  background-color: var(--surface-muted);
+  color: var(--text-light);
+  border-color: var(--border);
+  text-decoration: line-through;
+}
 
-  --ms-paper: #DDD6C8;
-  --ms-paper-hi: #EDE5D8;
-  --ms-paper-lo: #C8C0B0;
-  --ms-paper-edge: rgba(0, 0, 0, 0.35);
-  --ms-postage: #C8BAA0;
-  --ms-env-shadow: 0.75;
-  --ms-row-shadow: 0.65;
+.required-asterisk {
+  color: var(--crimson, #DC2626);
+  margin-left: 3px;
+  font-weight: 700;
+}
 
-  --ms-tool-hi: #78350F;
-  --ms-tool-lo: #3C1A06;
-  --ms-knob-hi: #D97706;
-  --ms-knob-lo: #92400E;
+/* Settings Responsive Two-Pane Layout */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 520px;
+  overflow: hidden;
+}
 
-  --ms-tray: #12100E;
-  --ms-tray-edge: rgba(245, 239, 231, 0.06);
-  --ms-tray-inset: 0.60;
+.settings-rail {
+  background-color: var(--surface-muted);
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --page-px: 16px;
+    --page-py: 16px;
+    --page-gap: 16px;
+    --drawer-width: 100vw;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-rail {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .settings-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-rail > button {
+    flex-shrink: 0;
+    width: auto !important;
+  }
+
+  .modal-card {
+    max-width: calc(100vw - 24px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .select-field,
+  .input-field,
+  .b-row,
+  .f-row,
+  .tab-btn,
+  .nav-item,
+  .touch-target {
+    min-height: 44px;
+  }
+
+  .select-field,
+  .input-field {
+    font-size: 16px;
+  }
 }
 
 /* Accessibility: Respect Reduced Motion Preferences */

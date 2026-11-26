@@ -38,6 +38,7 @@ frontend/.env
 *.sqlite3
 data/
 backend/data/
+!frontend/src/data/
 
 # ── ReportLab / upload artefacts ──────────────────────────────────────────────
 backend/uploads/
@@ -63,6 +64,8 @@ Thumbs.db
 user-interface-design-document.html
 walkthrough_table.html
 screenshots/
+!assets/screenshots/
+!assets/screenshots/*.png
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
@@ -73,6 +76,9 @@ docs/
 PunchListPro_Diagrams.html
 PunchList_Pro_Software_Design_Document_SDD.pdf
 SRS_PunchListPro.md
+
+# Interview Prep
+interview_prep/
 build_sdd_pdf.py
 generate_sdd_assets.py
 guide
@@ -89,6 +95,7 @@ sdd_assets/
 .agent/
 .agents/
 .gemini/
+.impeccable/
 .github/hooks/
 scratch/
 unslop-story/

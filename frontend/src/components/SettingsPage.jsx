@@ -9,15 +9,14 @@ import {
   Check,
   Save,
   Upload,
-  Camera,
-  Image,
   RefreshCw,
   Lock,
-  Sparkles,
   AlertCircle,
   Trash2
 } from 'lucide-react';
 import { INITIAL_SETTINGS } from '../data/mockData';
+import { ROLE_LABELS, ROLE_PERMISSIONS, getEffectiveRolePermissions, saveRolePermissions } from '../data/rbac';
+import { api } from '../services/api';
 
 const PRESET_AVATARS = [
   {
@@ -70,9 +69,30 @@ const PRESET_AVATARS = [
   }
 ];
 
-export default function SettingsPage({ project, currentUser, onUpdateUser, onSaveProject }) {
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'project' | 'notifications' | 'offline' | 'permissions' | 'defaults'
-  const [settings, setSettings] = useState(INITIAL_SETTINGS);
+const SECTION_HEAD_STYLE = {
+  paddingBottom: 16,
+  borderBottom: '1px solid var(--border-subtle)',
+  marginBottom: 4
+};
+
+const ROW_DIVIDER_STYLE = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 16,
+  padding: '14px 0',
+  borderBottom: '1px solid var(--border-subtle)'
+};
+
+export default function SettingsPage({ currentUser, onUpdateUser }) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [settings, setSettings] = useState(() => ({
+    ...INITIAL_SETTINGS,
+    offlineSync: api.getOfflineSyncPrefs ? api.getOfflineSyncPrefs() : INITIAL_SETTINGS.offlineSync,
+    permissions: getEffectiveRolePermissions()
+  }));
+  const [cacheStats, setCacheStats] = useState({ sheetsCount: 0, pinsCount: 0, queuedCount: 0 });
+  const [cacheBusy, setCacheBusy] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
 
   // Profile / Avatar states
@@ -88,6 +108,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   const fileInputRef = useRef(null);
 
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const roleKey = String(currentUser?.role || 'admin').toLowerCase();
+  const roleLabel = ROLE_LABELS[roleKey] || currentUser?.role || 'Administrator';
 
   useEffect(() => {
     if (currentUser) {
@@ -102,6 +124,18 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
     }
   }, [currentUser, activeTab]);
 
+  const refreshCacheStats = async () => {
+    if (!api.getOfflineCacheStats) return;
+    const stats = await api.getOfflineCacheStats();
+    if (stats) setCacheStats(stats);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'offline') {
+      refreshCacheStats();
+    }
+  }, [activeTab]);
+
   const tabs = [
     { id: 'profile', label: 'My Profile & Avatar', icon: User },
     { id: 'project', label: 'Project Info', icon: Building2 },
@@ -113,12 +147,44 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (activeTab === 'offline' && api.saveOfflineSyncPrefs) {
+      api.saveOfflineSyncPrefs(settings.offlineSync);
+    }
+    if (activeTab === 'permissions') {
+      saveRolePermissions(settings.permissions);
+    }
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
   };
 
+  const handlePurgeCache = async () => {
+    setCacheBusy(true);
+    try {
+      const next = api.purgeOfflineCache ? await api.purgeOfflineCache() : { sheetsCount: 0, pinsCount: 0, queuedCount: 0 };
+      setCacheStats(next);
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 2500);
+    } finally {
+      setCacheBusy(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setCacheBusy(true);
+    try {
+      if (api.processSyncQueue) {
+        await api.processSyncQueue();
+      }
+      await refreshCacheStats();
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 2500);
+    } finally {
+      setCacheBusy(false);
+    }
+  };
+
   const handlePermissionToggle = (rowIndex, colKey) => {
-    setSettings(prev => {
+    setSettings((prev) => {
       const nextPerms = [...prev.permissions];
       nextPerms[rowIndex] = {
         ...nextPerms[rowIndex],
@@ -128,7 +194,6 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
     });
   };
 
-  // Avatar Handlers
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -152,32 +217,24 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
           try {
             const canvas = document.createElement('canvas');
             const maxDim = 320;
-            let width = img.width;
-            let height = img.height;
-            if (width > height) {
-              if (width > maxDim) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              }
-            } else {
-              if (height > maxDim) {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
+            let { width, height } = img;
+            if (width > height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
             }
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            const optimized = canvas.toDataURL('image/jpeg', 0.88);
-            setSelectedAvatar(optimized);
+            setSelectedAvatar(canvas.toDataURL('image/jpeg', 0.88));
           } catch {
             setSelectedAvatar(reader.result);
           }
         };
-        img.onerror = () => {
-          setSelectedAvatar(reader.result);
-        };
+        img.onerror = () => setSelectedAvatar(reader.result);
         img.src = reader.result;
       }
     };
@@ -194,8 +251,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
   const handleResetToInitials = () => {
     const displayName = profileName.trim() || currentUser?.name || 'User';
-    const initialsUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=D97706&color=fff&bold=true`;
-    setSelectedAvatar(initialsUrl);
+    setSelectedAvatar(
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=D97706&color=fff&bold=true`
+    );
     setProfileError('');
   };
 
@@ -238,24 +296,16 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
   };
 
   return (
-    <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '24px 28px',
-      backgroundColor: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 24
-    }}>
-      {/* Header with SOC 2 Badge Chip */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+    <div className="page-container">
+      {/* Page Header */}
+      <div className="page-header" style={{ alignItems: 'flex-end' }}>
         <div>
-          <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 4 }}>
-            System Preferences
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>
+          <h1 className="page-title" style={{ letterSpacing: '-0.02em', margin: 0 }}>
             Settings &amp; Preferences
           </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, marginBottom: 0 }}>
+            Manage your profile identity, project configuration, sync behavior, and role access controls.
+          </p>
         </div>
 
         <div style={{
@@ -264,98 +314,98 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
           gap: 6,
           padding: '5px 12px',
           borderRadius: 'var(--radius-full)',
-          backgroundColor: '#F0FDF4',
-          border: '1px solid #BBF7D0',
-          color: '#166534',
+          backgroundColor: 'var(--success-light)',
+          border: '1px solid var(--success-border)',
+          color: 'var(--success)',
           fontSize: 12,
-          fontWeight: 700
+          fontWeight: 600
         }}>
-          <ShieldCheck size={16} color="#16A34A" />
+          <ShieldCheck size={15} color="var(--success)" aria-hidden="true" />
           <span>SOC 2 Type II Certified</span>
         </div>
       </div>
 
       {saveToast && (
-        <div style={{
-          backgroundColor: '#F0FDF4',
-          border: '1px solid #86EFAC',
-          color: '#166534',
+        <div role="status" style={{
+          backgroundColor: 'var(--success-light)',
+          border: '1px solid var(--success-border)',
+          color: 'var(--success)',
           padding: '10px 16px',
           borderRadius: 8,
           display: 'flex',
           alignItems: 'center',
           gap: 8,
           fontSize: 13,
-          fontWeight: 600,
-          animation: 'fadeIn 150ms ease'
+          fontWeight: 600
         }}>
-          <Check size={16} />
+          <Check size={16} aria-hidden="true" />
           <span>Settings saved successfully!</span>
         </div>
       )}
 
-      {/* Main Settings Card: Left Vertical Rail + Content Panel */}
-      <div className="card" style={{
-        display: 'grid',
-        gridTemplateColumns: '220px 1fr',
-        minHeight: 520,
-        overflow: 'hidden'
-      }}>
-        {/* Left Vertical Tab Rail */}
-        <div style={{
-          backgroundColor: 'var(--surface-muted)',
-          borderRight: '1px solid var(--border)',
-          padding: '16px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4
-        }}>
+      {/* Unified Settings Workspace (Flat Rail + Content Sheet, no nested cards) */}
+      <div
+        className="settings-layout"
+        style={{
+          backgroundColor: '#FFFFFF',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(24, 24, 27, 0.04)'
+        }}
+      >
+        {/* Left Navigation Rail */}
+        <nav
+          className="settings-rail"
+          aria-label="Settings sections"
+        >
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
                   width: '100%',
-                  padding: '10px 14px',
+                  padding: '9px 12px',
                   borderRadius: 8,
-                  border: 'none',
+                  border: isActive ? '1px solid var(--border)' : '1px solid transparent',
                   cursor: 'pointer',
                   backgroundColor: isActive ? '#FFFFFF' : 'transparent',
-                  color: isActive ? 'var(--amber-hover)' : 'var(--text-secondary)',
-                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--ink)' : 'var(--text-secondary)',
+                  fontWeight: isActive ? 600 : 500,
                   fontSize: 13,
-                  boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 120ms ease'
+                  boxShadow: isActive ? '0 1px 2px rgba(24, 24, 27, 0.05)' : 'none',
+                  transition: 'background-color 120ms ease, color 120ms ease'
                 }}
               >
-                <Icon size={17} color={isActive ? 'var(--amber)' : 'currentColor'} />
+                <Icon size={16} color={isActive ? 'var(--amber)' : 'currentColor'} aria-hidden="true" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
-        </div>
+        </nav>
 
-        {/* Right Content Panel */}
-        <div style={{ padding: '28px 32px', overflowY: 'auto' }}>
-          {/* TAB 0: User Profile & Avatar Customization */}
+        {/* Content Panel */}
+        <div style={{ padding: '28px 34px', overflowY: 'auto' }}>
+          {/* TAB 0: Profile & Avatar */}
           {activeTab === 'profile' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 660 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Profile &amp; Avatar Customization
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   Customize your personal profile photo and information displayed across sheets, comments, and field logs.
                 </p>
               </div>
 
-              {/* Status alerts */}
               {profileSaveMsg && (
                 <div style={{
                   backgroundColor: '#F0FDF4',
@@ -384,31 +434,32 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   fontSize: 13,
                   fontWeight: 600
                 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={15} />{profileError}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <AlertCircle size={15} />
+                    {profileError}
+                  </span>
                 </div>
               )}
 
-              {/* Avatar Live Preview Card */}
+              {/* Identity Strip (flat, hairline separated) */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 20,
-                padding: '18px 20px',
-                borderRadius: 12,
-                backgroundColor: 'var(--surface-muted)',
-                border: '1px solid var(--border)'
+                flexWrap: 'wrap',
+                gap: 14,
+                paddingBottom: 20,
+                borderBottom: '1px solid var(--border-subtle)'
               }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   <img
                     src={selectedAvatar}
                     alt={profileName}
                     style={{
-                      width: 80,
-                      height: 80,
+                      width: 72,
+                      height: 72,
                       borderRadius: '50%',
                       objectFit: 'cover',
-                      border: '3px solid var(--amber)',
-                      boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
+                      border: '2px solid var(--amber)'
                     }}
                     onError={(e) => {
                       e.target.onerror = null;
@@ -419,40 +470,38 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                     position: 'absolute',
                     bottom: 2,
                     right: 2,
-                    width: 14,
-                    height: 14,
+                    width: 13,
+                    height: 13,
                     borderRadius: '50%',
                     backgroundColor: '#16A34A',
                     border: '2px solid #FFFFFF'
                   }} title="Active" />
                 </div>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
                       {profileName || 'Your Name'}
                     </div>
                     <span style={{
                       padding: '2px 8px',
-                      borderRadius: 4,
+                      borderRadius: 999,
                       fontSize: 11,
-                      fontWeight: 700,
-                      backgroundColor: 'var(--amber-muted, #FEF3C7)',
-                      color: 'var(--amber, #D97706)',
-                      letterSpacing: '0.04em'
+                      fontWeight: 600,
+                      backgroundColor: '#FEF3C7',
+                      color: '#92400E'
                     }}>
-                      {(currentUser?.role || 'admin').toUpperCase()}
+                      {roleLabel}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2, overflowWrap: 'anywhere' }}>
                     {currentUser?.email || 'uw61778@umbc.edu'}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
                     {currentUser?.company || 'UMBC Facility Operations'}
                   </div>
                 </div>
 
-                {/* Hidden File Input */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -466,29 +515,29 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   className="btn btn-secondary"
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     gap: 8,
-                    height: 38,
+                    height: 36,
                     fontSize: 13,
                     fontWeight: 500,
                     flexShrink: 0
                   }}
                 >
-                  <Upload size={15} />
+                  <Upload size={14} />
                   <span>Upload Image</span>
                 </button>
               </div>
 
-              {/* Preset Avatars Gallery */}
+              {/* Role Avatars */}
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 10 }}>
                   Role avatars
-                </label>
+                </div>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: 12
+                  gap: 10
                 }}>
                   {PRESET_AVATARS.map((preset) => {
                     const isSelected = selectedAvatar === preset.url;
@@ -504,11 +553,10 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                           gap: 6,
                           padding: '10px 8px',
                           borderRadius: 10,
-                          border: isSelected ? '2px solid var(--amber)' : '1px solid var(--border)',
-                          backgroundColor: isSelected ? '#FFFFFF' : 'var(--surface-muted)',
-                          boxShadow: isSelected ? '0 2px 8px var(--amber-glow, rgba(217,119,6,0.15))' : 'none',
+                          border: isSelected ? '2px solid var(--amber)' : '1px solid var(--border-subtle)',
+                          backgroundColor: isSelected ? '#FFFBEB' : '#FAFAF9',
                           cursor: 'pointer',
-                          transition: 'all 120ms ease'
+                          transition: 'background-color 120ms ease, border-color 120ms ease'
                         }}
                       >
                         <div style={{ position: 'relative' }}>
@@ -516,8 +564,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                             src={preset.url}
                             alt={preset.title}
                             style={{
-                              width: 52,
-                              height: 52,
+                              width: 48,
+                              height: 48,
                               borderRadius: '50%',
                               objectFit: 'cover'
                             }}
@@ -530,22 +578,21 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                               backgroundColor: 'var(--amber)',
                               color: '#FFFFFF',
                               borderRadius: '50%',
-                              width: 18,
-                              height: 18,
+                              width: 17,
+                              height: 17,
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                              justifyContent: 'center'
                             }}>
-                              <Check size={12} strokeWidth={3} />
+                              <Check size={11} strokeWidth={3} />
                             </span>
                           )}
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.2 }}>
                             {preset.title}
                           </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
                             {preset.tag}
                           </div>
                         </div>
@@ -555,18 +602,16 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </div>
               </div>
 
-              {/* Custom Image URL or Initials Options */}
+              {/* Custom Image URL or Initials */}
               <div style={{
-                padding: '16px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                backgroundColor: '#FFFFFF',
+                paddingBottom: 20,
+                borderBottom: '1px solid var(--border-subtle)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 12
+                gap: 8
               }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
-                  Or Use a Custom Image URL / Generated Initials
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+                  Custom Image URL or Initials
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
@@ -590,7 +635,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                     type="button"
                     onClick={handleResetToInitials}
                     className="btn btn-ghost"
-                    style={{ height: 38, fontSize: 13, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}
+                    style={{ height: 38, fontSize: 13, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     title="Generate avatar badge with your initials"
                   >
                     <RefreshCw size={14} />
@@ -600,10 +645,10 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
               </div>
 
               {/* Profile Details Form */}
-              <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>
                       Full Name
                     </label>
                     <input
@@ -617,7 +662,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>
                       Phone Number
                     </label>
                     <input
@@ -632,7 +677,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>
                       Email Address (Locked)
                     </label>
                     <div style={{ position: 'relative' }}>
@@ -648,7 +693,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>
                       Assigned Organization
                     </label>
                     <input
@@ -661,19 +706,19 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   </div>
                 </div>
 
-                <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
+                <div style={{ marginTop: 6, display: 'flex', gap: 10 }}>
                   <button
                     type="submit"
                     disabled={profileSaving}
                     className="btn btn-primary"
                     style={{
-                      height: 40,
-                      display: 'flex',
+                      height: 38,
+                      display: 'inline-flex',
                       alignItems: 'center',
                       gap: 8,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      padding: '0 20px'
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      padding: '0 18px'
                     }}
                   >
                     {profileSaving ? (
@@ -683,7 +728,7 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                       </>
                     ) : (
                       <>
-                        <Save size={16} />
+                        <Save size={15} />
                         <span>Save Profile &amp; Avatar</span>
                       </>
                     )}
@@ -693,20 +738,22 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
             </div>
           )}
 
-          {/* TAB 1: Project Information */}
+          {/* TAB 1: Project Info */}
           {activeTab === 'project' && (
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 580 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 580 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Project Profile
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   Core metadata associated with field drawing sets and punch exports.
                 </p>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Project Name</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                  Project Name
+                </label>
                 <input
                   type="text"
                   value={settings.projectName}
@@ -717,7 +764,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Project Code</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                    Project Code
+                  </label>
                   <input
                     type="text"
                     value={settings.projectCode}
@@ -726,7 +775,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>General Contractor</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                    General Contractor
+                  </label>
                   <input
                     type="text"
                     value={settings.generalContractor}
@@ -737,7 +788,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Site Timezone</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                  Site Timezone
+                </label>
                 <select
                   value={settings.timezone}
                   onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
@@ -751,7 +804,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Jobsite Street Address</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                  Jobsite Street Address
+                </label>
                 <input
                   type="text"
                   value={settings.siteAddress}
@@ -760,12 +815,17 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                <button type="submit" className="btn btn-primary" style={{ height: 40 }}>
-                  <Save size={16} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button type="submit" className="btn btn-primary" style={{ height: 38 }}>
+                  <Save size={15} />
                   <span>Save Project Info</span>
                 </button>
-                <button type="button" onClick={() => setSettings(INITIAL_SETTINGS)} className="btn btn-ghost" style={{ height: 40 }}>
+                <button
+                  type="button"
+                  onClick={() => setSettings({ ...INITIAL_SETTINGS, permissions: ROLE_PERMISSIONS.map((r) => ({ ...r })) })}
+                  className="btn btn-ghost"
+                  style={{ height: 38 }}
+                >
                   Reset Defaults
                 </button>
               </div>
@@ -774,92 +834,61 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
           {/* TAB 2: Notifications */}
           {activeTab === 'notifications' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 580 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 600 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Notification Dispatch Rules
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   Configure real-time automated dispatch triggers for subcontractors and team leads.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>New Assignment Alerts</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Send instant email dispatch when a subcontractor is tagged on a pin</div>
+              <div>
+                {[
+                  {
+                    key: 'assignmentEmails',
+                    title: 'New Assignment Alerts',
+                    desc: 'Send instant email dispatch when a subcontractor is tagged on a pin'
+                  },
+                  {
+                    key: 'dailyDigest',
+                    title: 'Daily 06:00 AM Digest',
+                    desc: 'Automated morning summary of pending closeouts and overdue inspections'
+                  },
+                  {
+                    key: 'criticalAlerts',
+                    title: 'Critical Life-Safety Alerts',
+                    desc: 'High-priority SMS & webhook dispatch for life-safety items'
+                  },
+                  {
+                    key: 'reviewRequests',
+                    title: 'Architect Review Requests',
+                    desc: 'Ping project architects when subcontractor requests signoff'
+                  }
+                ].map((item) => (
+                  <div key={item.key} style={ROW_DIVIDER_STYLE}>
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{item.desc}</div>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications[item.key]}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          notifications: { ...settings.notifications, [item.key]: e.target.checked }
+                        })}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
                   </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications.assignmentEmails}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        notifications: { ...settings.notifications, assignmentEmails: e.target.checked }
-                      })}
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Daily 06:00 AM Digest</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Automated morning summary of pending closeouts and overdue inspections</div>
-                  </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications.dailyDigest}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        notifications: { ...settings.notifications, dailyDigest: e.target.checked }
-                      })}
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Critical Life-Safety Alerts</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>High-priority SMS &amp; webhook dispatch for life-safety items</div>
-                  </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications.criticalAlerts}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        notifications: { ...settings.notifications, criticalAlerts: e.target.checked }
-                      })}
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Architect Review Requests</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ping project architects when subcontractor requests signoff</div>
-                  </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications.reviewRequests}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        notifications: { ...settings.notifications, reviewRequests: e.target.checked }
-                      })}
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
+                ))}
               </div>
 
-              <button onClick={handleSave} className="btn btn-primary" style={{ height: 40, alignSelf: 'flex-start' }}>
-                <Save size={16} />
+              <button onClick={handleSave} className="btn btn-primary" style={{ height: 38, alignSelf: 'flex-start', marginTop: 6 }}>
+                <Save size={15} />
                 <span>Save Notification Rules</span>
               </button>
             </div>
@@ -867,44 +896,44 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
           {/* TAB 3: Offline & Sync */}
           {activeTab === 'offline' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 580 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 600 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Offline Caching &amp; Background Sync
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   Manage IndexedDB persistent field store and background synchronization queue.
                 </p>
               </div>
 
               <div style={{
-                backgroundColor: 'var(--surface-muted)',
-                padding: '16px 20px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: 16
+                gap: 16,
+                paddingBottom: 16,
+                borderBottom: '1px solid var(--border-subtle)'
               }}>
                 <div>
-                  <div className="eyebrow" style={{ fontSize: 10, color: 'var(--text-muted)' }}>Offline Blueprint Cache</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
-                    {settings.offlineSync.cachedSheetsCount} Sheets Cached
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Offline Blueprint Cache</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                    {cacheStats.sheetsCount} {cacheStats.sheetsCount === 1 ? 'Sheet' : 'Sheets'} Cached
                   </div>
                 </div>
                 <div>
-                  <div className="eyebrow" style={{ fontSize: 10, color: 'var(--text-muted)' }}>Pending Sync Queue</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
-                    {settings.offlineSync.queuedChangesCount} Mutations Queued
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Pending Sync Queue</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                    {cacheStats.queuedCount} {cacheStats.queuedCount === 1 ? 'Mutation' : 'Mutations'} Queued
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={ROW_DIVIDER_STYLE}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Cellular Data Sync</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Allow large vector drawing downloads over mobile LTE networks</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Cellular Data Sync</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Allow large vector drawing downloads over mobile LTE networks
+                    </div>
                   </div>
                   <label className="toggle-switch">
                     <input
@@ -919,10 +948,12 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={ROW_DIVIDER_STYLE}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Periodic Background Sync</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sync field punch edits automatically when connectivity resumes</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Periodic Background Sync</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Sync field punch edits automatically when connectivity resumes
+                    </div>
                   </div>
                   <label className="toggle-switch">
                     <input
@@ -938,52 +969,79 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
-                <button onClick={handleSave} className="btn btn-primary" style={{ height: 40 }}>
-                  <Save size={16} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                <button onClick={handleSave} className="btn btn-primary" style={{ height: 38 }}>
+                  <Save size={15} />
                   <span>Update Sync Settings</span>
                 </button>
+                {cacheStats.queuedCount > 0 && (
+                  <button
+                    type="button"
+                    disabled={cacheBusy}
+                    onClick={handleSyncNow}
+                    className="btn btn-secondary"
+                    style={{ height: 38 }}
+                  >
+                    <RefreshCw size={15} />
+                    <span>Sync Now ({cacheStats.queuedCount})</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => alert('Offline vector cache cleared.')}
+                  disabled={cacheBusy}
+                  onClick={handlePurgeCache}
                   className="btn btn-secondary"
-                  style={{ height: 40, color: 'var(--crimson)' }}
+                  style={{ height: 38, color: 'var(--crimson)' }}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                   <span>Purge Cache</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* TAB 4: Role Permissions Matrix (Only visible if user is logged in as admin) */}
+          {/* TAB 4: Role Permissions Matrix (Admin only) */}
           {isAdmin && activeTab === 'permissions' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Role-Based Access Control (RBAC)
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Enforce operational security and least privilege across field team tiers.
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                  Enforce operational security and least privilege across all 6 canonical field roles.
                 </p>
               </div>
 
-              <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ backgroundColor: 'var(--surface-muted)', borderBottom: '1px solid var(--border)', color: 'var(--ink)' }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Project Role</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>View Blueprints</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>Drop Pins</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>Approve Signoffs</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>Upload Docs</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>Admin Settings</th>
+                    <tr style={{
+                      backgroundColor: '#FAFAF9',
+                      borderBottom: '1px solid var(--border)',
+                      color: 'var(--text-muted)',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em'
+                    }}>
+                      <th style={{ padding: '11px 14px', textAlign: 'left' }}>Project Role</th>
+                      <th style={{ padding: '11px 14px', textAlign: 'left' }}>Label</th>
+                      <th style={{ padding: '11px 10px', textAlign: 'center' }}>View Blueprints</th>
+                      <th style={{ padding: '11px 10px', textAlign: 'center' }}>Drop Pins</th>
+                      <th style={{ padding: '11px 10px', textAlign: 'center' }}>Approve Signoffs</th>
+                      <th style={{ padding: '11px 10px', textAlign: 'center' }}>Upload Docs</th>
+                      <th style={{ padding: '11px 10px', textAlign: 'center' }}>Admin Settings</th>
                     </tr>
                   </thead>
                   <tbody>
                     {settings.permissions.map((row, idx) => (
                       <tr key={row.role} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--ink)' }}>{row.role}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--ink)', fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
+                          {row.role}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12.5 }}>
+                          {row.label}
+                        </td>
                         <td style={{ textAlign: 'center' }}>
                           <input type="checkbox" checked={row.viewBlueprints} onChange={() => handlePermissionToggle(idx, 'viewBlueprints')} />
                         </td>
@@ -1005,8 +1063,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </table>
               </div>
 
-              <button onClick={handleSave} className="btn btn-primary" style={{ height: 40, alignSelf: 'flex-start' }}>
-                <Save size={16} />
+              <button onClick={handleSave} className="btn btn-primary" style={{ height: 38, alignSelf: 'flex-start' }}>
+                <Save size={15} />
                 <span>Save Permissions Matrix</span>
               </button>
             </div>
@@ -1014,19 +1072,21 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
 
           {/* TAB 5: Field Defaults */}
           {activeTab === 'defaults' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 580 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 600 }}>
+              <div style={SECTION_HEAD_STYLE}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
                   Field Defaults &amp; Observation Presets
-                </h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   Standardize priority offsets and automated attribute tagging for newly created punch items.
                 </p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Default Priority</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                    Default Priority
+                  </label>
                   <select
                     value={settings.fieldDefaults.defaultPriority}
                     onChange={(e) => setSettings({
@@ -1043,7 +1103,9 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Due Date Offset</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                    Due Date Offset
+                  </label>
                   <select
                     value={settings.fieldDefaults.dueOffsetDays}
                     onChange={(e) => setSettings({
@@ -1060,11 +1122,13 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={ROW_DIVIDER_STYLE}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>GPS Location Tagging</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Embed hardware GPS coordinates inside camera observations</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>GPS Location Tagging</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Embed hardware GPS coordinates inside camera observations
+                    </div>
                   </div>
                   <label className="toggle-switch">
                     <input
@@ -1079,10 +1143,12 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={ROW_DIVIDER_STYLE}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Auto Trade Stamp Attribution</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Automatically stamp pin initials based on assigned subcontractor</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Auto Trade Stamp Attribution</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Automatically stamp pin initials based on assigned subcontractor
+                    </div>
                   </div>
                   <label className="toggle-switch">
                     <input
@@ -1098,8 +1164,8 @@ export default function SettingsPage({ project, currentUser, onUpdateUser, onSav
                 </div>
               </div>
 
-              <button onClick={handleSave} className="btn btn-primary" style={{ height: 40, alignSelf: 'flex-start' }}>
-                <Save size={16} />
+              <button onClick={handleSave} className="btn btn-primary" style={{ height: 38, alignSelf: 'flex-start', marginTop: 6 }}>
+                <Save size={15} />
                 <span>Save Field Defaults</span>
               </button>
             </div>

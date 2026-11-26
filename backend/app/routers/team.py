@@ -24,6 +24,29 @@ from ..sio import sio
 
 router = APIRouter(tags=["team"])
 
+# ---------------------------------------------------------------------------
+# RBAC — Canonical Roles & Category Mapping
+# ---------------------------------------------------------------------------
+
+VALID_ROLES = {
+    "admin",
+    "general_contractor",
+    "sub_contractor",
+    "architect",
+    "owner",
+    "field_inspector",
+}
+
+# Maps role key → TeamPage UI bucket (must stay in sync with frontend/src/data/rbac.js)
+ROLE_CATEGORY = {
+    "admin":              "admin",
+    "general_contractor": "general_contractor",
+    "architect":          "architect",
+    "field_inspector":    "field_inspector",
+    "sub_contractor":     "sub_contractor",
+    "owner":              "owner",
+}
+
 
 # ---------------------------------------------------------------------------
 # Request & Response Models
@@ -96,16 +119,8 @@ def get_team_members(current_user: dict = Depends(get_current_user)):
         role_val = (u.get("role") or "").lower()
         company_val = u.get("company") or "PunchList Pro"
 
-        # Determine container group
-        container = "crew"
-        if role_val in ("admin", "architect", "owner") or "admin" in role_val or "director" in role_val or "manager" in role_val:
-            container = "admin"
-        elif role_val in ("general_contractor", "field_inspector") or "general" in role_val or "gc" in role_val or "superintendent" in role_val or "apex" in company_val.lower() or ("contractor" in role_val and "sub" not in role_val):
-            container = "contractor"
-        elif role_val == "sub_contractor" or "sub" in role_val or "electric" in company_val.lower() or "hvac" in company_val.lower() or "plumb" in company_val.lower():
-            container = "sub_contractor"
-        else:
-            container = "crew"
+        # Determine container group — explicit dict, no string-matching heuristics
+        container = ROLE_CATEGORY.get(role_val, "sub_contractor")
 
         acc_status = u.get("status") or "active"
 
@@ -164,13 +179,20 @@ async def add_team_member(
     secure single-use invitation token, and initial project assignments.
     """
     caller_role = (current_user.get("role") or "").lower()
-    is_admin = "admin" in caller_role or "executive" in caller_role or "director" in caller_role or caller_role in ("superintendent", "owner")
-    is_gc = caller_role in ("general_contractor", "gc", "general contractor") or ("contractor" in caller_role and "sub" not in caller_role)
+    is_admin = caller_role == "admin"
+    is_gc = caller_role == "general_contractor"
+
+    # Validate role against canonical allowlist
+    if payload.role not in VALID_ROLES:
+        raise HTTPException(
+            400,
+            f"Invalid role '{payload.role}'. Must be one of: {', '.join(sorted(VALID_ROLES))}"
+        )
 
     # Approval Authority Check
     if is_gc and not is_admin:
         # General Contractor can only sponsor subcontractors
-        if payload.role not in ("sub_contractor", "crew"):
+        if payload.role not in ("sub_contractor",):
             raise HTTPException(
                 403,
                 "General Contractors can only provision Subcontractors. Privileged roles require Facility Administrator approval."

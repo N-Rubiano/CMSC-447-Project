@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Download,
@@ -6,56 +6,129 @@ import {
   FileText,
   FileSpreadsheet,
   CheckCircle2,
-  Settings,
-  Printer,
   Loader2,
   AlertCircle
 } from 'lucide-react';
 import { getToken } from '../services/api';
+import { sheetMatchesBuildingAndFloor } from '../data/umbcBuildings';
+
+const EXPORT_OPTIONS = [
+  {
+    id: 'punch-report',
+    title: 'Formal Punch List Summary Report (.pdf)',
+    description: 'Executive PDF report with project info, KPI summary, categorized trade tables, and blueprint pin-map images.',
+    icon: FileText,
+    iconBg: 'var(--amber)',
+    iconColor: '#FFFFFF',
+  },
+  {
+    id: 'excel',
+    title: 'Project & Punch Workbook (.xlsx)',
+    description: 'Native multi-sheet Excel workbook with Project Overview, Punch Items, Team Assignments, and Blueprint Pin Maps.',
+    icon: FileSpreadsheet,
+    iconBg: 'var(--success)',
+    iconColor: '#FFFFFF',
+  },
+  {
+    id: 'annotated-pdf',
+    title: 'Annotated Drawing Set (.pdf)',
+    description: 'Vector PDF floor plans with revision clouds, dimensions, and color-coded punch pins burned into layers.',
+    icon: Layers,
+    iconBg: 'var(--timber)',
+    iconColor: '#FEF3C7',
+  },
+  {
+    id: 'csv',
+    title: 'Raw Spreadsheet Data (.csv)',
+    description: 'Flat CSV dataset with coordinates, room tags, due dates, and subcontractor assignments.',
+    icon: FileSpreadsheet,
+    iconBg: 'var(--ink)',
+    iconColor: '#FFFFFF',
+  },
+];
 
 export default function ExportModal({
   project,
-  sheets,
-  activeSheet,
+  sheets = [],
+  activeSheet = null,
+  selectedBuildingId = null,
+  selectedFloorId = null,
   onClose
 }) {
-  const [selectedSheetId, setSelectedSheetId] = useState('all');
-  const [exportType, setExportType] = useState('annotated-pdf'); // 'annotated-pdf' | 'punch-report' | 'csv'
+  const resolveDefaultSheetId = () => {
+    if (activeSheet?.id && sheets.some((s) => s.id === activeSheet.id)) {
+      return activeSheet.id;
+    }
+    if (selectedBuildingId || selectedFloorId) {
+      const matched = sheets.find((s) =>
+        sheetMatchesBuildingAndFloor(s, selectedBuildingId, selectedFloorId)
+      );
+      if (matched?.id) return matched.id;
+    }
+    return sheets[0]?.id || 'all';
+  };
+
+  const [selectedSheetId, setSelectedSheetId] = useState(resolveDefaultSheetId);
+  const [exportType, setExportType] = useState('punch-report');
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
 
+  useEffect(() => {
+    setSelectedSheetId(resolveDefaultSheetId());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSheet?.id, selectedBuildingId, selectedFloorId, sheets.length]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && !isExporting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose, isExporting]);
+
   const handleTriggerExport = async () => {
+    if (!project?.id) {
+      setExportError('No active project selected.');
+      return;
+    }
+
     let url = '';
     let filename = '';
+    const code = project.code || 'PRJ';
+
+    const sheetQuery = selectedSheetId && selectedSheetId !== 'all'
+      ? `?sheetId=${encodeURIComponent(selectedSheetId)}`
+      : '';
 
     if (exportType === 'annotated-pdf') {
-      url = `/api/projects/${project.id}/export/annotated-pdf${selectedSheetId !== 'all' ? `?sheetId=${selectedSheetId}` : ''}`;
-      filename = `${project.code || 'PRJ'}_Annotated_PlanSet.pdf`;
+      url = `/api/projects/${project.id}/export/annotated-pdf${sheetQuery}`;
+      filename = `${code}_Annotated_PlanSet.pdf`;
     } else if (exportType === 'punch-report') {
-      url = `/api/projects/${project.id}/export/punch-report`;
-      filename = `${project.code || 'PRJ'}_PunchList_Report.pdf`;
-    } else if (exportType === 'csv') {
-      url = `/api/projects/${project.id}/export/csv`;
-      filename = `${project.code || 'PRJ'}_PunchList.csv`;
+      url = `/api/projects/${project.id}/export/punch-report${sheetQuery}`;
+      filename = `${code}_PunchList_Report.pdf`;
+    } else if (exportType === 'excel') {
+      url = `/api/projects/${project.id}/export/excel${sheetQuery}`;
+      filename = `${code}_Project_Report.xlsx`;
+    } else {
+      url = `/api/projects/${project.id}/export/csv${sheetQuery}`;
+      filename = `${code}_PunchList.csv`;
     }
 
     setIsExporting(true);
     setExportError(null);
 
     try {
-      const token = getToken();
+      const token = await getToken();
       if (!token) {
-        throw new Error('Authentication required: please log in again.');
+        throw new Error('Authentication required: please sign in again.');
       }
-      const separator = url.includes('?') ? '&' : '?';
-      const authedUrl = `${url}${separator}token=${encodeURIComponent(token)}`;
-      const res = await fetch(authedUrl, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
-        throw new Error(errData.error || `Export failed with status ${res.status}`);
+        const errData = await res.json().catch(() => ({ detail: `Server error (${res.status})` }));
+        throw new Error(errData.detail || errData.error || `Export failed with status ${res.status}`);
       }
 
       const blob = await res.blob();
@@ -67,6 +140,7 @@ export default function ExportModal({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(objectUrl);
+      onClose();
     } catch (err) {
       setExportError(err.message || 'Export failed. Please try again.');
     } finally {
@@ -75,209 +149,186 @@ export default function ExportModal({
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ width: 560, maxWidth: '95vw', backgroundColor: '#FFFFFF' }}>
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Export project deliverables"
+      onClick={(e) => e.target === e.currentTarget && !isExporting && onClose()}
+    >
+      <div className="modal-card" style={{ width: 560, maxWidth: '95vw', padding: 0, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{
           padding: '18px 24px',
-          backgroundColor: 'var(--bg-surface-2)',
-          borderBottom: '1.5px solid var(--border-default)',
+          backgroundColor: 'var(--surface-muted)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 700, color: 'var(--text-main)' }}>
-            <Download size={18} color="#5C3A21" /> Export Project Deliverables
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--amber-light)',
+              color: 'var(--amber)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Download size={18} aria-hidden="true" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
+                Export Project Info &amp; Deliverables
+              </h3>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {project?.name || 'Active Project'} ({project?.code || 'PRJ'})
+              </div>
+            </div>
           </div>
-          <button onClick={onClose} className="btn-ghost" style={{ padding: 6, color: '#18181B' }}>
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isExporting}
+            className="btn-icon"
+            aria-label="Close export modal"
+            style={{ width: 38, height: 38 }}
+          >
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
         {/* Export Options Body */}
-        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Format Selector */}
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
+            <div className="eyebrow" style={{ color: 'var(--timber)', marginBottom: 8 }}>
               Select Deliverable Format
-            </label>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-              {/* Option 1: Annotated PDF */}
-              <div
-                onClick={() => setExportType('annotated-pdf')}
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: exportType === 'annotated-pdf' ? '#FFFBEB' : '#FFFFFF',
-                  border: `2px solid ${exportType === 'annotated-pdf' ? '#D97706' : 'var(--border-default)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  boxShadow: exportType === 'annotated-pdf' ? '0 2px 10px rgba(217, 119, 6, 0.15)' : 'var(--shadow-sm)'
-                }}
-              >
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: '#5C3A21',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <Layers size={18} color="#FEF3C7" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
-                    Annotated Drawing Set (PDF)
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                    Standard vector PDF containing original floor plans with all revision clouds, dimensions, and color-coded punch pins burned into page layers.
-                  </div>
-                </div>
-                {exportType === 'annotated-pdf' && <CheckCircle2 size={18} color="#D97706" />}
-              </div>
-
-              {/* Option 2: Formatted Punch List Report */}
-              <div
-                onClick={() => setExportType('punch-report')}
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: exportType === 'punch-report' ? '#FFFBEB' : '#FFFFFF',
-                  border: `2px solid ${exportType === 'punch-report' ? '#D97706' : 'var(--border-default)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  boxShadow: exportType === 'punch-report' ? '0 2px 10px rgba(217, 119, 6, 0.15)' : 'var(--shadow-sm)'
-                }}
-              >
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: '#D97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <FileText size={18} color="#FFFFFF" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
-                    Formal Punch List Summary Report (PDF)
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                    Formal PDF report featuring executive KPI cards, resolution rates, categorized trade tables, and defect photo evidence for sign-off.
-                  </div>
-                </div>
-                {exportType === 'punch-report' && <CheckCircle2 size={18} color="#D97706" />}
-              </div>
-
-              {/* Option 3: CSV Spreadsheet */}
-              <div
-                onClick={() => setExportType('csv')}
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: exportType === 'csv' ? '#FFFBEB' : '#FFFFFF',
-                  border: `2px solid ${exportType === 'csv' ? '#D97706' : 'var(--border-default)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  boxShadow: exportType === 'csv' ? '0 2px 10px rgba(217, 119, 6, 0.15)' : 'var(--shadow-sm)'
-                }}
-              >
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: '#18181B',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <FileSpreadsheet size={18} color="#FFFFFF" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>
-                    Spreadsheet Data Export (CSV)
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                    Raw tabular dataset with coordinates, room tags, due dates, and subcontractor assignments for Excel or Procore/Autodesk import.
-                  </div>
-                </div>
-                {exportType === 'csv' && <CheckCircle2 size={18} color="#D97706" />}
-              </div>
+              {EXPORT_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                const isSelected = exportType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setExportType(opt.id)}
+                    aria-pressed={isSelected}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '12px 14px',
+                      backgroundColor: isSelected ? 'var(--amber-light)' : 'var(--surface)',
+                      border: `2px solid ${isSelected ? 'var(--amber)' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-lg)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 12,
+                      transition: 'all var(--ease-quick)'
+                    }}
+                  >
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 'var(--radius-lg)',
+                      backgroundColor: opt.iconBg,
+                      color: opt.iconColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Icon size={18} aria-hidden="true" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
+                        {opt.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                        {opt.description}
+                      </div>
+                    </div>
+                    {isSelected && <CheckCircle2 size={18} color="var(--amber)" aria-hidden="true" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Sheet Selection Scope (For Annotated PDF) */}
-          {exportType === 'annotated-pdf' && (
+          {/* Sheet / Floor Scope Selector (Applies to all export formats) */}
+          {sheets.length > 0 && (
             <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--brand-brown)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
-                Sheet Scope
+              <label
+                htmlFor="export-sheet-scope"
+                className="eyebrow"
+                style={{ display: 'block', color: 'var(--timber)', marginBottom: 6 }}
+              >
+                Floor / Sheet Scope
               </label>
               <select
+                id="export-sheet-scope"
                 value={selectedSheetId}
                 onChange={(e) => setSelectedSheetId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1.5px solid var(--border-default)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-main)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  outline: 'none'
-                }}
+                className="input-field"
+                style={{ width: '100%', fontWeight: 600 }}
               >
+                {sheets.map((s) => {
+                  const floorLabel = [s.building_name, s.floor_level].filter(Boolean).join(' — ');
+                  const isCurrent = s.id === activeSheet?.id || (selectedFloorId && (s.floor_level || '').toLowerCase() === selectedFloorId.toLowerCase());
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {floorLabel || s.name || s.title}{isCurrent ? ' (Current Floor)' : ''}
+                    </option>
+                  );
+                })}
                 <option value="all">All Sheets in Project ({sheets.length} Sheets)</option>
-                {sheets.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.sheet_number} — {s.name}
-                  </option>
-                ))}
               </select>
             </div>
           )}
 
-          {/* Action Button */}
           {exportError && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 14px',
-              backgroundColor: '#FEF2F2',
-              border: '1.5px solid #FCA5A5',
-              borderRadius: 'var(--radius-md)',
-              color: '#B91C1C',
-              fontSize: 13,
-              fontWeight: 600
-            }}>
-              <AlertCircle size={16} />
-              {exportError}
+            <div
+              role="alert"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                backgroundColor: 'var(--danger-bg)',
+                border: '1px solid var(--danger-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--danger)',
+                fontSize: 13,
+                fontWeight: 600
+              }}
+            >
+              <AlertCircle size={16} aria-hidden="true" />
+              <span>{exportError}</span>
             </div>
           )}
+
           <button
+            type="button"
             onClick={handleTriggerExport}
             disabled={isExporting}
-            className="btn-brown"
-            style={{ width: '100%', padding: '12px 18px', fontSize: 14, fontWeight: 700, marginTop: 6, opacity: isExporting ? 0.7 : 1, cursor: isExporting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            className="btn btn-primary"
+            style={{ width: '100%', height: 42, fontSize: 14 }}
           >
-            {isExporting
-              ? <><Loader2 size={16} color="#FEF3C7" style={{ animation: 'spin 1s linear infinite' }} /> Generating Export…</>
-              : <><Download size={16} color="#FEF3C7" /> Generate &amp; Download Export</>
-            }
+            {isExporting ? (
+              <>
+                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" />
+                <span>Generating Export…</span>
+              </>
+            ) : (
+              <>
+                <Download size={16} aria-hidden="true" />
+                <span>Download {exportType === 'excel' ? 'Excel (.xlsx)' : exportType === 'csv' ? 'CSV (.csv)' : 'PDF (.pdf)'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -202,10 +202,14 @@ export default function OnboardingPage({ token, onComplete, onBackToLogin }) {
 
               <form onSubmit={handleSubmit}>
                 <div className="onboard-form-group">
-                  <label className="onboard-label">New Password</label>
+                  <label htmlFor="onboard-password" className="onboard-label">
+                    New Password
+                    <span className="required-asterisk" aria-hidden="true">*</span>
+                  </label>
                   <div className="onboard-input-wrap">
-                    <Lock size={16} className="onboard-input-icon" />
+                    <Lock size={16} className="onboard-input-icon" aria-hidden="true" />
                     <input
+                      id="onboard-password"
                       type={showPassword ? 'text' : 'password'}
                       className="onboard-input"
                       placeholder="Enter a secure password"
@@ -216,18 +220,23 @@ export default function OnboardingPage({ token, onComplete, onBackToLogin }) {
                     <button
                       type="button"
                       className="onboard-eye-btn"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
 
                 <div className="onboard-form-group">
-                  <label className="onboard-label">Confirm Password</label>
+                  <label htmlFor="onboard-confirm-password" className="onboard-label">
+                    Confirm Password
+                    <span className="required-asterisk" aria-hidden="true">*</span>
+                  </label>
                   <div className="onboard-input-wrap">
-                    <Lock size={16} className="onboard-input-icon" />
+                    <Lock size={16} className="onboard-input-icon" aria-hidden="true" />
                     <input
+                      id="onboard-confirm-password"
                       type={showPassword ? 'text' : 'password'}
                       className="onboard-input"
                       placeholder="Re-enter your password"
