@@ -7,7 +7,7 @@
   height: 100%;
   overflow-y: auto;
   padding: 24px 28px;
-  background-color: transparent;
+  background-color: var(--bg, #F8F7F4);
   display: flex;
   flex-direction: column;
   gap: 20px;
