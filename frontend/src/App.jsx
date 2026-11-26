@@ -121,6 +121,7 @@ export default function App() {
           parsed.avatar = av;
           parsed.avatar_url = av;
         }
+        parsed.isDemo = Boolean(parsed.isDemo && parsed.email === 'demo@punchlistpro.demo');
         return parsed;
       }
       return DEMO_USER;
@@ -132,14 +133,15 @@ export default function App() {
   // Internal helper: map any user object (Supabase or local) to app state & persist
   const _handleLoginUser = useCallback((userInfo) => {
     if (!userInfo) return;
+    const isDemoUser = Boolean(userInfo.isDemo && userInfo.email === 'demo@punchlistpro.demo');
     const resolvedAvatar = userInfo.avatar_url || userInfo.avatar || DEMO_USER.avatar_url;
     const finalUser = {
-      ...DEMO_USER,
       ...userInfo,
+      isDemo: isDemoUser,
       avatar: resolvedAvatar,
       avatar_url: resolvedAvatar,
-      name: userInfo.name || userInfo.email?.split('@')[0] || DEMO_USER.name,
-      company: userInfo.company || userInfo.organization || DEMO_USER.company,
+      name: userInfo.name || userInfo.email?.split('@')[0] || 'Field User',
+      company: userInfo.company || userInfo.organization || 'UMBC Facility Operations',
     };
     setCurrentUser(finalUser);
     try {
