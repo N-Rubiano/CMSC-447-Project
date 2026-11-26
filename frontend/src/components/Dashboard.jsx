@@ -44,6 +44,19 @@ function resolveTradeInfo(punch) {
   return TRADES.AC || { code: 'AC', name: 'Architectural', color: '#4F46E5' };
 }
 
+function formatAuditAction(raw = '') {
+  const s = String(raw || '').trim();
+  if (!s) return 'Field Update';
+  if (s === s.toUpperCase() && s.includes('_')) {
+    return s
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return s;
+}
+
 function formatPunchId(punch) {
   if (punch?.item_number != null) return `#${punch.item_number}`;
   const id = String(punch?.id || '');
@@ -281,22 +294,39 @@ export default function Dashboard({
           ------------------------------------------------------------- */}
       <header className="dashboard-header">
         <div className="dashboard-header__left">
-          <nav aria-label="Breadcrumbs" className="dashboard-breadcrumb">
-            <span className="dashboard-breadcrumb__item">{project?.name || 'Project'}</span>
-            {selectedBuilding && (
-              <>
-                <ChevronRight size={12} color="#A8A29E" />
-                <span className="dashboard-breadcrumb__item">{selectedBuilding.name}</span>
-              </>
+          {(selectedBuilding || selectedFloor) && (
+            <nav aria-label="Breadcrumbs" className="dashboard-breadcrumb">
+              <span className="dashboard-breadcrumb__item">{project?.name || 'Project'}</span>
+              {selectedBuilding && (
+                <>
+                  <ChevronRight size={12} color="#A8A29E" />
+                  <span className="dashboard-breadcrumb__item">{selectedBuilding.name}</span>
+                </>
+              )}
+              {selectedFloor && (
+                <>
+                  <ChevronRight size={12} color="#A8A29E" />
+                  <span className="dashboard-breadcrumb__item--active">Floor {selectedFloor}</span>
+                </>
+              )}
+            </nav>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 className="dashboard-title">Field Dashboard</h1>
+            {!selectedBuilding && !selectedFloor && (
+              <span style={{
+                padding: '3px 9px',
+                borderRadius: 999,
+                backgroundColor: 'var(--surface-muted)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--text-secondary)'
+              }}>
+                {project?.name || 'UMBC Campus'}
+              </span>
             )}
-            {selectedFloor && (
-              <>
-                <ChevronRight size={12} color="#A8A29E" />
-                <span className="dashboard-breadcrumb__item--active">Floor {selectedFloor}</span>
-              </>
-            )}
-          </nav>
-          <h1 className="dashboard-title">Field Dashboard</h1>
+          </div>
         </div>
 
         <div className="dashboard-actions">
@@ -795,7 +825,7 @@ export default function Dashboard({
                   <div key={idx} className="activity-item">
                     <div className="activity-node" style={{ backgroundColor: act.color || '#D97706' }} />
                     <div className="activity-content">
-                      <div className="activity-action">{act.action}</div>
+                      <div className="activity-action">{formatAuditAction(act.action)}</div>
                       <div className="activity-meta">
                         {act.by}{act.meta ? ` • ${act.meta}` : ''}
                       </div>
