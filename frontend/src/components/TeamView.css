@@ -225,9 +225,33 @@
   }
 }
 
+.team-role-tablist {
+  flex-wrap: wrap;
+}
+
 @media (max-width: 768px) {
   .team-view-container {
     padding: 16px;
+  }
+  .team-role-tablist {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .team-role-tablist::-webkit-scrollbar {
+    display: none;
+  }
+  .team-role-tablist > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .team-provision-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 

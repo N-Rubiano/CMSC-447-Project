@@ -87,27 +87,28 @@ function BlueprintHeroMockup({ onLaunch }) {
   const [activePin, setActivePin] = useState('pin-1');
 
   const pins = [
-    { id: 'pin-1', x: 28, y: 34, code: 'EL', trade: 'Electrical', title: 'Conduit junction unsealed', status: 'Pending Review', color: '#D97706' },
-    { id: 'pin-2', x: 62, y: 55, code: 'MP', trade: 'Mechanical', title: 'HVAC damper missing actuator', status: 'In Progress', color: '#0284C7' },
-    { id: 'pin-3', x: 74, y: 26, code: 'AC', trade: 'Architectural', title: 'Fire door closer clearance', status: 'Open', color: '#4F46E5' },
-    { id: 'pin-4', x: 42, y: 72, code: 'FP', trade: 'Fire Protection', title: 'Sprinkler head obstruction', status: 'Resolved', color: '#16A34A' }
+    { id: 'pin-1', code: 'EL', num: '#102', x: 24, y: 34, trade: 'Electrical', title: 'Conduit junction unsealed', grid: 'A1 · Elec. Room 102', status: 'Pending Review', color: '#D97706' },
+    { id: 'pin-2', code: 'MP', num: '#204', x: 60, y: 56, trade: 'Mechanical', title: 'HVAC damper missing actuator', grid: 'B2 · Elevator Core', status: 'In Progress', color: '#0284C7' },
+    { id: 'pin-3', code: 'AC', num: '#109', x: 78, y: 28, trade: 'Architectural', title: 'Fire door closer clearance', grid: 'C1 · Office Suite A', status: 'Open', color: '#4F46E5' },
+    { id: 'pin-4', code: 'FP', num: '#088', x: 38, y: 74, trade: 'Fire Protection', title: 'Sprinkler head obstruction', grid: 'A2 · Mech. Shaft', status: 'Resolved', color: '#16A34A' }
   ];
+
+  const selectedPin = pins.find((p) => p.id === activePin) || pins[0];
 
   return (
     <div className="lp-hero__card">
       <div className="lp-hero__card-topbar">
-        <div className="lp-hero__card-dots">
-          <span className="lp-hero__card-dot" />
-          <span className="lp-hero__card-dot" />
-          <span className="lp-hero__card-dot" />
+        <div className="lp-hero__sheet-meta">
+          <span className="lp-hero__sheet-badge">SHEET A-101</span>
+          <span className="lp-hero__sheet-title caption-1">
+            Level 01 Architectural Floor Plan · Rev 2
+          </span>
         </div>
-        <span className="caption-1" style={{ color: '#52525B' }}>
-          Sheet A-101 • Level 01 Architectural Floor Plan • Rev 2
-        </span>
         <button
+          type="button"
           onClick={onLaunch}
           className="btn-secondary button-sm"
-          style={{ height: '28px', padding: '0 10px' }}
+          style={{ height: '30px', padding: '0 12px' }}
         >
           Open in Canvas
         </button>
@@ -120,10 +121,11 @@ function BlueprintHeroMockup({ onLaunch }) {
           viewBox="0 0 1000 500"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           {/* Exterior Structural Walls */}
           <rect x="60" y="40" width="880" height="420" stroke="#8C8270" strokeWidth="4" />
-          
+
           {/* Interior Partitions */}
           <line x1="360" y1="40" x2="360" y2="460" stroke="#A89E8C" strokeWidth="2.5" />
           <line x1="680" y1="40" x2="680" y2="460" stroke="#A89E8C" strokeWidth="2.5" />
@@ -163,84 +165,61 @@ function BlueprintHeroMockup({ onLaunch }) {
           <text x="940" y="44" fill="#18181B" fontSize="10" fontWeight="700" textAnchor="middle">D1</text>
         </svg>
 
-        {/* Live Vector Pins with Tooltips */}
+        {/* Live Vector Pins */}
         {pins.map((pin) => {
           const isSelected = activePin === pin.id;
           return (
-            <div
+            <button
               key={pin.id}
+              type="button"
               onClick={() => setActivePin(pin.id)}
-              style={{
-                position: 'absolute',
-                left: `${pin.x}%`,
-                top: `${pin.y}%`,
-                transform: 'translate(-50%, -100%)',
-                cursor: 'pointer',
-                zIndex: isSelected ? 20 : 10
-              }}
+              className={`lp-pin${isSelected ? ' is-selected' : ''}`}
+              style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+              aria-label={`Inspect ${pin.trade} pin ${pin.num}: ${pin.title}`}
+              aria-pressed={isSelected}
             >
-              {/* Pin Callout Badge */}
-              <div
+              <span
+                className="lp-pin__badge"
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
                   backgroundColor: pin.color,
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  boxShadow: isSelected ? '0 0 0 4px rgba(217, 119, 6, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)',
-                  transition: 'all 200ms ease'
+                  boxShadow: isSelected ? '0 0 0 4px rgba(217, 119, 6, 0.28)' : '0 2px 6px rgba(24, 24, 27, 0.22)'
                 }}
               >
                 {pin.code}
-              </div>
+              </span>
+              <span className="lp-pin__needle" style={{ backgroundColor: pin.color }} />
+            </button>
+          );
+        })}
 
-              {/* Pin Needle Tail */}
-              <div
-                style={{
-                  width: '2px',
-                  height: '6px',
-                  backgroundColor: pin.color,
-                  margin: '0 auto'
-                }}
-              />
+        {/* Active Inspection Detail Card (anchored inside viewport, never clips on mobile) */}
+        <div className="lp-pin-inspector" role="status" aria-live="polite">
+          <div className="lp-pin-inspector__head">
+            <span className="lp-pin-inspector__trade" style={{ color: selectedPin.color }}>
+              {selectedPin.trade} · {selectedPin.num}
+            </span>
+            <span className="lp-pin-inspector__status">{selectedPin.status}</span>
+          </div>
+          <p className="lp-pin-inspector__title">{selectedPin.title}</p>
+          <span className="lp-pin-inspector__grid">{selectedPin.grid}</span>
+        </div>
+      </div>
 
-              {/* Active Inspection Popover */}
-              {isSelected && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '46px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '220px',
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #DCD5C8',
-                    borderRadius: '6px',
-                    padding: '10px 12px',
-                    boxShadow: '0 8px 18px rgba(0,0,0,0.1)',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: pin.color, textTransform: 'uppercase' }}>
-                      {pin.trade}
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#71717A', backgroundColor: '#F2EFE9', padding: '1px 5px', borderRadius: '4px' }}>
-                      {pin.status}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#18181B', margin: 0, lineHeight: 1.3 }}>
-                    {pin.title}
-                  </p>
-                </div>
-              )}
-            </div>
+      {/* Quick Pin Strip for Touch / Keyboard Inspection */}
+      <div className="lp-hero__card-foot">
+        {pins.map((pin) => {
+          const isSelected = activePin === pin.id;
+          return (
+            <button
+              key={pin.id}
+              type="button"
+              onClick={() => setActivePin(pin.id)}
+              className={`lp-pin-chip${isSelected ? ' is-active' : ''}`}
+            >
+              <span className="lp-pin-chip__dot" style={{ backgroundColor: pin.color }} />
+              <span className="lp-pin-chip__code">{pin.code} {pin.num}</span>
+              <span className="lp-pin-chip__label">{pin.title}</span>
+            </button>
           );
         })}
       </div>
@@ -326,27 +305,20 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
       </header>
 
       <main>
-        {/* ── Section 1: Hero Section (A2, B5) ───────────────────────── */}
+        {/* ── Section 1: Hero Section ───────────────────────────────── */}
         <section className="lp-hero">
           <div className="lp-container">
-            <div className="lp-hero__pill">
-              <span className="lp-hero__pill-dot" />
-              <span className="caption-3" style={{ color: '#16A34A' }}>FIELD READY</span>
-              <span className="caption-1" style={{ color: '#52525B' }}>
-                Tablet first architectural blueprint inspection
-              </span>
-            </div>
-
             <h1 className="heading-1 lp-hero__title">
               Defect tracking anchored to architectural drawings for construction teams
             </h1>
 
             <p className="body-1 lp-hero__subtitle">
-              Replace coordinate drift, lost emails, and unverified fixes with vector pin annotations, instant field synchronization, and strict multi tier closeout governance.
+              Replace coordinate drift, lost emails, and unverified fixes with vector pin annotations, instant field synchronization, and strict multi-tier closeout governance.
             </p>
 
             <div className="lp-hero__actions">
               <button
+                type="button"
                 onClick={onLaunchWorkspace}
                 className="btn-primary button-md"
               >
@@ -354,6 +326,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
                 <ArrowRight size={18} />
               </button>
               <button
+                type="button"
                 onClick={onOpenLogin}
                 className="btn-secondary button-md"
               >
@@ -362,8 +335,8 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
             </div>
 
             <p className="caption-1 lp-hero__proof-line">
-              <ShieldCheck size={16} style={{ color: '#16A34A' }} />
-              14,820 verified punch items resolved across 340 active drawing sheets with a 98.4% closeout rate.
+              <ShieldCheck size={16} style={{ color: '#16A34A', flexShrink: 0 }} />
+              <span>14,820 verified punch items resolved across 340 active drawing sheets with a 98.4% closeout rate.</span>
             </p>
 
             {/* Interactive Drawing Stage Mockup */}
@@ -401,11 +374,8 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
         {/* ── Section 4: Problem to Solution ─────────────────────────── */}
         <section className="lp-section" id="features">
           <div className="lp-container">
-            <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
-              <span className="caption-3" style={{ color: '#B45309', textTransform: 'uppercase' }}>
-                FIELD EXECUTION ARCHITECTURE
-              </span>
-              <h2 className="heading-2" style={{ marginTop: '8px', color: '#18181B' }}>
+            <div className="lp-section-head">
+              <h2 className="heading-2" style={{ color: '#18181B' }}>
                 Engineered for active jobsites, not generic spreadsheets
               </h2>
             </div>
@@ -413,48 +383,48 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
             <div className="lp-matrix-grid">
               {/* Negative State */}
               <div className="lp-matrix-card lp-matrix-card--negative">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <XCircle size={20} style={{ color: '#DC2626' }} />
+                <div className="lp-matrix-head">
+                  <XCircle size={20} style={{ color: '#DC2626', flexShrink: 0 }} />
                   <span className="title-2" style={{ color: '#991B1B' }}>
                     Paper plans and spreadsheet chaos
                   </span>
                 </div>
                 <ul className="lp-matrix-list">
                   <li className="lp-matrix-item body-4" style={{ color: '#7F1D1D' }}>
-                    • Pins drift whenever screens zoom or display resolutions change
+                    Pins drift whenever screens zoom or display resolutions change
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#7F1D1D' }}>
-                    • Subcontractors self approve incomplete repairs without general contractor verification
+                    Subcontractors self-approve incomplete repairs without general contractor verification
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#7F1D1D' }}>
-                    • Poor cellular signal in concrete basements drops critical field notes
+                    Poor cellular signal in concrete basements drops critical field notes
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#7F1D1D' }}>
-                    • Fragmented email threads cause costly closeout disputes during owner handoff
+                    Fragmented email threads cause costly closeout disputes during owner handoff
                   </li>
                 </ul>
               </div>
 
               {/* Positive State */}
               <div className="lp-matrix-card lp-matrix-card--positive">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={20} style={{ color: '#16A34A' }} />
+                <div className="lp-matrix-head">
+                  <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
                   <span className="title-2" style={{ color: '#166534' }}>
                     The PunchList Pro vector standard
                   </span>
                 </div>
                 <ul className="lp-matrix-list">
                   <li className="lp-matrix-item body-4" style={{ color: '#14532D' }}>
-                    • Pins lock to blueprint coordinate space with submillimeter precision
+                    Pins lock to blueprint coordinate space with submillimeter precision
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#14532D' }}>
-                    • Four tier inspection state machine protects closeout integrity
+                    Four-tier inspection state machine protects closeout integrity
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#14532D' }}>
-                    • Offline IndexedDB storage queues edits until cellular connectivity resumes
+                    Offline IndexedDB storage queues edits until cellular connectivity resumes
                   </li>
                   <li className="lp-matrix-item body-4" style={{ color: '#14532D' }}>
-                    • Complete audit trail records every status transition and photographic record
+                    Complete audit trail records every status transition and photographic record
                   </li>
                 </ul>
               </div>
@@ -462,14 +432,11 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
           </div>
         </section>
 
-        {/* ── Section 5: Outcome-Driven Benefits (A2, B1) ─────────────── */}
+        {/* ── Section 5: Outcome-Driven Benefits ──────────────────────── */}
         <section className="lp-section">
           <div className="lp-container">
-            <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
-              <span className="caption-3" style={{ color: '#B45309', textTransform: 'uppercase' }}>
-                CORE CAPABILITIES
-              </span>
-              <h2 className="heading-2" style={{ marginTop: '8px', color: '#18181B' }}>
+            <div className="lp-section-head">
+              <h2 className="heading-2" style={{ color: '#18181B' }}>
                 Every capability built for verifiable turnover
               </h2>
             </div>
@@ -491,7 +458,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
                 </div>
                 <h3 className="title-1">Enforced closeout authority</h3>
                 <p className="body-3" style={{ color: '#52525B' }}>
-                  Specialty subcontractors submit remediation proof while only general contractors and facility administrators hold formal sign off authority.
+                  Specialty subcontractors submit remediation proof while only general contractors and facility administrators hold formal sign-off authority.
                 </p>
               </div>
 
@@ -518,21 +485,18 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
           </div>
         </section>
 
-        {/* ── Section 6: How It Works (A2, 3 Steps) ───────────────────── */}
+        {/* ── Section 6: How It Works (3 Steps) ──────────────────────── */}
         <section className="lp-section" id="how-it-works">
           <div className="lp-container">
-            <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
-              <span className="caption-3" style={{ color: '#B45309', textTransform: 'uppercase' }}>
-                SIMPLE THREE STEP WORKFLOW
-              </span>
-              <h2 className="heading-2" style={{ marginTop: '8px', color: '#18181B' }}>
+            <div className="lp-section-head">
+              <h2 className="heading-2" style={{ color: '#18181B' }}>
                 From blueprint upload to executive turnover
               </h2>
             </div>
 
             <div className="lp-steps-grid">
               <div className="lp-step-card">
-                <span className="lp-step-card__num">STEP 01</span>
+                <span className="lp-step-card__num">01</span>
                 <h3 className="title-1">Upload and anchor drawings</h3>
                 <p className="body-3" style={{ color: '#52525B' }}>
                   Import architectural, structural, or MEP drawing sets with automatic floor and building classification.
@@ -540,7 +504,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
               </div>
 
               <div className="lp-step-card">
-                <span className="lp-step-card__num">STEP 02</span>
+                <span className="lp-step-card__num">02</span>
                 <h3 className="title-1">Drop vector defect pins</h3>
                 <p className="body-3" style={{ color: '#52525B' }}>
                   Place issues directly on the exact room coordinate with trade classification, priority flags, and photo documentation.
@@ -548,8 +512,8 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
               </div>
 
               <div className="lp-step-card">
-                <span className="lp-step-card__num">STEP 03</span>
-                <h3 className="title-1">Multi tier inspection signoff</h3>
+                <span className="lp-step-card__num">03</span>
+                <h3 className="title-1">Multi-tier inspection signoff</h3>
                 <p className="body-3" style={{ color: '#52525B' }}>
                   Subcontractors execute repairs, general contractors inspect remediation, and facility administrators seal the audit trail.
                 </p>
@@ -558,17 +522,14 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
           </div>
         </section>
 
-        {/* ── Section 7: Governance State Machine (README Architecture) ── */}
+        {/* ── Section 7: Governance State Machine ────────────────────── */}
         <section className="lp-section" id="governance">
           <div className="lp-container">
-            <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
-              <span className="caption-3" style={{ color: '#B45309', textTransform: 'uppercase' }}>
-                ROLE BASED ACCESS CONTROL
-              </span>
-              <h2 className="heading-2" style={{ marginTop: '8px', color: '#18181B' }}>
-                Rigorous four tier lifecycle protection
+            <div className="lp-section-head">
+              <h2 className="heading-2" style={{ color: '#18181B' }}>
+                Rigorous four-tier lifecycle protection
               </h2>
-              <p className="body-2" style={{ color: '#52525B', marginTop: '8px' }}>
+              <p className="body-2" style={{ color: '#52525B', marginTop: '10px' }}>
                 Subcontractors cannot close their own punch items. Every transition requires formal field verification.
               </p>
             </div>
@@ -576,33 +537,27 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
             <div className="lp-governance-box">
               <div className="lp-state-flow">
                 <div className="lp-state-step">
-                  <span className="caption-3" style={{ color: '#0284C7' }}>STAGE 1</span>
-                  <p className="title-3" style={{ margin: '4px 0' }}>Open</p>
-                  <span className="caption-5" style={{ color: '#71717A' }}>Inspector / GC drops pin</span>
+                  <span className="lp-state-step__badge" style={{ color: '#0284C7', backgroundColor: '#E0F2FE' }}>01 · Open</span>
+                  <p className="title-3" style={{ margin: '8px 0 4px', color: '#18181B' }}>Inspector / GC drops pin</p>
+                  <span className="caption-5" style={{ color: '#52525B' }}>Anchored to sheet coordinate</span>
                 </div>
 
-                <ArrowRight size={20} style={{ color: '#DCD5C8' }} />
-
                 <div className="lp-state-step">
-                  <span className="caption-3" style={{ color: '#D97706' }}>STAGE 2</span>
-                  <p className="title-3" style={{ margin: '4px 0' }}>In Progress</p>
-                  <span className="caption-5" style={{ color: '#71717A' }}>Trade initiates repair</span>
+                  <span className="lp-state-step__badge" style={{ color: '#B45309', backgroundColor: '#FEF3C7' }}>02 · In Progress</span>
+                  <p className="title-3" style={{ margin: '8px 0 4px', color: '#18181B' }}>Trade initiates repair</p>
+                  <span className="caption-5" style={{ color: '#52525B' }}>Subcontractor uploads proof</span>
                 </div>
 
-                <ArrowRight size={20} style={{ color: '#DCD5C8' }} />
-
                 <div className="lp-state-step">
-                  <span className="caption-3" style={{ color: '#7C3AED' }}>STAGE 3</span>
-                  <p className="title-3" style={{ margin: '4px 0' }}>GC Review</p>
-                  <span className="caption-5" style={{ color: '#71717A' }}>Superintendent verifies fix</span>
+                  <span className="lp-state-step__badge" style={{ color: '#6D28D9', backgroundColor: '#EDE9FE' }}>03 · GC Review</span>
+                  <p className="title-3" style={{ margin: '8px 0 4px', color: '#18181B' }}>Superintendent verifies fix</p>
+                  <span className="caption-5" style={{ color: '#52525B' }}>Approves or returns item</span>
                 </div>
 
-                <ArrowRight size={20} style={{ color: '#DCD5C8' }} />
-
                 <div className="lp-state-step">
-                  <span className="caption-3" style={{ color: '#16A34A' }}>STAGE 4</span>
-                  <p className="title-3" style={{ margin: '4px 0' }}>Closed</p>
-                  <span className="caption-5" style={{ color: '#71717A' }}>Admin seals audit log</span>
+                  <span className="lp-state-step__badge" style={{ color: '#15803D', backgroundColor: '#DCFCE7' }}>04 · Closed</span>
+                  <p className="title-3" style={{ margin: '8px 0 4px', color: '#18181B' }}>Admin seals audit log</p>
+                  <span className="caption-5" style={{ color: '#52525B' }}>Locked for owner handoff</span>
                 </div>
               </div>
             </div>
@@ -612,11 +567,8 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
         {/* ── Section 8: FAQ Accordion ───────────────────────────────── */}
         <section className="lp-section" id="faq">
           <div className="lp-container">
-            <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
-              <span className="caption-3" style={{ color: '#B45309', textTransform: 'uppercase' }}>
-                FREQUENTLY ASKED QUESTIONS
-              </span>
-              <h2 className="heading-2" style={{ marginTop: '8px', color: '#18181B' }}>
+            <div className="lp-section-head">
+              <h2 className="heading-2" style={{ color: '#18181B' }}>
                 Answers for superintendents and project administrators
               </h2>
             </div>
@@ -625,17 +577,20 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
               {faqs.map((faq, idx) => {
                 const isOpen = openFaq === idx;
                 return (
-                  <div key={idx} className="lp-faq-item">
+                  <div key={idx} className={`lp-faq-item${isOpen ? ' is-open' : ''}`}>
                     <button
+                      type="button"
                       className="lp-faq-trigger"
                       onClick={() => setOpenFaq(isOpen ? null : idx)}
+                      aria-expanded={isOpen}
                     >
                       <span className="title-2">{faq.q}</span>
                       <ChevronDown
                         size={18}
                         style={{
+                          flexShrink: 0,
                           transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 300ms ease'
+                          transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)'
                         }}
                       />
                     </button>
@@ -651,7 +606,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
           </div>
         </section>
 
-        {/* ── Section 9: Final CTA & Risk Reversal ───────────────────── */}
+        {/* ── Section 9: Final CTA ───────────────────────────────────── */}
         <section className="lp-section">
           <div className="lp-container">
             <div className="lp-final-cta">
@@ -659,10 +614,11 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
                 Ready to inspect your next jobsite with vector precision?
               </h2>
               <p className="body-1" style={{ color: '#52525B', maxWidth: '560px' }}>
-                Access the interactive sandbox workspace immediately or sign in with your project credentials.
+                Explore the interactive overview immediately or sign in with your project credentials.
               </p>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div className="lp-final-cta__actions">
                 <button
+                  type="button"
                   onClick={onLaunchWorkspace}
                   className="btn-primary button-md"
                 >
@@ -670,6 +626,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
                   <ArrowRight size={18} />
                 </button>
                 <button
+                  type="button"
                   onClick={onOpenLogin}
                   className="btn-secondary button-md"
                 >
@@ -677,7 +634,7 @@ export default function LandingPage({ onLaunchWorkspace, onOpenLogin, onLegalPag
                 </button>
               </div>
               <p className="caption-1" style={{ color: '#71717A' }}>
-                Instant browser access. Zero installation or credit card required.
+                Instant browser access. Zero installation required.
               </p>
             </div>
           </div>

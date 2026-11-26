@@ -1035,8 +1035,13 @@ button:disabled {
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     padding: 10px 12px;
     gap: 8px;
+  }
+  .settings-rail::-webkit-scrollbar {
+    display: none;
   }
 
   .settings-rail > button {
@@ -1056,8 +1061,20 @@ button:disabled {
 }
 
 @media (pointer: coarse) {
-  button, input, select, textarea, a, .touch-target {
+  .btn,
+  .select-field,
+  .input-field,
+  .b-row,
+  .f-row,
+  .tab-btn,
+  .nav-item,
+  .touch-target {
     min-height: 44px;
+  }
+
+  .select-field,
+  .input-field {
+    font-size: 16px;
   }
 }
 

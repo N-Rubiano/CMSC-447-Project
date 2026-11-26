@@ -510,6 +510,7 @@ export default function TeamPage({ currentUser, projects = [] }) {
           {(isAdmin || isGC) && (
             <button
               type="button"
+              className="team-provision-btn"
               onClick={() => handleOpenAddModal(roleFilter !== 'all' ? roleFilter : (isAdmin ? 'admin' : 'sub_contractor'))}
               style={{
                 height: 38,
@@ -543,11 +544,11 @@ export default function TeamPage({ currentUser, projects = [] }) {
       <div
         role="tablist"
         aria-label="Filter directory by project role"
+        className="team-role-tablist"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          flexWrap: 'wrap',
           padding: '6px',
           backgroundColor: 'var(--surface-muted)',
           border: '1px solid var(--border-subtle)',

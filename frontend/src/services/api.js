@@ -98,7 +98,7 @@ export const api = {
   async login(email, password) {
     if (isSupabaseConfigured) {
       try {
-        const { session, user: supaUser, error } = await signInWithPassword(email, password);
+        const { session, error } = await signInWithPassword(email, password);
 
         if (session && !error) {
           // Exchange the Supabase token for our local user profile (role, company, etc.)
@@ -111,14 +111,18 @@ export const api = {
           });
 
           if (!res.ok) {
-            console.warn('Could not fetch local user profile from backend, using Supabase claims.');
-            return { token: session.access_token, user: supaUser };
+            await supabaseSignOut().catch(() => {});
+            const errData = await res.json().catch(() => ({}));
+            const authErr = new Error(errData.detail || 'Account is not authorized for this workspace.');
+            authErr.isAuthRejection = true;
+            throw authErr;
           }
 
           const userProfile = await res.json();
           return { token: session.access_token, user: userProfile };
         }
       } catch (supaErr) {
+        if (supaErr?.isAuthRejection) throw supaErr;
         console.warn('Supabase sign-in skipped or failed, trying backend login:', supaErr);
       }
     }
@@ -136,7 +140,15 @@ export const api = {
         if (data.token) setToken(data.token);
         return data;
       }
+
+      if (backendRes.status === 403) {
+        const errData = await backendRes.json().catch(() => ({}));
+        const authErr = new Error(errData.detail || 'Account access denied.');
+        authErr.isAuthRejection = true;
+        throw authErr;
+      }
     } catch (backendErr) {
+      if (backendErr?.isAuthRejection) throw backendErr;
       console.warn('Backend login unavailable:', backendErr);
     }
 

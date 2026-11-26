@@ -358,14 +358,6 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
         <nav
           className="settings-rail"
           aria-label="Settings sections"
-          style={{
-            backgroundColor: '#FAFAF9',
-            borderRight: '1px solid var(--border-subtle)',
-            padding: '16px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4
-          }}
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -453,7 +445,8 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 18,
+                flexWrap: 'wrap',
+                gap: 14,
                 paddingBottom: 20,
                 borderBottom: '1px solid var(--border-subtle)'
               }}>
@@ -485,7 +478,7 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
                   }} title="Active" />
                 </div>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
                       {profileName || 'Your Name'}
@@ -501,7 +494,7 @@ export default function SettingsPage({ currentUser, onUpdateUser }) {
                       {roleLabel}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2, overflowWrap: 'anywhere' }}>
                     {currentUser?.email || 'uw61778@umbc.edu'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>

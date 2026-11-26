@@ -143,19 +143,19 @@ function SyncBadge({ state, queuedCount, onToggle }) {
       {state === 'synced' && (
         <>
           <span className="sync-badge__dot" />
-          <span>Synced</span>
+          <span className="sync-badge__text">Synced</span>
         </>
       )}
       {state === 'syncing' && (
         <>
           <RefreshCw size={12} className="sync-badge__spin" aria-hidden="true" />
-          <span>Syncing…</span>
+          <span className="sync-badge__text">Syncing…</span>
         </>
       )}
       {state === 'offline' && (
         <>
           <WifiOff size={13} aria-hidden="true" />
-          <span>Offline · {queuedCount} queued</span>
+          <span className="sync-badge__text">Offline · {queuedCount} queued</span>
         </>
       )}
     </button>
@@ -760,7 +760,7 @@ export default function AppShell({
 
             <button
               type="button"
-              className={`btn-icon${activeModule === 'settings' ? ' is-active' : ''}`}
+              className={`btn-icon topbar__settings-btn${activeModule === 'settings' ? ' is-active' : ''}`}
               onClick={() => onNavigate('settings')}
               title="Settings"
               aria-label="Settings"

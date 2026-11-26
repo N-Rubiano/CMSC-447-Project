@@ -77,6 +77,7 @@ export default function Dashboard({
   onExportProject,
   onSelectPunch,
   onApprovePunch,
+  onSignIn,
   currentUser,
   selectedBuilding,
   selectedFloor
@@ -537,6 +538,38 @@ export default function Dashboard({
       {/* -------------------------------------------------------------
           3. MAIN LAYOUT: PRIMARY TABLE (LEFT) + SLIM RAIL (RIGHT)
           ------------------------------------------------------------- */}
+      {currentUser?.isDemo ? (
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: '28px 24px',
+            boxShadow: '0 1px 3px rgba(24, 24, 27, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+            Workspace Overview (Read-Only Demo)
+          </h2>
+          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', margin: 0, maxWidth: 640, lineHeight: 1.55 }}>
+            You are viewing a high-level summary of PunchList Pro. Project blueprints, field punch items, documents, and inspection photos are hidden in demo preview.
+          </p>
+          {onSignIn && (
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="dashboard-btn-primary"
+              style={{ marginTop: 6 }}
+            >
+              Sign In for Full Access
+            </button>
+          )}
+        </div>
+      ) : (
       <div className="dashboard-main-grid">
         {/* Left: Primary Field Punch Items Table Card */}
         <div className="dashboard-table-card">
@@ -841,6 +874,7 @@ export default function Dashboard({
           </div>
         </aside>
       </div>
+      )}
     </div>
   );
 }

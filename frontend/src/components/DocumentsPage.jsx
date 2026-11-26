@@ -140,7 +140,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
         </div>
 
         {onUploadBlueprint && (
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="documents-header-actions">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -231,7 +231,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
           paddingBottom: 16
         }}>
           {/* Folder Pills */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="documents-filter-pills">
             {folders.map(folder => {
               const isActive = activeFolder === folder;
               return (
@@ -248,6 +248,8 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
                     border: '1px solid',
                     borderColor: isActive ? 'var(--ink)' : 'var(--border)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     transition: 'all 150ms ease'
                   }}
                 >
@@ -258,7 +260,7 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
           </div>
 
           {/* Search Box */}
-          <div style={{ position: 'relative', minWidth: 260 }}>
+          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 0, maxWidth: '100%' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} />
             <input
               type="text"
@@ -280,8 +282,8 @@ export default function DocumentsPage({ onNavigateBlueprintWithSheet, onUploadBl
         </div>
 
         {/* Documents Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
             <thead>
               <tr style={{
                 borderBottom: '1.5px solid var(--border)',
