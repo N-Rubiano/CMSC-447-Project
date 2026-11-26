@@ -322,7 +322,7 @@ function BuildingFloorSelector({
   useDismiss(rootRef, open, (reason) => close(reason === 'escape'));
 
   const openAt = (nextStep) => {
-    if (open) {
+    if (open && step === nextStep) {
       close();
       return;
     }
@@ -342,6 +342,13 @@ function BuildingFloorSelector({
     close(true);
   };
 
+  const clearSelection = () => {
+    onSelectBuilding(null);
+    setHoveredId(umbcBuildings[0]?.id || null);
+    setStep('building');
+    searchRef.current?.focus();
+  };
+
   /* Keyboard: search -> buildings -> floors */
   const buildingButtons = () => [...(buildingsRef.current?.querySelectorAll('[data-building]') || [])];
   const floorButtons = () => [...(floorsRef.current?.querySelectorAll('[data-floor]') || [])];
@@ -357,6 +364,13 @@ function BuildingFloorSelector({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       buildingButtons()[0]?.focus();
+    } else if (e.key === 'Enter' && filtered.length === 1) {
+      e.preventDefault();
+      const target = filtered[0];
+      pickBuilding(target.id);
+      if (target.floors.length > 0) {
+        requestAnimationFrame(() => floorButtons()[0]?.focus());
+      }
     }
   };
 
@@ -410,7 +424,7 @@ function BuildingFloorSelector({
           <Building2 size={14} className="sel-btn__icon" aria-hidden="true" />
           <span className="sel-btn__value">
             <span>{selected ? selected.name : 'Select building'}</span>
-            <ChevronDown size={13} color="var(--text-muted)" aria-hidden="true" />
+            <ChevronDown size={13} className="sel-btn__chevron" color="var(--text-muted)" aria-hidden="true" />
           </span>
         </button>
 
@@ -432,7 +446,7 @@ function BuildingFloorSelector({
               <Layers size={14} className="sel-btn__icon" aria-hidden="true" />
               <span className="sel-btn__value">
                 <span>{selectedFloorId || 'Select level'}</span>
-                <ChevronDown size={13} color="var(--text-muted)" aria-hidden="true" />
+                <ChevronDown size={13} className="sel-btn__chevron" color="var(--text-muted)" aria-hidden="true" />
               </span>
             </button>
           </>
@@ -451,14 +465,26 @@ function BuildingFloorSelector({
                 <Building2 size={16} color="var(--amber)" aria-hidden="true" />
                 <span>Building &amp; Level Navigator</span>
               </div>
-              <div className="sel-panel__path">
-                {selected ? (
-                  <>
-                    <strong>{selected.name}</strong>
-                    {selectedFloorId && <em> · {selectedFloorId}</em>}
-                  </>
-                ) : (
-                  'Choose a building'
+              <div className="sel-panel__path-wrap">
+                <div className="sel-panel__path">
+                  {selected ? (
+                    <>
+                      <strong>{selected.name}</strong>
+                      {selectedFloorId && <em> · {selectedFloorId}</em>}
+                    </>
+                  ) : (
+                    'Choose a building'
+                  )}
+                </div>
+                {selected && (
+                  <button
+                    type="button"
+                    className="sel-panel__clear"
+                    onClick={clearSelection}
+                    aria-label="Clear selected building and level"
+                  >
+                    Clear
+                  </button>
                 )}
               </div>
             </div>
@@ -607,6 +633,13 @@ function BuildingFloorSelector({
                 <div className="panel-empty">Pick a building on the left to see its floors.</div>
               )}
             </div>
+          </div>
+
+          <div className="sel-panel__foot" aria-hidden="true">
+            <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+            <span><kbd>→</kbd> Floors</span>
+            <span><kbd>Enter</kbd> Select</span>
+            <span><kbd>Esc</kbd> Close</span>
           </div>
         </div>
       )}

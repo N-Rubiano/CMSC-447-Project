@@ -85,4 +85,44 @@ describe('AppShell Component', () => {
     render(<AppShell {...defaultProps} onNewPunch={undefined} />);
     expect(screen.queryByLabelText('New Punch Item')).not.toBeInTheDocument();
   });
+
+  it('filters buildings, selects via Enter, and picks a floor in BuildingFloorSelector', () => {
+    const onSelectUmbcBuilding = vi.fn();
+    const onSelectUmbcFloor = vi.fn();
+    render(
+      <AppShell
+        {...defaultProps}
+        selectedBuildingId={null}
+        selectedFloorId={null}
+        onSelectUmbcBuilding={onSelectUmbcBuilding}
+        onSelectUmbcFloor={onSelectUmbcFloor}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle('Select building'));
+    const searchInput = screen.getByLabelText('Search buildings');
+    fireEvent.change(searchInput, { target: { value: 'Academic IV' } });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+
+    expect(onSelectUmbcBuilding).toHaveBeenCalledWith('academic-iv');
+
+    fireEvent.click(screen.getByText('Ground Floor'));
+    expect(onSelectUmbcFloor).toHaveBeenCalledWith('Ground Floor', 'academic-iv');
+  });
+
+  it('clears selected building and floor via the Clear action', () => {
+    const onSelectUmbcBuilding = vi.fn();
+    render(
+      <AppShell
+        {...defaultProps}
+        selectedBuildingId="academic-iv"
+        selectedFloorId="Ground Floor"
+        onSelectUmbcBuilding={onSelectUmbcBuilding}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle('Select building'));
+    fireEvent.click(screen.getByLabelText('Clear selected building and level'));
+    expect(onSelectUmbcBuilding).toHaveBeenCalledWith(null);
+  });
 });
