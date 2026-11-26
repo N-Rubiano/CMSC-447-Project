@@ -437,6 +437,7 @@ erDiagram
 PunchList/
 ├── api/                        # Vercel Python serverless entry point (index.py)
 ├── assets/screenshots/         # README UI showcase captures
+├── documents/                  # SRS v2.0, SDD, UI Document, Sprint Reports, Working Agreement
 ├── backend/
 │   └── app/
 │       ├── database.py         # Dual PostgreSQL / SQLite WAL DDL & query helpers
@@ -445,7 +446,7 @@ PunchList/
 ├── frontend/
 │   ├── public/                 # Favicons, manifest.json, static assets
 │   └── src/
-│       ├── __tests__/          # Vitest + React Testing Library (11 suites, 55 tests)
+│       ├── __tests__/          # Vitest + React Testing Library (11 suites, 57 tests)
 │       ├── components/         # AppShell, Dashboard, BlueprintViewer, BlueprintUploadModal,
 │       │                       # TeamPage, SettingsPage, DocumentsPage, PhotosPage, Modals
 │       ├── data/
@@ -482,7 +483,7 @@ PunchList Pro enforces operational security and least privilege across all **6 c
 - **Subcontractor Trade Stamp Markers & Deadlines**: Color-coded 2-letter trade badges (`MP`, `AC`, `EL`, `FP`, `ST`, `GL`, `DW`, `FL`) with assignee routing and persisted closeout deadlines (`due_date`).
 - **Progress Photo Uploads & Live Gallery Sync**: Attach `Progress`, `Issue`, or `Completion` photos directly inside any open punch item drawer; uploads sync immediately to the **Photos** gallery with project, building, floor, and grid metadata.
 - **Floor-Scoped PDF & Excel Reports**: Generates formal punch lists with rendered blueprint snapshots (`pypdfium2` + ReportLab) and Excel workbooks scoped to the active floor or all floors.
-- **Tablet-First Responsive UI**: Dual-pane building & level navigator, `>= 48px` touch targets on tablet/mobile bars, and swipe-friendly slide-over drawers.
+- **Tablet-First, Laptop & Mobile Responsive UI**: Dual-pane building & level navigator with keyboard quick-select, collapsible rail, bottom mobile tab bar, and touch-safe `44px` interactive controls.
 - **Real-Time WebSockets & Offline Queue**: Powered by `python-socketio` and Dexie/IndexedDB for instant multi-device sync and offline resilience.
 
 ---
@@ -581,9 +582,9 @@ Tests cover:
 cd frontend
 npm test
 ```
-11 test suites (55 tests) cover:
+11 test suites (57 tests) cover:
 - RBAC 6-role capability enforcement (`rbac.test.js`)
-- AppShell topbar, collapsible rail, and role-gated New Punch (`AppShell.test.jsx`)
+- AppShell topbar, collapsible rail, Building & Level selector, and role-gated New Punch (`AppShell.test.jsx`)
 - Team Administration & 6-role onboarding (`TeamPage.test.jsx`)
 - Blueprint & revision upload modal (`BlueprintUploadModal.test.jsx`)
 - Settings profile, RBAC matrix, and live IndexedDB cache stats (`SettingsPage.test.jsx`)

@@ -1,9 +1,11 @@
 # PunchList Pro — Complete Diagrams Reference
+
 > **Starting from scratch?** This document gives you every diagram you need to understand, design, and build PunchList Pro before writing a single line of code.
 
 ---
 
 ## Table of Contents
+
 1. [System Overview](#1-system-overview--component-diagram)
 2. [ER Diagram — Database](#2-er-diagram--database-schema)
 3. [UML Class Diagram — Backend Models](#3-uml-class-diagram--backend-domain-models)
@@ -874,61 +876,61 @@ flowchart TD
 
 ## Quick Reference: API Endpoints
 
-| Method | Endpoint | Description | Min Role |
-|--------|----------|-------------|----------|
-| POST | `/api/auth/login` | Local JWT login | — |
-| POST | `/api/auth/supabase-callback` | Exchange Supabase token | — |
-| GET | `/api/auth/me` | Current user profile | Any |
-| GET | `/api/projects` | List all projects | Any |
-| POST | `/api/projects` | Create project | Admin |
-| PATCH | `/api/projects/:id/status` | Update project status | GC+ |
-| GET | `/api/projects/:id/members` | Get project team | Any |
-| POST | `/api/projects/:id/members` | Add team member | GC+ |
-| GET | `/api/projects/:id/sheets` | List sheets | Any |
-| POST | `/api/projects/:id/sheets/upload` | Upload PDF drawing set | GC+ |
-| GET | `/api/sheets/:id/versions` | Version history | Any |
-| POST | `/api/sheets/:id/versions` | Upload new version | GC+ |
-| GET | `/api/sheets/:id/pins` | Pins on a sheet | Any |
-| GET | `/api/projects/:id/pins` | All pins for project | Any |
-| POST | `/api/pins` | Create punch item | FI+ |
-| PUT | `/api/pins/:id` | Update punch item | FI+ |
-| PATCH | `/api/pins/:id/status` | Change pin status | Role-gated |
-| POST | `/api/pins/:id/assign` | Assign pin | GC+ |
-| DELETE | `/api/pins/:id` | Delete pin | Admin |
-| POST | `/api/pins/:id/photos` | Upload photo | FI+ |
-| POST | `/api/pins/:id/comments` | Add comment | Any |
-| GET | `/api/sheets/:id/markups` | Get markups | Any |
-| POST | `/api/sheets/:id/markups` | Save markup | Any |
-| GET | `/api/companies` | List companies | Any |
-| POST | `/api/companies` | Create company | Admin/GC |
-| GET | `/api/team` | All users | Admin/GC |
-| POST | `/api/team` | Add user | Admin |
-| GET | `/api/documents` | List documents | Any |
-| POST | `/api/documents/upload` | Upload document | GC+ |
-| POST | `/api/sync/batch` | Sync offline queue | Any |
-| GET | `/api/audit-logs` | Audit log | Admin |
+| Method | Endpoint                          | Description             | Min Role   |
+| ------ | --------------------------------- | ----------------------- | ---------- |
+| POST   | `/api/auth/login`                 | Local JWT login         | —          |
+| POST   | `/api/auth/supabase-callback`     | Exchange Supabase token | —          |
+| GET    | `/api/auth/me`                    | Current user profile    | Any        |
+| GET    | `/api/projects`                   | List all projects       | Any        |
+| POST   | `/api/projects`                   | Create project          | Admin      |
+| PATCH  | `/api/projects/:id/status`        | Update project status   | GC+        |
+| GET    | `/api/projects/:id/members`       | Get project team        | Any        |
+| POST   | `/api/projects/:id/members`       | Add team member         | GC+        |
+| GET    | `/api/projects/:id/sheets`        | List sheets             | Any        |
+| POST   | `/api/projects/:id/sheets/upload` | Upload PDF drawing set  | GC+        |
+| GET    | `/api/sheets/:id/versions`        | Version history         | Any        |
+| POST   | `/api/sheets/:id/versions`        | Upload new version      | GC+        |
+| GET    | `/api/sheets/:id/pins`            | Pins on a sheet         | Any        |
+| GET    | `/api/projects/:id/pins`          | All pins for project    | Any        |
+| POST   | `/api/pins`                       | Create punch item       | FI+        |
+| PUT    | `/api/pins/:id`                   | Update punch item       | FI+        |
+| PATCH  | `/api/pins/:id/status`            | Change pin status       | Role-gated |
+| POST   | `/api/pins/:id/assign`            | Assign pin              | GC+        |
+| DELETE | `/api/pins/:id`                   | Delete pin              | Admin      |
+| POST   | `/api/pins/:id/photos`            | Upload photo            | FI+        |
+| POST   | `/api/pins/:id/comments`          | Add comment             | Any        |
+| GET    | `/api/sheets/:id/markups`         | Get markups             | Any        |
+| POST   | `/api/sheets/:id/markups`         | Save markup             | Any        |
+| GET    | `/api/companies`                  | List companies          | Any        |
+| POST   | `/api/companies`                  | Create company          | Admin/GC   |
+| GET    | `/api/team`                       | All users               | Admin/GC   |
+| POST   | `/api/team`                       | Add user                | Admin      |
+| GET    | `/api/documents`                  | List documents          | Any        |
+| POST   | `/api/documents/upload`           | Upload document         | GC+        |
+| POST   | `/api/sync/batch`                 | Sync offline queue      | Any        |
+| GET    | `/api/audit-logs`                 | Audit log               | Admin      |
 
 ---
 
 ## Role Permissions Summary
 
-| Permission | Admin | GC | Sub | Architect | Owner | Inspector |
-|-----------|-------|----|-----|-----------|-------|-----------|
-| project.view | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| project.create | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| project.update | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| team.manage | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| company.manage | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| sheet.view | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| sheet.manage | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| pin.view | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| pin.create | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| pin.update | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| pin.update.assigned | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| pin.assign | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| pin.delete | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| pin.close | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| comment.create | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| photo.create | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| report.export | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
-| task.manage | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Permission          | Admin | GC  | Sub | Architect | Owner | Inspector |
+| ------------------- | ----- | --- | --- | --------- | ----- | --------- |
+| project.view        | ✅    | ✅  | ✅  | ✅        | ✅    | ✅        |
+| project.create      | ✅    | ❌  | ❌  | ❌        | ❌    | ❌        |
+| project.update      | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
+| team.manage         | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
+| company.manage      | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
+| sheet.view          | ✅    | ✅  | ✅  | ✅        | ✅    | ✅        |
+| sheet.manage        | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
+| pin.view            | ✅    | ✅  | ✅  | ✅        | ✅    | ✅        |
+| pin.create          | ✅    | ✅  | ❌  | ✅        | ❌    | ✅        |
+| pin.update          | ✅    | ✅  | ❌  | ✅        | ❌    | ✅        |
+| pin.update.assigned | ✅    | ✅  | ✅  | ✅        | ❌    | ✅        |
+| pin.assign          | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
+| pin.delete          | ✅    | ❌  | ❌  | ❌        | ❌    | ❌        |
+| pin.close           | ✅    | ❌  | ❌  | ❌        | ❌    | ❌        |
+| comment.create      | ✅    | ✅  | ✅  | ✅        | ✅    | ✅        |
+| photo.create        | ✅    | ✅  | ✅  | ✅        | ❌    | ✅        |
+| report.export       | ✅    | ✅  | ❌  | ✅        | ✅    | ❌        |
+| task.manage         | ✅    | ✅  | ❌  | ❌        | ❌    | ❌        |
